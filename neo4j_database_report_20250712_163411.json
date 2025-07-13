@@ -1,0 +1,622 @@
+{
+  "generated_at": "2025-07-12T16:34:09.316771",
+  "database_url": "neo4j://100.83.40.11:7687",
+  "analysis_summary": {
+    "total_nodes": 45,
+    "total_memories": 29,
+    "total_entities": 15,
+    "total_worlds": 1,
+    "entity_types": {
+      "analysis_type": 4,
+      "source": 6,
+      "provider": 3,
+      "processing_type": 1,
+      "type": 1
+    },
+    "analysis_duration": 2.5281519889831543
+  },
+  "memory_analysis": {
+    "total_memories": 29,
+    "sample_memories": [
+      {
+        "id": "bf0839bb-ce28-43a8-ac58-e6dae8f83898",
+        "content_length": 141,
+        "content_preview": "Please provide the user query you would like me to analyze from a business perspective.  I need the ...",
+        "metadata_keys": [
+          "analysis_type",
+          "source",
+          "chunk_index",
+          "total_chunks"
+        ],
+        "timestamp": "2025-07-09T12:10:44.667655"
+      },
+      {
+        "id": "cb4a809f-66d5-4675-a677-78ccb1779174",
+        "content_length": 353,
+        "content_preview": "* **Security:** Does the query pose any security risks, such as SQL injection vulnerabilities (if it...",
+        "metadata_keys": [
+          "analysis_type",
+          "source",
+          "chunk_index",
+          "total_chunks"
+        ],
+        "timestamp": "2025-07-09T12:10:44.465519"
+      },
+      {
+        "id": "b65a4923-1a1d-4045-8411-745deb9fa02a",
+        "content_length": 948,
+        "content_preview": "Please provide the `user_query`. I need the text of the query to analyze it.  I can then analyze it ...",
+        "metadata_keys": [
+          "analysis_type",
+          "source",
+          "chunk_index",
+          "total_chunks"
+        ],
+        "timestamp": "2025-07-09T12:10:44.353551"
+      },
+      {
+        "id": "d7e816ce-3eca-4205-995f-b1a64ad22934",
+        "content_length": 98,
+        "content_preview": "Ollama Llama Analysis:\n{ollama_llama_response}\n\nOllama Mistral Analysis:\n{ollama_mistral_response}",
+        "metadata_keys": [
+          "provider",
+          "analysis_type",
+          "source",
+          "chunk_index",
+          "total_chunks"
+        ],
+        "timestamp": "2025-07-09T12:08:22.802812"
+      },
+      {
+        "id": "e1f604bb-4c76-4265-95d1-31fb465ff501",
+        "content_length": 90,
+        "content_preview": "Gemini Flash Analysis:\n{gemini_flash_response}\n\nGemini Pro Analysis:\n{gemini_pro_response}",
+        "metadata_keys": [
+          "provider",
+          "analysis_type",
+          "source",
+          "chunk_index",
+          "total_chunks"
+        ],
+        "timestamp": "2025-07-09T12:08:22.689740"
+      },
+      {
+        "id": "d14b10bf-d24e-484e-b01e-f3cc09a8247a",
+        "content_length": 26,
+        "content_preview": "Remember that I like pizza",
+        "metadata_keys": [
+          "source",
+          "processing_type"
+        ],
+        "timestamp": "2025-07-09T12:07:00.713617"
+      },
+      {
+        "id": "daff7ed7-4eca-425c-a179-f8bc146364b5",
+        "content_length": 135,
+        "content_preview": "Please provide the user query you want me to analyze from a business perspective.  I need the text o...",
+        "metadata_keys": [
+          "analysis_type",
+          "source",
+          "chunk_index",
+          "total_chunks"
+        ],
+        "timestamp": "2025-07-08T19:42:35.140862"
+      },
+      {
+        "id": "652d3d5c-0ce0-47aa-a9ad-52783b4fe40a",
+        "content_length": 1086,
+        "content_preview": "Please provide the user query you wish me to analyze.  I need the text of the query to perform the a...",
+        "metadata_keys": [
+          "analysis_type",
+          "source",
+          "chunk_index",
+          "total_chunks"
+        ],
+        "timestamp": "2025-07-08T19:42:35.026382"
+      },
+      {
+        "id": "40333ff7-a381-4ef3-bc05-4cecec096939",
+        "content_length": 19,
+        "content_preview": "Tell me about Paris",
+        "metadata_keys": [
+          "source",
+          "processing_type"
+        ],
+        "timestamp": "2025-07-08T19:35:46.368705"
+      },
+      {
+        "id": "377f740d-35b6-4f88-bb70-2404c06beebc",
+        "content_length": 98,
+        "content_preview": "Ollama Llama Analysis:\n{ollama_llama_response}\n\nOllama Mistral Analysis:\n{ollama_mistral_response}",
+        "metadata_keys": [
+          "provider",
+          "analysis_type",
+          "source",
+          "chunk_index",
+          "total_chunks"
+        ],
+        "timestamp": "2025-07-08T19:34:38.953892"
+      }
+    ],
+    "metadata_patterns": {
+      "analysis_type": 8,
+      "source": 10,
+      "chunk_index": 8,
+      "total_chunks": 8,
+      "provider": 3,
+      "processing_type": 2
+    },
+    "timestamp_range": {
+      "earliest": "2025-07-08T06:45:37.324019",
+      "latest": "2025-07-09T12:10:44.667655",
+      "count": 29
+    }
+  },
+  "entity_analysis": {
+    "total_entities": 15,
+    "entity_types": {
+      "analysis_type": 4,
+      "source": 6,
+      "provider": 3,
+      "processing_type": 1,
+      "type": 1
+    },
+    "all_entities": [
+      {
+        "name": "business",
+        "type": "analysis_type"
+      },
+      {
+        "name": "chunk_test",
+        "type": "source"
+      },
+      {
+        "name": "debug",
+        "type": "source"
+      },
+      {
+        "name": "debug",
+        "type": "analysis_type"
+      },
+      {
+        "name": "debug_test",
+        "type": "source"
+      },
+      {
+        "name": "gemini",
+        "type": "provider"
+      },
+      {
+        "name": "graph_formatted",
+        "type": "processing_type"
+      },
+      {
+        "name": "graph_formatting_workflow",
+        "type": "source"
+      },
+      {
+        "name": "multi_model",
+        "type": "analysis_type"
+      },
+      {
+        "name": "ollama",
+        "type": "provider"
+      },
+      {
+        "name": "parallel_comparison",
+        "type": "source"
+      },
+      {
+        "name": "parallel_workflow",
+        "type": "source"
+      },
+      {
+        "name": "technical",
+        "type": "analysis_type"
+      },
+      {
+        "name": "test",
+        "type": "provider"
+      },
+      {
+        "name": "test_content",
+        "type": "type"
+      }
+    ],
+    "entities_by_type": {
+      "analysis_type": [
+        "business",
+        "debug",
+        "multi_model",
+        "technical"
+      ],
+      "source": [
+        "chunk_test",
+        "debug",
+        "debug_test",
+        "graph_formatting_workflow",
+        "parallel_comparison",
+        "parallel_workflow"
+      ],
+      "provider": [
+        "gemini",
+        "ollama",
+        "test"
+      ],
+      "processing_type": [
+        "graph_formatted"
+      ],
+      "type": [
+        "test_content"
+      ]
+    }
+  },
+  "world_analysis": {
+    "total_worlds": 1,
+    "worlds": [
+      {
+        "createdAt": "2025-07-07T20:34:16.538000000+00:00",
+        "worldId": "87d14109-913f-4416-9a83-de7f32e64ba7",
+        "name": "Mystara",
+        "description": "Main campaign world"
+      }
+    ]
+  },
+  "relationship_analysis": {
+    "recent_mentions": [
+      {
+        "memory_id": "bf0839bb-ce28-43a8-ac58-e6dae8f83898",
+        "memory_content_preview": "Please provide the user query you would like me to analyze from a business perspective.  I need the ...",
+        "entity_name": "parallel_workflow",
+        "entity_type": "source",
+        "timestamp": "2025-07-09T12:10:44.667655"
+      },
+      {
+        "memory_id": "bf0839bb-ce28-43a8-ac58-e6dae8f83898",
+        "memory_content_preview": "Please provide the user query you would like me to analyze from a business perspective.  I need the ...",
+        "entity_name": "business",
+        "entity_type": "analysis_type",
+        "timestamp": "2025-07-09T12:10:44.667655"
+      },
+      {
+        "memory_id": "cb4a809f-66d5-4675-a677-78ccb1779174",
+        "memory_content_preview": "* **Security:** Does the query pose any security risks, such as SQL injection vulnerabilities (if it...",
+        "entity_name": "parallel_workflow",
+        "entity_type": "source",
+        "timestamp": "2025-07-09T12:10:44.465519"
+      },
+      {
+        "memory_id": "cb4a809f-66d5-4675-a677-78ccb1779174",
+        "memory_content_preview": "* **Security:** Does the query pose any security risks, such as SQL injection vulnerabilities (if it...",
+        "entity_name": "technical",
+        "entity_type": "analysis_type",
+        "timestamp": "2025-07-09T12:10:44.465519"
+      },
+      {
+        "memory_id": "b65a4923-1a1d-4045-8411-745deb9fa02a",
+        "memory_content_preview": "Please provide the `user_query`. I need the text of the query to analyze it.  I can then analyze it ...",
+        "entity_name": "parallel_workflow",
+        "entity_type": "source",
+        "timestamp": "2025-07-09T12:10:44.353551"
+      },
+      {
+        "memory_id": "b65a4923-1a1d-4045-8411-745deb9fa02a",
+        "memory_content_preview": "Please provide the `user_query`. I need the text of the query to analyze it.  I can then analyze it ...",
+        "entity_name": "technical",
+        "entity_type": "analysis_type",
+        "timestamp": "2025-07-09T12:10:44.353551"
+      },
+      {
+        "memory_id": "d7e816ce-3eca-4205-995f-b1a64ad22934",
+        "memory_content_preview": "Ollama Llama Analysis:\n{ollama_llama_response}\n\nOllama Mistral Analysis:\n{ollama_mistral_response}",
+        "entity_name": "parallel_comparison",
+        "entity_type": "source",
+        "timestamp": "2025-07-09T12:08:22.802812"
+      },
+      {
+        "memory_id": "d7e816ce-3eca-4205-995f-b1a64ad22934",
+        "memory_content_preview": "Ollama Llama Analysis:\n{ollama_llama_response}\n\nOllama Mistral Analysis:\n{ollama_mistral_response}",
+        "entity_name": "multi_model",
+        "entity_type": "analysis_type",
+        "timestamp": "2025-07-09T12:08:22.802812"
+      },
+      {
+        "memory_id": "d7e816ce-3eca-4205-995f-b1a64ad22934",
+        "memory_content_preview": "Ollama Llama Analysis:\n{ollama_llama_response}\n\nOllama Mistral Analysis:\n{ollama_mistral_response}",
+        "entity_name": "ollama",
+        "entity_type": "provider",
+        "timestamp": "2025-07-09T12:08:22.802812"
+      },
+      {
+        "memory_id": "e1f604bb-4c76-4265-95d1-31fb465ff501",
+        "memory_content_preview": "Gemini Flash Analysis:\n{gemini_flash_response}\n\nGemini Pro Analysis:\n{gemini_pro_response}",
+        "entity_name": "parallel_comparison",
+        "entity_type": "source",
+        "timestamp": "2025-07-09T12:08:22.689740"
+      },
+      {
+        "memory_id": "e1f604bb-4c76-4265-95d1-31fb465ff501",
+        "memory_content_preview": "Gemini Flash Analysis:\n{gemini_flash_response}\n\nGemini Pro Analysis:\n{gemini_pro_response}",
+        "entity_name": "multi_model",
+        "entity_type": "analysis_type",
+        "timestamp": "2025-07-09T12:08:22.689740"
+      },
+      {
+        "memory_id": "e1f604bb-4c76-4265-95d1-31fb465ff501",
+        "memory_content_preview": "Gemini Flash Analysis:\n{gemini_flash_response}\n\nGemini Pro Analysis:\n{gemini_pro_response}",
+        "entity_name": "gemini",
+        "entity_type": "provider",
+        "timestamp": "2025-07-09T12:08:22.689740"
+      },
+      {
+        "memory_id": "d14b10bf-d24e-484e-b01e-f3cc09a8247a",
+        "memory_content_preview": "Remember that I like pizza",
+        "entity_name": "graph_formatted",
+        "entity_type": "processing_type",
+        "timestamp": "2025-07-09T12:07:00.713617"
+      },
+      {
+        "memory_id": "d14b10bf-d24e-484e-b01e-f3cc09a8247a",
+        "memory_content_preview": "Remember that I like pizza",
+        "entity_name": "graph_formatting_workflow",
+        "entity_type": "source",
+        "timestamp": "2025-07-09T12:07:00.713617"
+      },
+      {
+        "memory_id": "daff7ed7-4eca-425c-a179-f8bc146364b5",
+        "memory_content_preview": "Please provide the user query you want me to analyze from a business perspective.  I need the text o...",
+        "entity_name": "parallel_workflow",
+        "entity_type": "source",
+        "timestamp": "2025-07-08T19:42:35.140862"
+      },
+      {
+        "memory_id": "daff7ed7-4eca-425c-a179-f8bc146364b5",
+        "memory_content_preview": "Please provide the user query you want me to analyze from a business perspective.  I need the text o...",
+        "entity_name": "business",
+        "entity_type": "analysis_type",
+        "timestamp": "2025-07-08T19:42:35.140862"
+      },
+      {
+        "memory_id": "652d3d5c-0ce0-47aa-a9ad-52783b4fe40a",
+        "memory_content_preview": "Please provide the user query you wish me to analyze.  I need the text of the query to perform the a...",
+        "entity_name": "parallel_workflow",
+        "entity_type": "source",
+        "timestamp": "2025-07-08T19:42:35.026382"
+      },
+      {
+        "memory_id": "652d3d5c-0ce0-47aa-a9ad-52783b4fe40a",
+        "memory_content_preview": "Please provide the user query you wish me to analyze.  I need the text of the query to perform the a...",
+        "entity_name": "technical",
+        "entity_type": "analysis_type",
+        "timestamp": "2025-07-08T19:42:35.026382"
+      },
+      {
+        "memory_id": "40333ff7-a381-4ef3-bc05-4cecec096939",
+        "memory_content_preview": "Tell me about Paris",
+        "entity_name": "graph_formatted",
+        "entity_type": "processing_type",
+        "timestamp": "2025-07-08T19:35:46.368705"
+      },
+      {
+        "memory_id": "40333ff7-a381-4ef3-bc05-4cecec096939",
+        "memory_content_preview": "Tell me about Paris",
+        "entity_name": "graph_formatting_workflow",
+        "entity_type": "source",
+        "timestamp": "2025-07-08T19:35:46.368705"
+      }
+    ],
+    "memory_entity_connections": {
+      "bf0839bb-ce28-43a8-ac58-e6dae8f83898": [
+        "parallel_workflow",
+        "business"
+      ],
+      "cb4a809f-66d5-4675-a677-78ccb1779174": [
+        "parallel_workflow",
+        "technical"
+      ],
+      "b65a4923-1a1d-4045-8411-745deb9fa02a": [
+        "parallel_workflow",
+        "technical"
+      ],
+      "d7e816ce-3eca-4205-995f-b1a64ad22934": [
+        "parallel_comparison",
+        "multi_model",
+        "ollama"
+      ],
+      "e1f604bb-4c76-4265-95d1-31fb465ff501": [
+        "parallel_comparison",
+        "multi_model",
+        "gemini"
+      ],
+      "d14b10bf-d24e-484e-b01e-f3cc09a8247a": [
+        "graph_formatted",
+        "graph_formatting_workflow"
+      ],
+      "daff7ed7-4eca-425c-a179-f8bc146364b5": [
+        "parallel_workflow",
+        "business"
+      ],
+      "652d3d5c-0ce0-47aa-a9ad-52783b4fe40a": [
+        "parallel_workflow",
+        "technical"
+      ],
+      "40333ff7-a381-4ef3-bc05-4cecec096939": [
+        "graph_formatted",
+        "graph_formatting_workflow"
+      ]
+    },
+    "entity_mention_frequency": {
+      "multi_model": 14,
+      "parallel_comparison": 14,
+      "gemini": 7,
+      "ollama": 7,
+      "graph_formatting_workflow": 6,
+      "graph_formatted": 6,
+      "parallel_workflow": 5,
+      "debug": 3,
+      "technical": 3,
+      "business": 2,
+      "debug_test": 1,
+      "test_content": 1,
+      "test": 1,
+      "chunk_test": 1
+    }
+  },
+  "quality_analysis": {
+    "memory_empty_content": 0,
+    "incomplete_entities": 0,
+    "orphaned_memories": 0,
+    "orphaned_entities": 15
+  },
+  "pattern_analysis": {
+    "multi_entity_memories": [
+      {
+        "memory_id": "c4ec3913-456e-48f0-aa46-eee9da08a243",
+        "content": "Gemini Flash Analysis:\n{gemini_flash_response}\n\nGemini Pro Analysis:\n{gemini_pro_response}",
+        "entity_count": 3,
+        "entities": [
+          "gemini",
+          "multi_model",
+          "parallel_comparison"
+        ]
+      },
+      {
+        "memory_id": "d7e816ce-3eca-4205-995f-b1a64ad22934",
+        "content": "Ollama Llama Analysis:\n{ollama_llama_response}\n\nOllama Mistral Analysis:\n{ollama_mistral_response}",
+        "entity_count": 3,
+        "entities": [
+          "multi_model",
+          "parallel_comparison",
+          "ollama"
+        ]
+      },
+      {
+        "memory_id": "221132a3-6b50-42ec-acfa-deefd35dbf13",
+        "content": "Gemini Flash Analysis:\n{gemini_flash_response}\n\nGemini Pro Analysis:\n{gemini_pro_response}",
+        "entity_count": 3,
+        "entities": [
+          "gemini",
+          "multi_model",
+          "parallel_comparison"
+        ]
+      },
+      {
+        "memory_id": "2213497c-5035-4b3e-be78-393b419bc8b5",
+        "content": "Gemini Flash Analysis:\n{gemini_flash_response}\n\nGemini Pro Analysis:\n{gemini_pro_response}",
+        "entity_count": 3,
+        "entities": [
+          "gemini",
+          "multi_model",
+          "parallel_comparison"
+        ]
+      },
+      {
+        "memory_id": "7a5e3f67-3175-4e7d-b5fc-8ff4a27caa51",
+        "content": "Gemini Flash Analysis:\n{gemini_flash_response}\n\nGemini Pro Analysis:\n{gemini_pro_response}",
+        "entity_count": 3,
+        "entities": [
+          "gemini",
+          "multi_model",
+          "parallel_comparison"
+        ]
+      },
+      {
+        "memory_id": "107374c9-d3fd-4065-93f6-938193f14f76",
+        "content": "Gemini Flash Analysis:\n{gemini_flash_response}\n\nGemini Pro Analysis:\n{gemini_pro_response}",
+        "entity_count": 3,
+        "entities": [
+          "gemini",
+          "multi_model",
+          "parallel_comparison"
+        ]
+      },
+      {
+        "memory_id": "45d95a71-5138-4132-a279-4fa158388ea2",
+        "content": "Gemini Flash Analysis:\nThis is a test analysis from Gemini Flash model. It contains multiple paragraphs of text that should be chunked into smaller pieces for storage in memory. This helps with retrieval and processing efficiency.\n\nGemini Pro Analysis:\nThis is a more detailed analysis from Gemini Pro model. It provides comprehensive insights and detailed explanations about the topic being analyzed. The analysis covers multiple aspects and provides thorough coverage of the subject matter.",
+        "entity_count": 3,
+        "entities": [
+          "test",
+          "debug",
+          "chunk_test"
+        ]
+      },
+      {
+        "memory_id": "e1f604bb-4c76-4265-95d1-31fb465ff501",
+        "content": "Gemini Flash Analysis:\n{gemini_flash_response}\n\nGemini Pro Analysis:\n{gemini_pro_response}",
+        "entity_count": 3,
+        "entities": [
+          "gemini",
+          "multi_model",
+          "parallel_comparison"
+        ]
+      },
+      {
+        "memory_id": "6d2c0f6f-0afc-4a43-ab48-25de25459517",
+        "content": "Gemini Flash Analysis:\n{gemini_flash_response}\n\nGemini Pro Analysis:\n{gemini_pro_response}",
+        "entity_count": 3,
+        "entities": [
+          "gemini",
+          "multi_model",
+          "parallel_comparison"
+        ]
+      },
+      {
+        "memory_id": "377f740d-35b6-4f88-bb70-2404c06beebc",
+        "content": "Ollama Llama Analysis:\n{ollama_llama_response}\n\nOllama Mistral Analysis:\n{ollama_mistral_response}",
+        "entity_count": 3,
+        "entities": [
+          "multi_model",
+          "parallel_comparison",
+          "ollama"
+        ]
+      }
+    ],
+    "entity_co_occurrence": [
+      {
+        "entity1": "multi_model",
+        "entity2": "parallel_comparison",
+        "co_count": 14
+      },
+      {
+        "entity1": "gemini",
+        "entity2": "multi_model",
+        "co_count": 7
+      },
+      {
+        "entity1": "ollama",
+        "entity2": "parallel_comparison",
+        "co_count": 7
+      },
+      {
+        "entity1": "gemini",
+        "entity2": "parallel_comparison",
+        "co_count": 7
+      },
+      {
+        "entity1": "multi_model",
+        "entity2": "ollama",
+        "co_count": 7
+      },
+      {
+        "entity1": "graph_formatted",
+        "entity2": "graph_formatting_workflow",
+        "co_count": 6
+      },
+      {
+        "entity1": "parallel_workflow",
+        "entity2": "technical",
+        "co_count": 3
+      },
+      {
+        "entity1": "business",
+        "entity2": "parallel_workflow",
+        "co_count": 2
+      }
+    ],
+    "temporal_range": {
+      "earliest": "2025-07-08T06:45:37.324019",
+      "latest": "2025-07-09T12:10:44.667655",
+      "total_with_timestamps": 29
+    }
+  }
+}

@@ -1,0 +1,416 @@
+{
+  "pipeline": {
+    "name": "code-grapher-pipeline",
+    "version": "1.0.0",
+    "description": "Multi-agent pipeline for converting code to knowledge graphs",
+    "logging": {
+      "level": "verbose",
+      "format": "[{timestamp}] [{component}] [{level}] {message}",
+      "includeMetrics": true,
+      "trackPerformance": true
+    }
+  },
+  
+  "agents": {
+    "supervisor": {
+      "id": "pipeline-supervisor",
+      "type": "supervisor",
+      "description": "Orchestrates the code analysis workflow",
+      "capabilities": ["task-assignment", "progress-monitoring", "error-handling"],
+      "config": {
+        "workers": ["code-parser", "entity-extractor", "relationship-analyzer", "graph-builder", "rag-indexer"],
+        "maxRetries": 3,
+        "timeoutMs": 300000,
+        "parallelExecution": false
+      }
+    },
+    
+    "code-parser": {
+      "id": "code-parser-agent",
+      "type": "worker",
+      "description": "Parses source code files and extracts AST",
+      "capabilities": ["file-reading", "ast-generation", "syntax-validation"],
+      "config": {
+        "supportedLanguages": ["python", "javascript", "typescript", "java", "cpp", "c"],
+        "parseOptions": {
+          "includeComments": true,
+          "preserveFormatting": false,
+          "extractDocstrings": true,
+          "includePositions": true
+        },
+        "maxFileSize": 10485760,
+        "encoding": "utf-8"
+      },
+      "outputs": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "file_path": {"type": "string"},
+            "ast": {"type": "object"},
+            "metadata": {
+              "type": "object",
+              "properties": {
+                "language": {"type": "string"},
+                "fileSize": {"type": "number"},
+                "lineCount": {"type": "number"},
+                "encoding": {"type": "string"},
+                "lastModified": {"type": "string"}
+              }
+            },
+            "errors": {"type": "array"}
+          }
+        }
+      }
+    },
+    
+    "entity-extractor": {
+      "id": "entity-extractor-agent",
+      "type": "worker",
+      "description": "Extracts code entities (classes, functions, variables)",
+      "capabilities": ["entity-identification", "scope-analysis", "type-inference"],
+      "config": {
+        "entityTypes": ["class", "function", "method", "variable", "constant", "module", "package", "import"],
+        "extractionRules": {
+          "includePrivate": true,
+          "inferTypes": true,
+          "captureDecorators": true,
+          "extractDocstrings": true,
+          "includeParameters": true
+        },
+        "scopeAnalysis": {
+          "trackLocalScope": true,
+          "trackGlobalScope": true,
+          "trackClassScope": true
+        }
+      },
+      "outputs": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "entities": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {"type": "string"},
+                  "name": {"type": "string"},
+                  "type": {"type": "string"},
+                  "scope": {"type": "string"},
+                  "location": {
+                    "type": "object",
+                    "properties": {
+                      "file": {"type": "string"},
+                      "line": {"type": "number"},
+                      "column": {"type": "number"}
+                    }
+                  },
+                  "attributes": {"type": "object"},
+                  "docstring": {"type": "string"},
+                  "visibility": {"type": "string"}
+                }
+              }
+            },
+            "statistics": {
+              "type": "object",
+              "properties": {
+                "totalEntities": {"type": "number"},
+                "entitiesByType": {"type": "object"}
+              }
+            }
+          }
+        }
+      }
+    },
+    
+    "relationship-analyzer": {
+      "id": "relationship-analyzer-agent",
+      "type": "worker",
+      "description": "Analyzes relationships between code entities",
+      "capabilities": ["dependency-analysis", "call-graph-generation", "inheritance-mapping"],
+      "config": {
+        "relationshipTypes": [
+          "imports", "calls", "inherits", "implements", 
+          "uses", "references", "contains", "depends-on",
+          "overrides", "instantiates", "throws", "returns"
+        ],
+        "analysisDepth": 3,
+        "includeTransitive": true,
+        "trackCallFlow": true,
+        "detectPatterns": {
+          "singletonPattern": true,
+          "factoryPattern": true,
+          "observerPattern": true
+        }
+      },
+      "outputs": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "relationships": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {"type": "string"},
+                  "source": {"type": "string"},
+                  "target": {"type": "string"},
+                  "type": {"type": "string"},
+                  "metadata": {"type": "object"},
+                  "strength": {"type": "number"},
+                  "confidence": {"type": "number"}
+                }
+              }
+            },
+            "callGraph": {"type": "object"},
+            "dependencyGraph": {"type": "object"},
+            "patterns": {"type": "array"}
+          }
+        }
+      }
+    },
+    
+    "graph-builder": {
+      "id": "graph-builder-agent",
+      "type": "worker",
+      "description": "Constructs knowledge graph from entities and relationships",
+      "capabilities": ["graph-construction", "neo4j-integration", "schema-validation"],
+      "config": {
+        "graphDatabase": {
+          "type": "neo4j",
+          "connection": {
+            "uri": "${NEO4J_URI:-bolt://localhost:7687}",
+            "auth": {
+              "username": "${NEO4J_USER:-neo4j}",
+              "password": "${NEO4J_PASSWORD:-password}"
+            }
+          }
+        },
+        "nodeLabels": {
+          "class": "Class",
+          "function": "Function",
+          "method": "Method",
+          "variable": "Variable",
+          "module": "Module",
+          "package": "Package"
+        },
+        "relationshipTypes": {
+          "contains": "CONTAINS",
+          "calls": "CALLS",
+          "inherits": "INHERITS_FROM",
+          "imports": "IMPORTS",
+          "uses": "USES",
+          "references": "REFERENCES"
+        },
+        "indexing": {
+          "createIndices": true,
+          "uniqueConstraints": ["entity.id", "entity.name"],
+          "fullTextIndices": ["entity.name", "entity.docstring"]
+        },
+        "batchSize": 1000
+      },
+      "outputs": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "nodesCreated": {"type": "number"},
+            "relationshipsCreated": {"type": "number"},
+            "graphStats": {"type": "object"},
+            "indexingResults": {"type": "object"}
+          }
+        }
+      }
+    },
+    
+    "rag-indexer": {
+      "id": "rag-indexer-agent",
+      "type": "worker",
+      "description": "Indexes graph data for RAG retrieval",
+      "capabilities": ["embedding-generation", "vector-indexing", "semantic-search"],
+      "config": {
+        "embeddingModel": {
+          "provider": "sentence-transformers",
+          "model": "all-MiniLM-L6-v2",
+          "dimensions": 384
+        },
+        "vectorStore": {
+          "type": "chromadb",
+          "path": "./chroma_db",
+          "collection": "code_embeddings"
+        },
+        "chunkingStrategy": {
+          "method": "semantic",
+          "maxChunkSize": 512,
+          "overlap": 50,
+          "preserveCodeBlocks": true
+        },
+        "indexingOptions": {
+          "includeMetadata": true,
+          "generateSummaries": true,
+          "extractKeywords": true
+        }
+      },
+      "outputs": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "documentsIndexed": {"type": "number"},
+            "embeddingsGenerated": {"type": "number"},
+            "collectionStats": {"type": "object"},
+            "indexingPerformance": {"type": "object"}
+          }
+        }
+      }
+    }
+  },
+  
+  "workflows": {
+    "main": {
+      "type": "sequential",
+      "description": "Main code-to-graph pipeline workflow",
+      "steps": [
+        {
+          "name": "parse_code",
+          "agent": "code-parser",
+          "input": "$.codebase.files",
+          "output": "$.parsed",
+          "retries": 2,
+          "timeout": 60000
+        },
+        {
+          "name": "extract_entities", 
+          "agent": "entity-extractor",
+          "input": "$.parsed",
+          "output": "$.entities",
+          "retries": 2,
+          "timeout": 120000
+        },
+        {
+          "name": "analyze_relationships",
+          "agent": "relationship-analyzer",
+          "input": {
+            "entities": "$.entities",
+            "ast": "$.parsed.ast"
+          },
+          "output": "$.relationships",
+          "retries": 2,
+          "timeout": 180000
+        },
+        {
+          "name": "build_graph",
+          "agent": "graph-builder",
+          "input": {
+            "entities": "$.entities",
+            "relationships": "$.relationships"
+          },
+          "output": "$.graph",
+          "retries": 3,
+          "timeout": 300000
+        },
+        {
+          "name": "index_for_rag",
+          "agent": "rag-indexer",
+          "input": "$.graph",
+          "output": "$.index",
+          "retries": 2,
+          "timeout": 240000
+        }
+      ],
+      "errorHandling": {
+        "strategy": "retry-with-backoff",
+        "maxRetries": 3,
+        "backoffMultiplier": 2,
+        "onFailure": "log-and-continue",
+        "criticalFailureThreshold": 0.5
+      },
+      "parallelization": {
+        "enabled": false,
+        "maxConcurrentAgents": 2
+      }
+    },
+    
+    "incremental": {
+      "type": "conditional",
+      "description": "Incremental update workflow for changed files",
+      "condition": "$.input.changeType == 'incremental'",
+      "steps": [
+        {
+          "name": "detect_changes",
+          "agent": "code-parser", 
+          "input": "$.changedFiles",
+          "output": "$.changes"
+        },
+        {
+          "name": "update_entities",
+          "agent": "entity-extractor",
+          "input": "$.changes",
+          "output": "$.updatedEntities"
+        },
+        {
+          "name": "update_relationships",
+          "agent": "relationship-analyzer",
+          "input": "$.updatedEntities", 
+          "output": "$.updatedRelationships"
+        },
+        {
+          "name": "update_graph",
+          "agent": "graph-builder",
+          "input": {
+            "entities": "$.updatedEntities",
+            "relationships": "$.updatedRelationships",
+            "operation": "merge"
+          },
+          "output": "$.updatedGraph"
+        },
+        {
+          "name": "update_index",
+          "agent": "rag-indexer",
+          "input": "$.updatedGraph",
+          "output": "$.updatedIndex"
+        }
+      ]
+    }
+  },
+  
+  "monitoring": {
+    "metrics": [
+      "processing-time-per-file",
+      "entities-extracted-count", 
+      "relationships-discovered-count",
+      "graph-nodes-created",
+      "graph-relationships-created",
+      "indexing-performance",
+      "memory-usage",
+      "error-rate"
+    ],
+    "alerts": {
+      "errorThreshold": 0.1,
+      "performanceThresholds": {
+        "fileProcessingTime": 30000,
+        "totalPipelineTime": 600000,
+        "memoryUsage": 2147483648
+      },
+      "notificationChannels": ["log", "console"]
+    },
+    "evaluation": {
+      "trackAccuracy": true,
+      "benchmarkTests": true,
+      "performanceBaseline": true
+    }
+  },
+  
+  "environment": {
+    "variables": {
+      "NEO4J_URI": "bolt://localhost:7687",
+      "NEO4J_USER": "neo4j", 
+      "NEO4J_PASSWORD": "password",
+      "CHROMA_DB_PATH": "./chroma_db",
+      "LOG_LEVEL": "verbose",
+      "MAX_WORKERS": "4"
+    },
+    "resourceLimits": {
+      "maxMemoryMB": 2048,
+      "maxCpuPercent": 80,
+      "maxDiskUsageMB": 10240
+    }
+  }
+}

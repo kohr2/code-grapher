@@ -1,0 +1,93 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Operating System
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs and databases
+*.log
+logs/
+*.db
+*.sqlite3
+
+# Neo4j
+data/
+plugins/
+
+# MLflow
+mlruns/
+mlflow_artifacts/
+mlflow.db
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Graph snapshots (for testing - normally we'd keep these)
+graph_snapshots/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# ChromaDB
+chroma_db/
+
+# AI evaluations (can be large)
+ai_evaluations/
+
+# Test exports
+test_exports/
+
+# Environment-specific configs
+.env.local
+.env.development
+.env.test
+.env.production

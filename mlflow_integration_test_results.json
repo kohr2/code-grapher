@@ -1,0 +1,101 @@
+{
+  "tests_run": 7,
+  "tests_passed": 5,
+  "tests_failed": 2,
+  "start_time": "2025-07-12T21:31:57.024297",
+  "test_details": {
+    "mlflow_setup": {
+      "status": "PASSED",
+      "setup_result": {
+        "success": true,
+        "tracking_uri_set": true,
+        "server_started": false,
+        "dashboard_available": false,
+        "experiment_created": false
+      },
+      "validation_result": {
+        "tracking_uri_accessible": false,
+        "experiments_accessible": false,
+        "artifacts_writable": true,
+        "dashboard_accessible": false,
+        "overall_status": "partial",
+        "recommendations": [
+          "Cannot access tracking URI sqlite:///mlflow.db: 'MlflowClient' object has no attribute 'list_experiments'"
+        ]
+      }
+    },
+    "tracker_initialization": {
+      "status": "PASSED",
+      "experiment_info": {
+        "experiment_name": "CodeGrapher-Agent-Pipeline",
+        "experiment_id": "829379187566336431",
+        "tracking_uri": "sqlite:///mlflow.db",
+        "artifacts_location": "file:///Users/danielbeach/Code/code-grapher/mlruns/829379187566336431"
+      },
+      "run_info": {
+        "pipeline_run_active": false,
+        "pipeline_run_id": null,
+        "active_agent_runs": [],
+        "agent_run_ids": {}
+      }
+    },
+    "pipeline_tracking": {
+      "status": "FAILED",
+      "error": "Pipeline run still marked as active after ending"
+    },
+    "agent_tracking": {
+      "status": "PASSED",
+      "agent_run_id": "277930fd685f4cd9a21328c6f67ed50a",
+      "metrics": {
+        "processing_time": 1.5,
+        "items_processed": 10,
+        "accuracy": 0.95
+      },
+      "output": {
+        "processed_items": [
+          "item1",
+          "item2",
+          "item3"
+        ],
+        "processing_time": 1.5,
+        "status": "completed"
+      }
+    },
+    "dashboard_functionality": {
+      "status": "PASSED",
+      "dashboard_url": "sqlite:///mlflow.db/#/experiments/829379187566336431?searchFilter=&orderByKey=start_time&orderByAsc=false&startTime=ALL&lifecycleFilter=Active",
+      "report_keys": [
+        "generated_at",
+        "experiment_name",
+        "pipeline_statistics",
+        "agent_performance",
+        "recent_executions",
+        "error_analysis",
+        "recommendations"
+      ],
+      "export_success": true
+    },
+    "data_retrieval": {
+      "status": "PASSED",
+      "experiment_id": "829379187566336431",
+      "total_runs": 0,
+      "report_sections": [
+        "generated_at",
+        "experiment_name",
+        "pipeline_statistics",
+        "agent_performance",
+        "recent_executions",
+        "error_analysis",
+        "recommendations"
+      ]
+    },
+    "error_handling": {
+      "status": "FAILED",
+      "error": "Pipeline run still active after error"
+    }
+  },
+  "end_time": "2025-07-12T21:32:27.650076",
+  "total_duration_seconds": 30.62565588951111,
+  "success_rate_percent": 71.42857142857143,
+  "overall_status": "FAILED"
+}

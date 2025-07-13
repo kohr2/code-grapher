@@ -1,0 +1,45 @@
+# Core dependencies for Code Grapher
+
+# Graph Database
+neo4j==5.19.0
+py2neo==2021.2.4
+
+# Code Analysis
+ast-tools==0.1.0
+pygments==2.17.2
+tree-sitter==0.20.4
+jedi==0.19.1
+
+# RAG and Vector Storage
+chromadb==0.4.22
+langchain==0.1.16
+sentence-transformers==2.5.1
+faiss-cpu==1.8.0
+
+# Utilities
+python-dotenv==1.0.1
+click==8.1.7
+rich==13.7.0
+tqdm==4.66.2
+
+# Development Tools
+pytest==8.1.1
+pytest-asyncio==0.23.5
+black==24.3.0
+flake8==7.0.0
+mypy==1.9.0
+
+# API and Web (if needed for AI Lego Bricks)
+requests==2.31.0
+httpx==0.27.0
+fastapi==0.110.0
+uvicorn==0.29.0
+flask==3.0.0
+flask-cors==4.0.0
+
+# LLM Integration
+google-generativeai==0.3.2
+
+# MLflow for Agent Monitoring and Visualization
+mlflow==2.12.1
+mlflow-skinny==2.12.1

@@ -1,0 +1,468 @@
+{
+  "tts_integration_analysis": {
+    "scenario": {
+      "scenario": "Adding Text-to-Speech to Code Analysis System",
+      "queries": [
+        {
+          "query": "What are all the places where the system outputs text that users see?",
+          "context": "Need to find every user-facing output point for TTS integration",
+          "expected_behavior": "Should expand to find connected UI, logging, and notification systems"
+        },
+        {
+          "query": "How are error messages handled and where do they get displayed?",
+          "context": "TTS should announce errors immediately for accessibility",
+          "expected_behavior": "Should traverse error handling \u2192 logging \u2192 notification connections"
+        },
+        {
+          "query": "What is the complete flow from user query to final response output?",
+          "context": "Need to understand the pipeline to add TTS at the right points",
+          "expected_behavior": "Should follow the complete RAG pipeline with all connections"
+        }
+      ]
+    },
+    "results": [
+      {
+        "query": "What are all the places where the system outputs text that users see?",
+        "context": "Need to find every user-facing output point for TTS integration",
+        "results": 8,
+        "explanation": {
+          "query": "What are all the places where the system outputs text that users see?",
+          "total_results": 8,
+          "vector_results": 3,
+          "graph_results": 5,
+          "avg_relevance": 0.19514239279998488,
+          "expansion_decisions": [
+            "Connected to high-relevance entity 'handle_error'",
+            "Connected to high-relevance entity 'handle_error'",
+            "Connected to high-relevance entity 'ResponseFormatter'",
+            "Connected to high-relevance entity 'generate_response'",
+            "Connected to high-relevance entity 'generate_response'"
+          ],
+          "connected_entities": [
+            "ResponseFormatter",
+            "handle_error",
+            "generate_response"
+          ],
+          "retrieval_sources": {
+            "vector": 3,
+            "graph": 5
+          }
+        },
+        "integration_points": [
+          {
+            "entity": "notify_completion",
+            "file": "notification_system.py",
+            "relevance": 0.5408206859596425,
+            "source": "graph",
+            "user_facing": true,
+            "has_output": true,
+            "content_preview": "def notify_completion(self, task_name, duration): \"\"\"Notify user of task complet..."
+          },
+          {
+            "entity": "log_operation_end",
+            "file": "logger.py",
+            "relevance": 0.4751454828438678,
+            "source": "graph",
+            "user_facing": false,
+            "has_output": true,
+            "content_preview": "def log_operation_end(self, operation, success, details): \"\"\"Log operation compl..."
+          },
+          {
+            "entity": "generate_response",
+            "file": "rag_pipeline.py",
+            "relevance": 0.4714591502941856,
+            "source": "graph",
+            "user_facing": false,
+            "has_output": true,
+            "content_preview": "def generate_response(self, query_result): \"\"\"Generate final response from query..."
+          },
+          {
+            "entity": "ResponseFormatter",
+            "file": "response_formatter.py",
+            "relevance": 0.050381318421516164,
+            "source": "graph",
+            "user_facing": false,
+            "has_output": true,
+            "content_preview": "class ResponseFormatter: def format_code_explanation(self, entities, relationshi..."
+          },
+          {
+            "entity": "answer_question",
+            "file": "rag_pipeline.py",
+            "relevance": 0.023332504880666738,
+            "source": "graph",
+            "user_facing": false,
+            "has_output": true,
+            "content_preview": "def answer_question(self, question): \"\"\"Answer user question using RAG\"\"\" retrie..."
+          },
+          {
+            "entity": "CodeAnalysisUI",
+            "file": "ui_components.py",
+            "relevance": 0,
+            "source": "vector",
+            "user_facing": true,
+            "has_output": true,
+            "content_preview": "class CodeAnalysisUI: def display_results(self, analysis_results): \"\"\"Display an..."
+          },
+          {
+            "entity": "BaseAgent",
+            "file": "base_agent.py",
+            "relevance": 0,
+            "source": "vector",
+            "user_facing": false,
+            "has_output": false,
+            "content_preview": "class BaseAgent: Abstract base class for all code analysis agents. Provides logg..."
+          },
+          {
+            "entity": "handle_error",
+            "file": "error_handler.py",
+            "relevance": 0,
+            "source": "vector",
+            "user_facing": true,
+            "has_output": true,
+            "content_preview": "def handle_error(self, error, context): \"\"\"Handle and report errors\"\"\" error_mes..."
+          }
+        ]
+      },
+      {
+        "query": "How are error messages handled and where do they get displayed?",
+        "context": "TTS should announce errors immediately for accessibility",
+        "results": 7,
+        "explanation": {
+          "query": "How are error messages handled and where do they get displayed?",
+          "total_results": 7,
+          "vector_results": 2,
+          "graph_results": 5,
+          "avg_relevance": 0.20587185740872285,
+          "expansion_decisions": [
+            "Connected to high-relevance entity 'handle_error'",
+            "Connected to high-relevance entity 'handle_error'",
+            "Connected to high-relevance entity 'log_operation_end'",
+            "Connected to high-relevance entity 'generate_response'",
+            "Connected to high-relevance entity 'generate_response'"
+          ],
+          "connected_entities": [
+            "handle_error",
+            "generate_response",
+            "log_operation_end"
+          ],
+          "retrieval_sources": {
+            "vector": 2,
+            "graph": 5
+          }
+        },
+        "integration_points": [
+          {
+            "entity": "notify_completion",
+            "file": "notification_system.py",
+            "relevance": 0.5408206859596425,
+            "source": "graph",
+            "user_facing": true,
+            "has_output": true,
+            "content_preview": "def notify_completion(self, task_name, duration): \"\"\"Notify user of task complet..."
+          },
+          {
+            "entity": "log_operation_end",
+            "file": "logger.py",
+            "relevance": 0.4751454828438678,
+            "source": "graph",
+            "user_facing": false,
+            "has_output": true,
+            "content_preview": "def log_operation_end(self, operation, success, details): \"\"\"Log operation compl..."
+          },
+          {
+            "entity": "handle_error",
+            "file": "error_handler.py",
+            "relevance": 0.35142300975536656,
+            "source": "graph",
+            "user_facing": true,
+            "has_output": true,
+            "content_preview": "def handle_error(self, error, context): \"\"\"Handle and report errors\"\"\" error_mes..."
+          },
+          {
+            "entity": "ResponseFormatter",
+            "file": "response_formatter.py",
+            "relevance": 0.050381318421516164,
+            "source": "graph",
+            "user_facing": false,
+            "has_output": true,
+            "content_preview": "class ResponseFormatter: def format_code_explanation(self, entities, relationshi..."
+          },
+          {
+            "entity": "answer_question",
+            "file": "rag_pipeline.py",
+            "relevance": 0.023332504880666738,
+            "source": "graph",
+            "user_facing": false,
+            "has_output": true,
+            "content_preview": "def answer_question(self, question): \"\"\"Answer user question using RAG\"\"\" retrie..."
+          },
+          {
+            "entity": "BaseAgent",
+            "file": "base_agent.py",
+            "relevance": 0,
+            "source": "vector",
+            "user_facing": false,
+            "has_output": false,
+            "content_preview": "class BaseAgent: Abstract base class for all code analysis agents. Provides logg..."
+          },
+          {
+            "entity": "generate_response",
+            "file": "rag_pipeline.py",
+            "relevance": 0,
+            "source": "vector",
+            "user_facing": false,
+            "has_output": true,
+            "content_preview": "def generate_response(self, query_result): \"\"\"Generate final response from query..."
+          }
+        ]
+      },
+      {
+        "query": "What is the complete flow from user query to final response output?",
+        "context": "Need to understand the pipeline to add TTS at the right points",
+        "results": 7,
+        "explanation": {
+          "query": "What is the complete flow from user query to final response output?",
+          "total_results": 7,
+          "vector_results": 2,
+          "graph_results": 5,
+          "avg_relevance": 0.17087553283687723,
+          "expansion_decisions": [
+            "Connected to high-relevance entity 'answer_question'",
+            "Connected to high-relevance entity 'log_operation_end'",
+            "Connected to high-relevance entity 'generate_pipeline_summary'",
+            "Connected to high-relevance entity 'generate_response'",
+            "Connected to high-relevance entity 'generate_response'"
+          ],
+          "connected_entities": [
+            "answer_question",
+            "generate_response",
+            "generate_pipeline_summary",
+            "log_operation_end"
+          ],
+          "retrieval_sources": {
+            "vector": 2,
+            "graph": 5
+          }
+        },
+        "integration_points": [
+          {
+            "entity": "generate_response",
+            "file": "rag_pipeline.py",
+            "relevance": 0.4714591502941856,
+            "source": "graph",
+            "user_facing": false,
+            "has_output": true,
+            "content_preview": "def generate_response(self, query_result): \"\"\"Generate final response from query..."
+          },
+          {
+            "entity": "handle_error",
+            "file": "error_handler.py",
+            "relevance": 0.35142300975536656,
+            "source": "graph",
+            "user_facing": true,
+            "has_output": true,
+            "content_preview": "def handle_error(self, error, context): \"\"\"Handle and report errors\"\"\" error_mes..."
+          },
+          {
+            "entity": "create_analysis_report",
+            "file": "report_generator.py",
+            "relevance": 0.2995327465064056,
+            "source": "graph",
+            "user_facing": true,
+            "has_output": true,
+            "content_preview": "def create_analysis_report(self, graph_data): \"\"\"Create detailed analysis report..."
+          },
+          {
+            "entity": "ResponseFormatter",
+            "file": "response_formatter.py",
+            "relevance": 0.050381318421516164,
+            "source": "graph",
+            "user_facing": false,
+            "has_output": true,
+            "content_preview": "class ResponseFormatter: def format_code_explanation(self, entities, relationshi..."
+          },
+          {
+            "entity": "answer_question",
+            "file": "rag_pipeline.py",
+            "relevance": 0.023332504880666738,
+            "source": "graph",
+            "user_facing": false,
+            "has_output": true,
+            "content_preview": "def answer_question(self, question): \"\"\"Answer user question using RAG\"\"\" retrie..."
+          },
+          {
+            "entity": "log_operation_end",
+            "file": "logger.py",
+            "relevance": 0,
+            "source": "vector",
+            "user_facing": false,
+            "has_output": true,
+            "content_preview": "def log_operation_end(self, operation, success, details): \"\"\"Log operation compl..."
+          },
+          {
+            "entity": "generate_pipeline_summary",
+            "file": "pipeline_summary.py",
+            "relevance": 0,
+            "source": "vector",
+            "user_facing": true,
+            "has_output": true,
+            "content_preview": "def generate_pipeline_summary(self, results): \"\"\"Generate summary of pipeline ex..."
+          }
+        ]
+      }
+    ],
+    "top_candidates": [
+      {
+        "entity": "log_operation_end",
+        "file": "logger.py",
+        "max_relevance": 0.4751454828438678,
+        "total_relevance": 0.9502909656877356,
+        "mentions": 3,
+        "user_facing": false,
+        "has_output": true
+      },
+      {
+        "entity": "generate_response",
+        "file": "rag_pipeline.py",
+        "max_relevance": 0.4714591502941856,
+        "total_relevance": 0.9429183005883712,
+        "mentions": 3,
+        "user_facing": false,
+        "has_output": true
+      },
+      {
+        "entity": "notify_completion",
+        "file": "notification_system.py",
+        "max_relevance": 0.5408206859596425,
+        "total_relevance": 1.081641371919285,
+        "mentions": 2,
+        "user_facing": true,
+        "has_output": true
+      },
+      {
+        "entity": "handle_error",
+        "file": "error_handler.py",
+        "max_relevance": 0.35142300975536656,
+        "total_relevance": 0.7028460195107331,
+        "mentions": 3,
+        "user_facing": true,
+        "has_output": true
+      },
+      {
+        "entity": "create_analysis_report",
+        "file": "report_generator.py",
+        "max_relevance": 0.2995327465064056,
+        "total_relevance": 0.2995327465064056,
+        "mentions": 1,
+        "user_facing": true,
+        "has_output": true
+      },
+      {
+        "entity": "ResponseFormatter",
+        "file": "response_formatter.py",
+        "max_relevance": 0.050381318421516164,
+        "total_relevance": 0.1511439552645485,
+        "mentions": 3,
+        "user_facing": false,
+        "has_output": true
+      },
+      {
+        "entity": "answer_question",
+        "file": "rag_pipeline.py",
+        "max_relevance": 0.023332504880666738,
+        "total_relevance": 0.06999751464200021,
+        "mentions": 3,
+        "user_facing": false,
+        "has_output": true
+      },
+      {
+        "entity": "BaseAgent",
+        "file": "base_agent.py",
+        "max_relevance": 0,
+        "total_relevance": 0,
+        "mentions": 2,
+        "user_facing": false,
+        "has_output": false
+      },
+      {
+        "entity": "CodeAnalysisUI",
+        "file": "ui_components.py",
+        "max_relevance": 0,
+        "total_relevance": 0,
+        "mentions": 1,
+        "user_facing": true,
+        "has_output": true
+      },
+      {
+        "entity": "generate_pipeline_summary",
+        "file": "pipeline_summary.py",
+        "max_relevance": 0,
+        "total_relevance": 0,
+        "mentions": 1,
+        "user_facing": true,
+        "has_output": true
+      }
+    ],
+    "implementation_phases": {
+      "phase_1": [
+        "notify_completion"
+      ],
+      "phase_2": [
+        "log_operation_end",
+        "generate_response",
+        "handle_error"
+      ]
+    }
+  },
+  "strategy_comparison": {
+    "vector_only": {
+      "total_results": 5,
+      "user_facing": 2,
+      "high_relevance": 0,
+      "explanation": {
+        "vector_results": 5,
+        "graph_results": 0,
+        "expansion_decisions": []
+      }
+    },
+    "intelligent": {
+      "total_results": 5,
+      "user_facing": 2,
+      "high_relevance": 1,
+      "explanation": {
+        "query": "How should I integrate TTS with error handling and user notifications?",
+        "total_results": 5,
+        "vector_results": 2,
+        "graph_results": 3,
+        "avg_relevance": 0.2734778357117754,
+        "expansion_decisions": [
+          "Connected to high-relevance entity 'handle_error'",
+          "Connected to high-relevance entity 'handle_error'",
+          "Connected to high-relevance entity 'notify_completion'"
+        ],
+        "connected_entities": [
+          "handle_error",
+          "notify_completion"
+        ],
+        "retrieval_sources": {
+          "vector": 2,
+          "graph": 3
+        }
+      }
+    }
+  },
+  "summary": {
+    "top_candidates": 10,
+    "implementation_phases": {
+      "phase_1": [
+        "notify_completion"
+      ],
+      "phase_2": [
+        "log_operation_end",
+        "generate_response",
+        "handle_error"
+      ]
+    },
+    "agentic_value": "Autonomous expansion decisions + graph traversal + relevance ranking"
+  }
+}

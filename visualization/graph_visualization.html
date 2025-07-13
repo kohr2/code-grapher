@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Grapher - Graph Visualization</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        
+        .header p {
+            margin: 5px 0 0 0;
+            opacity: 0.9;
+        }
+        
+        .container {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .sidebar {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            width: 300px;
+            height: fit-content;
+        }
+        
+        .main-viz {
+            flex: 1;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        .filters {
+            margin-bottom: 20px;
+        }
+        
+        .filter-group {
+            margin-bottom: 15px;
+        }
+        
+        .filter-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        
+        .filter-group select, .filter-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .node-info {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        
+        .node-info h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        
+        .property {
+            margin: 5px 0;
+            font-size: 13px;
+        }
+        
+        .property strong {
+            color: #555;
+        }
+        
+        .legend {
+            border-top: 1px solid #eee;
+            padding-top: 15px;
+            margin-top: 20px;
+        }
+        
+        .legend h3 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            color: #333;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            font-size: 14px;
+        }
+        
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            margin-right: 8px;
+            border: 2px solid #333;
+        }
+        
+        .controls {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+        
+        .control-button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 2px;
+            font-size: 12px;
+        }
+        
+        .control-button:hover {
+            background: #5a6fd8;
+        }
+        
+        .stats {
+            background: #e8f4fd;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stats h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        
+        .stat-item {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        
+        #graph {
+            width: 100%;
+            height: 800px;
+        }
+        
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 400px;
+            font-size: 18px;
+            color: #666;
+        }
+        
+        .error {
+            color: #d32f2f;
+            background: #ffebee;
+            border: 1px solid #ffcdd2;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        
+        /* Node and link styles */
+        .node {
+            stroke: #333;
+            stroke-width: 2px;
+            cursor: pointer;
+        }
+        
+        .node:hover {
+            stroke-width: 3px;
+            stroke: #000;
+        }
+        
+        .link {
+            stroke: #999;
+            stroke-opacity: 0.6;
+            stroke-width: 2px;
+        }
+        
+        .link:hover {
+            stroke: #333;
+            stroke-opacity: 1;
+            stroke-width: 3px;
+        }
+        
+        .node-label {
+            font-size: 12px;
+            font-weight: bold;
+            fill: #333;
+            pointer-events: none;
+            text-anchor: middle;
+        }
+        
+        .link-label {
+            font-size: 10px;
+            fill: #666;
+            pointer-events: none;
+            text-anchor: middle;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Code Grapher - Graph Visualization</h1>
+        <p>Interactive visualization of code structure and relationships</p>
+    </div>
+    
+    <div class="container">
+        <div class="sidebar">
+            <div class="stats" id="stats">
+                <h3>Graph Statistics</h3>
+                <div class="loading">Loading stats...</div>
+            </div>
+            
+            <div class="filters">
+                <h3>Filters</h3>
+                
+                <div class="filter-group">
+                    <label for="nodeTypeFilter">Node Types:</label>
+                    <select id="nodeTypeFilter" multiple>
+                        <option value="all" selected>All Types</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label for="linkTypeFilter">Link Types:</label>
+                    <select id="linkTypeFilter" multiple>
+                        <option value="all" selected>All Types</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label for="searchFilter">Search Nodes:</label>
+                    <input type="text" id="searchFilter" placeholder="Enter node name...">
+                </div>
+            </div>
+            
+            <div class="controls">
+                <h3>Controls</h3>
+                <button class="control-button" onclick="resetZoom()">Reset Zoom</button>
+                <button class="control-button" onclick="centerGraph()">Center Graph</button>
+                <button class="control-button" onclick="toggleLabels()">Toggle Labels</button>
+                <button class="control-button" onclick="exportData()">Export Data</button>
+            </div>
+            
+            <div class="legend">
+                <h3>Node Types</h3>
+                <div id="legendContainer"></div>
+            </div>
+            
+            <div class="node-info" id="nodeInfo" style="display: none;">
+                <h3>Node Details</h3>
+                <div id="nodeDetails"></div>
+            </div>
+        </div>
+        
+        <div class="main-viz">
+            <svg id="graph"></svg>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let graphData = null;
+        let filteredData = null;
+        let simulation = null;
+        let svg = null;
+        let g = null;
+        let showLabels = true;
+        
+        // Color schemes for different node types
+        const nodeColors = {
+            'Memory': '#e1f5fe',
+            'Entity': '#f3e5f5', 
+            'World': '#e8f5e8',
+            'File': '#fff3e0',
+            'Class': '#fce4ec',
+            'Function': '#f1f8e9',
+            'Unknown': '#f5f5f5'
+        };
+        
+        const nodeStrokeColors = {
+            'Memory': '#0277bd',
+            'Entity': '#7b1fa2',
+            'World': '#2e7d32', 
+            'File': '#ef6c00',
+            'Class': '#c2185b',
+            'Function': '#558b2f',
+            'Unknown': '#666666'
+        };
+        
+        // Initialize the visualization
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('[2025-07-12 18:30:00] [GRAPH_VIZ] [INFO] Initializing visualization interface');
+            initializeSVG();
+            loadGraphData();
+            setupEventListeners();
+        });
+        
+        function initializeSVG() {
+            console.log('[2025-07-12 18:30:01] [GRAPH_VIZ] [INFO] Setting up SVG canvas');
+            
+            svg = d3.select("#graph");
+            const container = svg.node().parentElement;
+            const width = container.clientWidth;
+            const height = 800;
+            
+            svg.attr("width", width).attr("height", height);
+            
+            // Add zoom behavior
+            const zoom = d3.zoom()
+                .scaleExtent([0.1, 4])
+                .on("zoom", function(event) {
+                    g.attr("transform", event.transform);
+                });
+                
+            svg.call(zoom);
+            
+            // Create main group for zoomable content
+            g = svg.append("g");
+            
+            // Store zoom behavior for later use
+            svg.zoom = zoom;
+        }
+        
+        function loadGraphData() {
+            console.log('[2025-07-12 18:30:02] [GRAPH_VIZ] [INFO] Loading graph data from server');
+            
+            fetch('/api/graph/d3')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('[2025-07-12 18:30:03] [GRAPH_VIZ] [INFO] Graph data loaded successfully:', data.metadata);
+                    graphData = data;
+                    filteredData = JSON.parse(JSON.stringify(data)); // Deep copy
+                    
+                    updateStats(data.metadata);
+                    setupFilters(data);
+                    setupLegend(data);
+                    createVisualization(data);
+                })
+                .catch(error => {
+                    console.error('[2025-07-12 18:30:04] [GRAPH_VIZ] [ERROR] Failed to load graph data:', error);
+                    showError('Failed to load graph data: ' + error.message);
+                });
+        }
+        
+        function updateStats(metadata) {
+            const statsContainer = document.getElementById('stats');
+            statsContainer.innerHTML = `
+                <h3>Graph Statistics</h3>
+                <div class="stat-item"><strong>Total Nodes:</strong> ${metadata.total_nodes}</div>
+                <div class="stat-item"><strong>Total Links:</strong> ${metadata.total_links}</div>
+                <div class="stat-item"><strong>Node Types:</strong> ${metadata.node_types.length}</div>
+                <div class="stat-item"><strong>Link Types:</strong> ${metadata.link_types.length}</div>
+                <div class="stat-item"><strong>Last Updated:</strong> ${new Date(metadata.exported_at).toLocaleString()}</div>
+            `;
+        }
+        
+        function setupFilters(data) {
+            console.log('[2025-07-12 18:30:05] [GRAPH_VIZ] [INFO] Setting up filter controls');
+            
+            // Node type filter
+            const nodeTypeFilter = document.getElementById('nodeTypeFilter');
+            nodeTypeFilter.innerHTML = '<option value="all" selected>All Types</option>';
+            
+            data.metadata.node_types.forEach(type => {
+                const option = document.createElement('option');
+                option.value = type;
+                option.textContent = type;
+                option.selected = true;
+                nodeTypeFilter.appendChild(option);
+            });
+            
+            // Link type filter
+            const linkTypeFilter = document.getElementById('linkTypeFilter');
+            linkTypeFilter.innerHTML = '<option value="all" selected>All Types</option>';
+            
+            data.metadata.link_types.forEach(type => {
+                const option = document.createElement('option');
+                option.value = type;
+                option.textContent = type;
+                option.selected = true;
+                linkTypeFilter.appendChild(option);
+            });
+        }
+        
+        function setupLegend(data) {
+            const legendContainer = document.getElementById('legendContainer');
+            legendContainer.innerHTML = '';
+            
+            data.metadata.node_types.forEach(type => {
+                const legendItem = document.createElement('div');
+                legendItem.className = 'legend-item';
+                
+                const color = nodeColors[type] || nodeColors['Unknown'];
+                const strokeColor = nodeStrokeColors[type] || nodeStrokeColors['Unknown'];
+                
+                legendItem.innerHTML = `
+                    <div class="legend-color" style="background-color: ${color}; border-color: ${strokeColor};"></div>
+                    <span>${type}</span>
+                `;
+                
+                legendContainer.appendChild(legendItem);
+            });
+        }
+        
+        function createVisualization(data) {
+            console.log('[2025-07-12 18:30:06] [GRAPH_VIZ] [INFO] Creating D3 visualization with', data.nodes.length, 'nodes and', data.links.length, 'links');
+            
+            const width = parseInt(svg.attr("width"));
+            const height = parseInt(svg.attr("height"));
+            
+            // Clear previous visualization
+            g.selectAll("*").remove();
+            
+            // Create simulation
+            simulation = d3.forceSimulation(data.nodes)
+                .force("link", d3.forceLink(data.links).id(d => d.id).distance(100))
+                .force("charge", d3.forceManyBody().strength(-300))
+                .force("center", d3.forceCenter(width / 2, height / 2))
+                .force("collision", d3.forceCollide().radius(30));
+            
+            // Create links
+            const link = g.append("g")
+                .selectAll("line")
+                .data(data.links)
+                .enter().append("line")
+                .attr("class", "link")
+                .attr("stroke-width", 2);
+            
+            // Create link labels
+            const linkLabel = g.append("g")
+                .selectAll("text")
+                .data(data.links)
+                .enter().append("text")
+                .attr("class", "link-label")
+                .style("display", showLabels ? "block" : "none")
+                .text(d => d.type);
+            
+            // Create nodes
+            const node = g.append("g")
+                .selectAll("circle")
+                .data(data.nodes)
+                .enter().append("circle")
+                .attr("class", "node")
+                .attr("r", 12)
+                .attr("fill", d => nodeColors[d.type] || nodeColors['Unknown'])
+                .attr("stroke", d => nodeStrokeColors[d.type] || nodeStrokeColors['Unknown'])
+                .call(d3.drag()
+                    .on("start", dragstarted)
+                    .on("drag", dragged)
+                    .on("end", dragended))
+                .on("click", showNodeDetails)
+                .on("mouseover", function(event, d) {
+                    d3.select(this).attr("r", 15);
+                })
+                .on("mouseout", function(event, d) {
+                    d3.select(this).attr("r", 12);
+                });
+            
+            // Create node labels
+            const nodeLabel = g.append("g")
+                .selectAll("text")
+                .data(data.nodes)
+                .enter().append("text")
+                .attr("class", "node-label")
+                .style("display", showLabels ? "block" : "none")
+                .text(d => d.name.length > 15 ? d.name.substring(0, 15) + "..." : d.name)
+                .attr("dy", 25);
+            
+            // Update positions on simulation tick
+            simulation.on("tick", () => {
+                link
+                    .attr("x1", d => d.source.x)
+                    .attr("y1", d => d.source.y)
+                    .attr("x2", d => d.target.x)
+                    .attr("y2", d => d.target.y);
+                
+                linkLabel
+                    .attr("x", d => (d.source.x + d.target.x) / 2)
+                    .attr("y", d => (d.source.y + d.target.y) / 2);
+                
+                node
+                    .attr("cx", d => d.x)
+                    .attr("cy", d => d.y);
+                
+                nodeLabel
+                    .attr("x", d => d.x)
+                    .attr("y", d => d.y);
+            });
+            
+            console.log('[2025-07-12 18:30:07] [GRAPH_VIZ] [INFO] Visualization created successfully');
+        }
+        
+        function setupEventListeners() {
+            console.log('[2025-07-12 18:30:08] [GRAPH_VIZ] [INFO] Setting up event listeners for filters');
+            
+            // Filter event listeners
+            document.getElementById('nodeTypeFilter').addEventListener('change', applyFilters);
+            document.getElementById('linkTypeFilter').addEventListener('change', applyFilters);
+            document.getElementById('searchFilter').addEventListener('input', applyFilters);
+        }
+        
+        function applyFilters() {
+            if (!graphData) return;
+            
+            console.log('[2025-07-12 18:30:09] [GRAPH_VIZ] [INFO] Applying filters to graph data');
+            
+            const nodeTypeFilter = document.getElementById('nodeTypeFilter');
+            const linkTypeFilter = document.getElementById('linkTypeFilter');
+            const searchFilter = document.getElementById('searchFilter').value.toLowerCase();
+            
+            const selectedNodeTypes = Array.from(nodeTypeFilter.selectedOptions).map(o => o.value);
+            const selectedLinkTypes = Array.from(linkTypeFilter.selectedOptions).map(o => o.value);
+            
+            // Filter nodes
+            let filteredNodes = graphData.nodes.filter(node => {
+                const typeMatch = selectedNodeTypes.includes('all') || selectedNodeTypes.includes(node.type);
+                const searchMatch = !searchFilter || node.name.toLowerCase().includes(searchFilter);
+                return typeMatch && searchMatch;
+            });
+            
+            // Get IDs of filtered nodes
+            const nodeIds = new Set(filteredNodes.map(n => n.id));
+            
+            // Filter links to only include those between filtered nodes
+            let filteredLinks = graphData.links.filter(link => {
+                const typeMatch = selectedLinkTypes.includes('all') || selectedLinkTypes.includes(link.type);
+                const nodeMatch = nodeIds.has(link.source.id || link.source) && nodeIds.has(link.target.id || link.target);
+                return typeMatch && nodeMatch;
+            });
+            
+            filteredData = {
+                nodes: filteredNodes,
+                links: filteredLinks,
+                metadata: {
+                    ...graphData.metadata,
+                    total_nodes: filteredNodes.length,
+                    total_links: filteredLinks.length
+                }
+            };
+            
+            createVisualization(filteredData);
+            updateStats(filteredData.metadata);
+            
+            console.log('[2025-07-12 18:30:10] [GRAPH_VIZ] [INFO] Filters applied - showing', filteredNodes.length, 'nodes and', filteredLinks.length, 'links');
+        }
+        
+        function showNodeDetails(event, d) {
+            console.log('[2025-07-12 18:30:11] [GRAPH_VIZ] [INFO] Showing details for node:', d.name);
+            
+            const nodeInfo = document.getElementById('nodeInfo');
+            const nodeDetails = document.getElementById('nodeDetails');
+            
+            let detailsHtml = `
+                <div class="property"><strong>Name:</strong> ${d.name}</div>
+                <div class="property"><strong>Type:</strong> ${d.type}</div>
+                <div class="property"><strong>ID:</strong> ${d.id}</div>
+            `;
+            
+            // Add other properties
+            Object.entries(d.properties || {}).forEach(([key, value]) => {
+                if (key !== 'name' && value !== null && value !== undefined) {
+                    const displayValue = typeof value === 'string' && value.length > 50 
+                        ? value.substring(0, 50) + '...' 
+                        : value;
+                    detailsHtml += `<div class="property"><strong>${key}:</strong> ${displayValue}</div>`;
+                }
+            });
+            
+            nodeDetails.innerHTML = detailsHtml;
+            nodeInfo.style.display = 'block';
+        }
+        
+        // Control functions
+        function resetZoom() {
+            console.log('[2025-07-12 18:30:12] [GRAPH_VIZ] [INFO] Resetting zoom to default');
+            svg.transition().duration(750).call(svg.zoom.transform, d3.zoomIdentity);
+        }
+        
+        function centerGraph() {
+            console.log('[2025-07-12 18:30:13] [GRAPH_VIZ] [INFO] Centering graph view');
+            const width = parseInt(svg.attr("width"));
+            const height = parseInt(svg.attr("height"));
+            svg.transition().duration(750).call(svg.zoom.transform, d3.zoomIdentity.translate(width/2, height/2).scale(1));
+        }
+        
+        function toggleLabels() {
+            showLabels = !showLabels;
+            console.log('[2025-07-12 18:30:14] [GRAPH_VIZ] [INFO] Toggling labels -', showLabels ? 'showing' : 'hiding');
+            
+            g.selectAll(".node-label").style("display", showLabels ? "block" : "none");
+            g.selectAll(".link-label").style("display", showLabels ? "block" : "none");
+        }
+        
+        function exportData() {
+            console.log('[2025-07-12 18:30:15] [GRAPH_VIZ] [INFO] Exporting filtered graph data');
+            
+            const dataStr = JSON.stringify(filteredData, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(dataBlob);
+            link.download = 'graph_data_export.json';
+            link.click();
+        }
+        
+        // Drag functions
+        function dragstarted(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+        
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+        
+        function dragended(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+        
+        function showError(message) {
+            const container = document.querySelector('.main-viz');
+            container.innerHTML = `
+                <div class="error">
+                    <strong>Error:</strong> ${message}
+                    <br><br>
+                    Please check that the server is running and try refreshing the page.
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
