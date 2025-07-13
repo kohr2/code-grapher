@@ -22,6 +22,10 @@ click==8.1.7
 rich==13.7.0
 tqdm==4.66.2
 
+# Git Integration for Surgical Updates
+GitPython==3.1.42
+unidiff==0.7.5
+
 # Development Tools
 pytest==8.1.1
 pytest-asyncio==0.23.5
