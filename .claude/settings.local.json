@@ -5,7 +5,9 @@
       "Bash(mkdir:*)",
       "Bash(ls:*)",
       "Bash(python:*)",
-      "Bash(git init:*)"
+      "Bash(git init:*)",
+      "Bash(git commit:*)",
+      "Bash(git add:*)"
     ],
     "deny": []
   }
