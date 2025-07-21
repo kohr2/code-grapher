@@ -1,100 +1,100 @@
 import os
 import time
+import requests
 from typing import Optional, Dict, Any, List
 from datetime import datetime
+from dotenv import load_dotenv
 
-try:
-    import google.generativeai as genai
-    GEMINI_AVAILABLE = True
-except ImportError:
-    GEMINI_AVAILABLE = False
+# Load environment variables
+load_dotenv()
 
 from logger import logger, CodeGrapherLogger
-from ai_evaluation_tracker import ai_tracker, EvaluationCategory, Sentiment
+# Removed ai_evaluation_tracker dependency
 
 
-class GeminiClient:
-    """Client wrapper for Google Gemini Flash LLM with comprehensive logging and evaluation tracking"""
+class OllamaClient:
+    """Client wrapper for Ollama LLM with comprehensive logging and evaluation tracking"""
     
-    def __init__(self, api_key: Optional[str] = None, model_name: str = "gemini-1.5-flash"):
+    def __init__(self, base_url: Optional[str] = None, model_name: str = "gemma3:4b"):
         self.model_name = model_name
-        self.session_logger = logger.create_session_logger("GeminiClient")
+        self.base_url = base_url or os.getenv("OLLAMA_URL", "http://localhost:11434")
+        self.session_logger = logger.create_session_logger("OllamaClient")
         
         # Log initialization start
         self.session_logger.log_operation_start(
-            "GeminiClient.init",
+            "OllamaClient.init",
             {
                 "model_name": model_name,
-                "api_key_provided": api_key is not None or os.getenv("GOOGLE_API_KEY") is not None
+                "base_url": self.base_url
             }
         )
         
         start_time = time.time()
         
         try:
-            if not GEMINI_AVAILABLE:
-                raise ImportError("google-generativeai package not available. Install with: pip install google-generativeai")
-            
-            # Get API key from parameter or environment
-            self.api_key = api_key or os.getenv("GOOGLE_API_KEY")
-            if not self.api_key:
-                raise ValueError("No API key provided. Set GOOGLE_API_KEY environment variable or pass api_key parameter")
-            
-            # Configure the client
-            genai.configure(api_key=self.api_key)
-            
-            # Initialize the model
-            self.model = genai.GenerativeModel(model_name)
-            
             # Test the connection with a simple query
-            test_response = self.model.generate_content("Hello, respond with 'OK' if you can understand this.")
+            test_response = self._make_request("Hello, respond with 'OK' if you can understand this.")
             
             duration = time.time() - start_time
             
             self.session_logger.log_operation_end(
-                "GeminiClient.init",
+                "OllamaClient.init",
                 duration=duration,
                 success=True,
                 details={
                     "model_initialized": True,
-                    "test_response": test_response.text[:50] if test_response.text else "No response",
+                    "test_response": test_response.get("response", "")[:50] if test_response else "No response",
                     "connection_verified": True
                 }
             )
             
-            # Track successful initialization
-            ai_tracker.record_success(
-                component="gemini_client_init",
-                description=f"Successfully initialized Gemini {model_name} client",
-                time_saved=duration
-            )
+            # Log successful initialization
+            logger.logger.info(f"Successfully initialized Ollama {model_name} client in {duration:.2f}s")
             
-            self.session_logger.log_info(f"Gemini client initialized successfully with model: {model_name}")
+            self.session_logger.log_info(f"Ollama client initialized successfully with model: {model_name}")
             
         except Exception as e:
             duration = time.time() - start_time
             
             self.session_logger.log_operation_end(
-                "GeminiClient.init",
+                "OllamaClient.init",
                 duration=duration,
                 success=False,
                 details={"error": str(e)}
             )
             
-            # Track initialization failure
-            ai_tracker.record_failure(
-                component="gemini_client_init",
-                description=f"Failed to initialize Gemini client: {str(e)}",
-                error_type=type(e).__name__,
-                workaround="Check API key and internet connection"
-            )
+            # Log initialization failure
+            logger.logger.error(f"Failed to initialize Ollama client: {str(e)}")
             
-            self.session_logger.log_error(e, {"model_name": model_name})
+            self.session_logger.log_error(e, {"model_name": model_name, "base_url": self.base_url})
             raise
+    
+    def _make_request(self, prompt: str, max_tokens: int = 1000, temperature: float = 0.3) -> Dict[str, Any]:
+        """Make a request to the Ollama API"""
+        url = f"{self.base_url}/api/generate"
+        
+        payload = {
+            "model": self.model_name,
+            "prompt": prompt,
+            "stream": False,
+            "options": {
+                "temperature": temperature,
+                "num_predict": max_tokens
+            }
+        }
+        
+        try:
+            response = requests.post(url, json=payload, timeout=60)
+            response.raise_for_status()
+            
+            return response.json()
+            
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"Ollama API request failed: {str(e)}")
     
     def generate_response(self, prompt: str, context: Optional[List[Dict[str, Any]]] = None, 
                          max_tokens: int = 1000, temperature: float = 0.3) -> Dict[str, Any]:
-        """Generate a response using Gemini Flash"""
+        """Generate a response using Ollama"""
         self.session_logger.log_operation_start(
             "generate_response",
             {
@@ -117,22 +117,13 @@ class GeminiClient:
                 alternatives=["Use prompt only", "Pre-process context differently"]
             )
             
-            # Configure generation parameters
-            generation_config = genai.types.GenerationConfig(
-                max_output_tokens=max_tokens,
-                temperature=temperature,
-            )
-            
             # Generate response
-            response = self.model.generate_content(
-                full_prompt,
-                generation_config=generation_config
-            )
+            response = self._make_request(full_prompt, max_tokens, temperature)
             
             duration = time.time() - start_time
             
             # Extract response text
-            response_text = response.text if response.text else ""
+            response_text = response.get("response", "")
             
             # Calculate metrics
             tokens_estimated = len(response_text.split())  # Rough token estimate
@@ -191,18 +182,11 @@ class GeminiClient:
             
             # Evaluate response quality
             if len(response_text) > 50:  # Reasonable response length
-                ai_tracker.record_success(
-                    component="llm_generation",
-                    description=f"Generated {tokens_estimated} tokens in {duration:.2f}s",
-                    time_saved=duration,
-                    accuracy=85.0  # Placeholder - would implement actual quality metrics
-                )
+                # Log generation success
+                logger.logger.info(f"Generated {tokens_estimated} tokens in {duration:.2f}s")
             else:
-                ai_tracker.record_observation(
-                    component="llm_generation",
-                    observation=f"Short response generated ({len(response_text)} chars) - may indicate issues",
-                    category=EvaluationCategory.ACCURACY
-                )
+                # Log short response warning
+                logger.logger.warning(f"Short response generated ({len(response_text)} chars) - may indicate issues")
             
             return result
             
@@ -221,13 +205,8 @@ class GeminiClient:
                 "context_items": len(context) if context else 0
             })
             
-            # Track generation failure
-            ai_tracker.record_failure(
-                component="llm_generation",
-                description=f"Failed to generate response: {str(e)}",
-                error_type=type(e).__name__,
-                workaround="Check API quota and prompt format"
-            )
+            # Log generation failure
+            logger.logger.error(f"Failed to generate response: {str(e)}")
             
             # Return error response
             return {
@@ -303,13 +282,17 @@ Answer:"""
         return self.generate_response(code_prompt, retrieved_context, max_tokens=1500, temperature=0.2)
     
     def is_available(self) -> bool:
-        """Check if the Gemini client is available and configured"""
-        return GEMINI_AVAILABLE and hasattr(self, 'model') and self.model is not None
+        """Check if the Ollama client is available and configured"""
+        try:
+            response = requests.get(f"{self.base_url}/api/tags", timeout=5)
+            return response.status_code == 200
+        except:
+            return False
     
     def get_model_info(self) -> Dict[str, Any]:
         """Get information about the current model"""
         return {
             "model_name": self.model_name,
-            "available": self.is_available(),
-            "api_key_configured": self.api_key is not None
+            "base_url": self.base_url,
+            "available": self.is_available()
         }

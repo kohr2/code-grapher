@@ -34,6 +34,9 @@ class GraphStateManager:
         Returns:
             str: The snapshot identifier/path
         """
+        import time
+        start_time = time.time()
+        
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         snapshot_id = snapshot_name or f"snapshot_{timestamp}"
         snapshot_dir = self.snapshots_dir / snapshot_id
@@ -59,8 +62,10 @@ class GraphStateManager:
             # 4. Save metadata
             self._save_snapshot_metadata(snapshot_dir, snapshot_id)
             
+            duration = time.time() - start_time
             self.session_logger.log_operation_end(
                 "create_snapshot",
+                duration,
                 success=True,
                 details={"snapshot_path": str(snapshot_dir)}
             )
@@ -69,8 +74,10 @@ class GraphStateManager:
             return snapshot_id
             
         except Exception as e:
+            duration = time.time() - start_time
             self.session_logger.log_operation_end(
                 "create_snapshot",
+                duration,
                 success=False,
                 details={"error": str(e)}
             )

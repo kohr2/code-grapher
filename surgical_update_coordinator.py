@@ -24,6 +24,7 @@ from graph_update_engine import GraphUpdateEngine
 from agents.git_diff_agent import GitDiffAgent, DiffAnalysis
 from logger import logger
 from ai_evaluation_tracker import ai_tracker
+from coordinator.agent_coordinator import AgentCoordinator
 
 
 class SurgicalUpdateCoordinator:
@@ -48,6 +49,9 @@ class SurgicalUpdateCoordinator:
         self.auto_snapshot = auto_snapshot
         self.session_logger = logger.create_session_logger("SurgicalUpdateCoordinator")
         
+        # Enhanced entity extraction support
+        self.entity_coordinator = None
+        
         # Initialize components
         self.graph_manager = graph_manager or CodeGraphManager()
         self.state_manager = GraphStateManager(self.graph_manager)
@@ -60,7 +64,7 @@ class SurgicalUpdateCoordinator:
             "description": "Analyzes git diffs for surgical updates",
             "config": {
                 "repoPath": repo_path,
-                "supportedExtensions": [".py", ".js", ".ts", ".java", ".cpp", ".c"],
+                "supportedExtensions": [".py", ".js", ".ts", ".java", ".cpp", ".c", ".md",".json"],
                 "ignorePatterns": ["__pycache__", ".git", "node_modules", "logs"]
             }
         }
@@ -385,6 +389,103 @@ class SurgicalUpdateCoordinator:
         # In a full implementation, would check graph consistency
         
         return validation_result
+    
+    def _process_entities_with_enhanced_extraction(self, file_paths: List[str]) -> Dict[str, Any]:
+        """Process entity extraction for changed files using enhanced system"""
+        self.session_logger.log_info(f"Processing {len(file_paths)} files with enhanced entity extraction")
+        
+        try:
+            # Initialize entity coordinator if not exists
+            if not self.entity_coordinator:
+                self.entity_coordinator = AgentCoordinator("config/agent_pipeline_config.json")
+            
+            # Prepare input data
+            input_data = {"files": []}
+            
+            for file_path in file_paths:
+                if os.path.exists(file_path):
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    
+                    # Basic AST parsing
+                    try:
+                        import ast
+                        tree = ast.parse(content)
+                        ast_data = {"classes": [], "functions": [], "imports": []}
+                        
+                        for node in ast.walk(tree):
+                            if isinstance(node, ast.ClassDef):
+                                ast_data["classes"].append({
+                                    "name": node.name,
+                                    "line": node.lineno,
+                                    "column": node.col_offset,
+                                    "bases": [ast.unparse(base) for base in node.bases] if hasattr(ast, 'unparse') else [],
+                                    "decorators": [ast.unparse(dec) for dec in node.decorator_list] if hasattr(ast, 'unparse') else [],
+                                    "docstring": ast.get_docstring(node),
+                                    "methods": [n.name for n in node.body if isinstance(n, ast.FunctionDef)]
+                                })
+                            elif isinstance(node, ast.FunctionDef):
+                                ast_data["functions"].append({
+                                    "name": node.name,
+                                    "line": node.lineno,
+                                    "column": node.col_offset,
+                                    "args": [arg.arg for arg in node.args.args] if hasattr(node.args, 'args') else [],
+                                    "decorators": [ast.unparse(dec) for dec in node.decorator_list] if hasattr(ast, 'unparse') else [],
+                                    "docstring": ast.get_docstring(node)
+                                })
+                        
+                        input_data["files"].append({
+                            "file_path": file_path,
+                            "content": content,
+                            "ast": ast_data,
+                            "metadata": {
+                                "language": "python",
+                                "fileSize": len(content.encode('utf-8')),
+                                "lineCount": len(content.split('\n'))
+                            }
+                        })
+                        
+                    except Exception as e:
+                        self.session_logger.log_error(f"Failed to parse {file_path}: {e}")
+                        continue
+            
+            # Process through enhanced entity extraction
+            results = self.entity_coordinator.execute_workflow(input_data)
+            
+            # Extract entities from results
+            extracted_entities = []
+            if "parsed_files" in results:
+                for file_data in results["parsed_files"]:
+                    entities = file_data.get("entities", [])
+                    for entity in entities:
+                        entity["source_file"] = file_data["file_path"]
+                        extracted_entities.append(entity)
+            
+            self.session_logger.log_info(f"Enhanced extraction completed: {len(extracted_entities)} entities found")
+            
+            return {
+                "success": True,
+                "entities": extracted_entities,
+                "files_processed": len(file_paths),
+                "entity_type_counts": self._count_entity_types(extracted_entities)
+            }
+            
+        except Exception as e:
+            self.session_logger.log_error(f"Enhanced entity extraction failed: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "entities": [],
+                "files_processed": 0
+            }
+    
+    def _count_entity_types(self, entities: List[Dict[str, Any]]) -> Dict[str, int]:
+        """Count entities by type"""
+        counts = {}
+        for entity in entities:
+            entity_type = entity.get("specialized_type") or entity.get("type", "unknown")
+            counts[entity_type] = counts.get(entity_type, 0) + 1
+        return counts
     
     def get_performance_report(self) -> Dict[str, Any]:
         """Get comprehensive performance report"""

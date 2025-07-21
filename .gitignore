@@ -85,9 +85,11 @@ ai_evaluations/
 
 # Test exports
 test_exports/
+experiments
 
 # Environment-specific configs
 .env.local
 .env.development
 .env.test
 .env.production
+mcp_config.json

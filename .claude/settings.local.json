@@ -7,7 +7,13 @@
       "Bash(python:*)",
       "Bash(git init:*)",
       "Bash(git commit:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(grep:*)",
+      "mcp__gemini-chat__gemini_initialize",
+      "mcp__gemini-chat__gemini_status",
+      "Bash(rm:*)",
+      "Bash(find:*)",
+      "WebFetch(domain:docs.anthropic.com)"
     ],
     "deny": []
   }

@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Any, Tuple
 from neo4j import GraphDatabase
 from py2neo import Graph, Node, Relationship
 from logger import logger, CodeGrapherLogger
-from ai_evaluation_tracker import ai_tracker, EvaluationCategory, Sentiment
+# Removed ai_evaluation_tracker dependency
 import time
 from dotenv import load_dotenv
 
@@ -46,12 +46,8 @@ class CodeGraphManager:
                 details={"connection": "verified"}
             )
             
-            # Track AI Lego Bricks evaluation
-            ai_tracker.record_success(
-                component="neo4j-connection",
-                description="Successfully connected to Neo4j graph database",
-                time_saved=duration
-            )
+            # Log successful connection
+            logger.logger.info(f"Successfully connected to Neo4j graph database in {duration:.2f}s")
             
         except Exception as e:
             duration = time.time() - start_time
@@ -62,13 +58,8 @@ class CodeGraphManager:
                 details={"error": str(e)}
             )
             
-            # Track failure
-            ai_tracker.record_failure(
-                component="neo4j-connection",
-                description=f"Failed to connect to Neo4j: {str(e)}",
-                error_type=type(e).__name__,
-                workaround="Check if Neo4j is running and credentials are correct"
-            )
+            # Log connection failure
+            logger.logger.error(f"Failed to connect to Neo4j: {str(e)}")
             raise
     
     def create_code_entity(self, entity_type: str, name: str, 
@@ -321,13 +312,8 @@ class CodeGraphManager:
                 }
             )
             
-            # Track performance
-            ai_tracker.record_success(
-                component="code_analysis",
-                description=f"Analyzed {file_path} creating {nodes_created} nodes",
-                time_saved=duration,
-                accuracy=95.0  # Placeholder - would calculate based on validation
-            )
+            # Log performance
+            logger.logger.info(f"Analyzed {file_path} creating {nodes_created} nodes in {duration:.2f}s")
             
         except Exception as e:
             duration = time.time() - start_time
@@ -340,12 +326,8 @@ class CodeGraphManager:
             
             self.session_logger.log_error(e, {"file": file_path})
             
-            # Track failure
-            ai_tracker.record_failure(
-                component="code_analysis",
-                description=f"Failed to analyze {file_path}",
-                error_type=type(e).__name__
-            )
+            # Log failure
+            logger.logger.error(f"Failed to analyze {file_path}: {str(e)}")
             raise
     
     def query_for_rag(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
@@ -539,13 +521,8 @@ class CodeGraphManager:
                 context={"nodes": len(nodes), "links": len(links)}
             )
             
-            # Track AI Lego Bricks evaluation
-            ai_tracker.record_success(
-                component="graph-export-d3",
-                description=f"Exported {len(nodes)} nodes and {len(links)} links to D3 format",
-                time_saved=duration,
-                accuracy=100.0  # Structural export is 100% accurate
-            )
+            # Log export success
+            logger.logger.info(f"Exported {len(nodes)} nodes and {len(links)} links to D3 format in {duration:.2f}s")
             
             return export_data
             
@@ -560,11 +537,8 @@ class CodeGraphManager:
             
             self.session_logger.log_error(e)
             
-            ai_tracker.record_failure(
-                component="graph-export-d3",
-                description=f"Failed to export graph to D3 format: {str(e)}",
-                error_type=type(e).__name__
-            )
+            # Log export failure
+            logger.logger.error(f"Failed to export graph to D3 format: {str(e)}")
             raise
     
     def export_mermaid_format(self) -> str:

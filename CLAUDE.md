@@ -1,75 +1,161 @@
-# Code Grapher - AI Agent Instructions
+# Code Grapher
 
-## Project Overview
-This project focuses on taking a codebase and creating/maintaining a graph database, then using it for RAG (Retrieval-Augmented Generation).
+Ultra-fast codebase analysis system that creates knowledge graphs from code using AST parsing and enables intelligent querying through RAG.
 
-## Development Phase Instructions
+## Project Architecture
 
-### CRITICAL: Verbose Logging Requirements
-- **ALWAYS LOG EXTENSIVELY** during development phase
-- Log every major decision, action, and observation
-- Include timestamps in all logs
-- Log both successes AND failures with full context
-- When analyzing code, log what patterns you find
-- When creating graph relationships, log why you made those connections
-- Log performance metrics (time taken, memory usage if relevant)
+**Core Pipeline System:**
+- **Entry Point**: `core_pipeline.py` - Lightning-fast AST analysis engine
+- **Graph Database**: Neo4j for code relationships and structure
+- **Vector Database**: ChromaDB for semantic search
+- **Relationship Engine**: Deterministic AST-based relationship extraction
+- **RAG System**: Hybrid retrieval combining graph + vector search
 
-### Logging Format
+**Key Components:**
+- `graph_manager.py` - Neo4j operations and graph building
+- `ast_relationship_extractor.py` - Fast deterministic relationship detection (INHERITS, DECORATES, CALLS)
+- `rag_pipeline.py` - Question answering with ChromaDB + Neo4j
+- `entity_classifier.py` - 25+ specialized entity classifications
+- `surgical_update_coordinator.py` - Git-based incremental updates
+- `mcp_server.py` - Model Context Protocol server for Claude integration
+
+## Development Setup
+
+**Prerequisites:**
+- Python 3.9+
+- Neo4j database (bolt://localhost:7687)
+- Ollama server (optional - for AI descriptions only)
+
+**Installation:**
+```bash
+pip install -r requirements.txt
 ```
-[TIMESTAMP] [COMPONENT] [LEVEL] Message
-Example: [2025-07-11 10:30:45] [GRAPH_BUILDER] [INFO] Analyzing file structure...
+
+**Environment (.env file):**
+```bash
+NEO4J_URL=bolt://localhost:7687
+NEO4J_USERNAME=neo4j
+NEO4J_PASSWORD=your_password
+# Optional for AI descriptions:
+OLLAMA_URL=http://localhost:11434
 ```
 
-### AI Lego Bricks Evaluation Tracking
-Track and document every interaction with AI Lego Bricks:
-1. **What worked well** - Document successful patterns and approaches
-2. **What didn't work** - Document failures, limitations, and pain points
-3. **Performance observations** - Speed, accuracy, resource usage
-4. **Suggestions for improvement** - Ideas for enhancing the system
+**Start services:**
+```bash
+# Required: Neo4j
+neo4j start
 
-### Core Project Components
+# Optional: Ollama for AI descriptions
+ollama serve
+ollama pull gemma3:4b
+```
 
-#### 1. Codebase Analysis
-- Parse and understand code structure
-- Extract entities (functions, classes, modules, etc.)
-- Identify relationships and dependencies
-- Log every discovery with reasoning
+## Development Workflow
 
-#### 2. Graph Database Management
-- Create nodes for code entities
-- Establish edges for relationships
-- Maintain consistency as code changes
-- Track all graph modifications in logs
+**Main Commands:**
+```bash
+# Lightning-fast codebase analysis (primary workflow)
+python core_pipeline.py
 
-#### 3. RAG Pipeline
-- Index code knowledge in graph
-- Implement efficient retrieval mechanisms
-- Generate contextual responses using graph data
-- Log retrieval performance and accuracy
+# Clear databases before fresh analysis  
+python clear_databases.py
 
-### Development Guidelines
-1. **Be Verbose**: This is development - we need to see everything
-2. **Track Everything**: Every decision matters for improving the system
-3. **Question Assumptions**: If something seems off about AI Lego Bricks, document it
-4. **Measure Performance**: Time operations, count iterations, track resource usage
-5. **Document Patterns**: When you find recurring patterns, log them for future optimization
+# Test RAG capabilities
+python experiments/test_retrieval.py
 
-### Evaluation Metrics to Track
-- Graph construction time per file/module
-- Relationship accuracy (false positives/negatives)
-- RAG retrieval relevance scores
-- Query response times
-- Memory usage patterns
-- Error rates and types
+# Incremental updates from git commits
+python surgical_update_coordinator.py
 
-### Daily Development Tasks
-1. Start each session by reviewing previous logs
-2. Document session goals in logs
-3. Track progress against goals
-4. End session with summary of findings
-5. Note any AI Lego Bricks issues for updates
+# Run MCP server for Claude Desktop integration
+python mcp_server.py
+```
 
-### AI Agent Strategy
-- Make liberal use of sub-agents
+**Testing:**
+- Tests in `experiments/` directory
+- Results output to `experiments/outputs/`
+- Both JSON and Markdown reports generated
 
-Remember: We're in development mode - more logging is always better than less!
+**Monitoring:**
+- Daily logs in `logs/` directory
+- Performance metrics tracked per operation
+- Graph snapshots saved in `graph_snapshots/`
+
+## Technology Stack
+
+**Code Analysis:**
+- Python AST parsing (deterministic, fast)
+- tree-sitter for multi-language support
+- Entity classification system
+
+**Databases:**
+- Neo4j 5.19.0 (graph storage)
+- ChromaDB 0.4.22 (vector storage)
+
+**Optional AI:**
+- Ollama (local LLM serving for descriptions)
+- sentence-transformers (text embeddings)
+- google-generativeai (Gemini integration)
+
+**Development:**
+- pytest for testing
+- black/flake8/mypy for code quality
+- Comprehensive logging and performance tracking
+- GitPython for incremental updates
+
+## MCP Server Integration
+
+**MCP Server:** `mcp_server.py` - Model Context Protocol server for Claude integration
+
+**Tools Available:**
+- `create_code_graph` - Parse project and build knowledge graph
+- `update_graph_from_diff` - Incremental updates from git changes
+- `query_code_graph` - Semantic + structural code retrieval  
+- `get_related_entities` - Traverse relationships to specified depth
+
+**Resources:**
+- Graph statistics and health metrics
+- Entity types and relationship patterns  
+- Update history and performance stats
+
+**Setup:**
+```bash
+# Install MCP dependencies
+pip install mcp>=1.0.0
+
+# Configure Claude Desktop (add to mcp_servers config)
+{
+  "mcpServers": {
+    "code-grapher": {
+      "command": "python",
+      "args": ["/Users/danielbeach/Code/code-grapher/mcp_server.py"],
+      "env": {
+        "NEO4J_URL": "bolt://localhost:7687",
+        "NEO4J_USERNAME": "neo4j",
+        "OLLAMA_URL": "http://localhost:11434"
+      }
+    }
+  }
+}
+
+# Configure Claude Code MCP (command line)
+claude mcp add code-grapher -e NEO4J_URL=bolt://localhost:7687 -e NEO4J_USERNAME=neo4j -e OLLAMA_URL=http://localhost:11434 -- python /Users/danielbeach/Code/code-grapher/mcp_server.py
+
+# Or via JSON configuration:
+{
+  "code-grapher": {
+    "command": "python",
+    "args": ["/Users/danielbeach/Code/code-grapher/mcp_server.py"],
+    "env": {
+      "NEO4J_URL": "bolt://localhost:7687",
+      "NEO4J_USERNAME": "neo4j",
+      "OLLAMA_URL": "http://localhost:11434"
+    }
+  }
+}
+```
+
+**Usage with Claude:**
+- Automatically provides intelligent code context without over-fetching
+- Enables precise entity relationship traversal
+- Supports natural language code behavior queries
+- Maintains context boundaries for optimal token usage
