@@ -1,15 +1,16 @@
 {
   "mcpServers": {
     "code-grapher": {
-      "command": "python",
+      "command": "python3.10",
       "args": [
-        "/Users/danielbeach/Code/code-grapher/mcp_server.py"
+        "/path/to/code-grapher/mcp_server.py"
       ],
       "env": {
-        "NEO4J_URL": "bolt://100.83.40.11:7687",
+        "NEO4J_URL": "bolt://localhost:7687",
         "NEO4J_USERNAME": "neo4j", 
-        "NEO4J_PASSWORD": "password",
-        "OLLAMA_URL": "http://100.83.40.11:11434"
+        "NEO4J_PASSWORD": "your_password",
+        "AI_PROVIDER": "ollama",
+        "OLLAMA_URL": "http://localhost:11434"
       }
     }
   }

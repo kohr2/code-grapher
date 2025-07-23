@@ -22,7 +22,7 @@ Ultra-fast codebase analysis system that creates knowledge graphs from code usin
 ## Development Setup
 
 **Prerequisites:**
-- Python 3.9+
+- Python 3.10+
 - Neo4j database (bolt://localhost:7687)
 - Ollama server (optional - for AI descriptions only)
 
@@ -36,8 +36,15 @@ pip install -r requirements.txt
 NEO4J_URL=bolt://localhost:7687
 NEO4J_USERNAME=neo4j
 NEO4J_PASSWORD=your_password
-# Optional for AI descriptions:
+
+# AI Provider Selection
+AI_PROVIDER=ollama  # Options: "ollama" or "gemini"
+
+# Ollama Configuration (if using ollama)
 OLLAMA_URL=http://localhost:11434
+
+# Gemini Configuration (if using gemini)
+GEMINI_API_KEY=your_gemini_api_key
 ```
 
 **Start services:**
@@ -126,8 +133,8 @@ pip install mcp>=1.0.0
 {
   "mcpServers": {
     "code-grapher": {
-      "command": "python",
-      "args": ["/Users/danielbeach/Code/code-grapher/mcp_server.py"],
+      "command": "python3.10",
+      "args": ["/path/to/code-grapher/mcp_server.py"],
       "env": {
         "NEO4J_URL": "bolt://localhost:7687",
         "NEO4J_USERNAME": "neo4j",
@@ -138,13 +145,13 @@ pip install mcp>=1.0.0
 }
 
 # Configure Claude Code MCP (command line)
-claude mcp add code-grapher -e NEO4J_URL=bolt://localhost:7687 -e NEO4J_USERNAME=neo4j -e OLLAMA_URL=http://localhost:11434 -- python /Users/danielbeach/Code/code-grapher/mcp_server.py
+claude mcp add code-grapher -e NEO4J_URL=bolt://localhost:7687 -e NEO4J_USERNAME=neo4j -e AI_PROVIDER=ollama -e OLLAMA_URL=http://localhost:11434 -- python3.10 /path/to/code-grapher/mcp_server.py
 
 # Or via JSON configuration:
 {
   "code-grapher": {
-    "command": "python",
-    "args": ["/Users/danielbeach/Code/code-grapher/mcp_server.py"],
+    "command": "python3.10",
+    "args": ["/path/to/code-grapher/mcp_server.py"],
     "env": {
       "NEO4J_URL": "bolt://localhost:7687",
       "NEO4J_USERNAME": "neo4j",

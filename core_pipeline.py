@@ -25,6 +25,7 @@ from ai_relationship_extractor import RelationshipExtraction
 from ast_relationship_extractor import extract_ast_relationships
 from entity_classifier import classify_entities
 from ollama_client import OllamaClient
+from gemini_client import GeminiClient
 
 
 def generate_code_descriptions(parsed_files: List[Dict[str, Any]]) -> Dict[str, Dict[str, str]]:
@@ -40,7 +41,17 @@ def generate_code_descriptions(parsed_files: List[Dict[str, Any]]) -> Dict[str, 
     print("🤖 Generating AI code descriptions...")
     
     descriptions = {}
-    ollama_client = OllamaClient()
+    
+    # Select AI client based on environment variable
+    ai_provider = os.getenv("AI_PROVIDER", "ollama").lower()
+    
+    if ai_provider == "gemini":
+        ai_client = GeminiClient(api_key=os.getenv("GEMINI_API_KEY"))
+        if not ai_client.is_available():
+            print("⚠️  Gemini API key not configured, falling back to Ollama")
+            ai_client = OllamaClient()
+    else:
+        ai_client = OllamaClient()
     
     successful_files = [f for f in parsed_files if f.get("success", False)]
     
@@ -73,7 +84,7 @@ def generate_code_descriptions(parsed_files: List[Dict[str, Any]]) -> Dict[str, 
                     code_snippet = '\n'.join(lines[start_line-1:end_line])
                     
                     # Generate description
-                    description = _generate_entity_description(ollama_client, entity_name, entity["type"], code_snippet)
+                    description = _generate_entity_description(ai_client, entity_name, entity["type"], code_snippet)
                     descriptions[file_path][entity_name] = description
                     
                     print(f"     🎯 {entity['type']}: {entity_name}")
@@ -101,7 +112,7 @@ def _get_entity_code_snippet(file_path: str, entity: Dict[str, Any]) -> str:
         return f"{entity.get('type', 'entity')} {entity.get('name', 'unknown')}"
 
 
-def _generate_entity_description(ollama_client: OllamaClient, entity_name: str, entity_type: str, code_snippet: str) -> str:
+def _generate_entity_description(ai_client, entity_name: str, entity_type: str, code_snippet: str) -> str:
     """Generate a concise description of a code entity using AI"""
     
     prompt = f"""Analyze this {entity_type} and provide a concise 1-2 sentence description of what it does:
@@ -115,7 +126,14 @@ Code:
 Provide a clear, concise description focusing on the purpose and functionality. Keep it under 100 words."""
 
     try:
-        response = ollama_client.chat(prompt)
+        # Use appropriate method based on client type
+        if hasattr(ai_client, 'chat'):
+            response = ai_client.chat(prompt)
+        elif hasattr(ai_client, 'generate_text'):
+            result = ai_client.generate_text(prompt)
+            response = result.get('response', '') if result.get('success') else ''
+        else:
+            return f"AI description for {entity_name}"
         # Clean up the response
         description = response.strip()
         # Remove quotes if the AI wrapped the response in them

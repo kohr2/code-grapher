@@ -114,16 +114,20 @@ Code Grapher provides a **Model Context Protocol (MCP) server** that enables Cla
 
 ### Integration & AI Features
 - **MCP Server**: Model Context Protocol for Claude Desktop integration
-- **Ollama + Gemma3:4B**: Local LLM for code descriptions (completely optional)
+- **AI Provider Options**: Choose between Ollama (local, free) or Gemini (cloud-based)
+  - **Ollama + Gemma3:4B**: Local LLM for code descriptions (private, no API key needed)
+  - **Google Gemini**: Cloud AI for enhanced descriptions (requires API key)
 - **SentenceTransformers**: all-MiniLM-L6-v2 model for semantic embeddings
 - **GitPython**: Git integration for surgical graph updates
 
 ## 📦 Installation & Setup
 
 ### Prerequisites
-- Python 3.9+
+- Python 3.10+
 - Neo4j database server
-- Ollama server (optional - only needed for AI descriptions)
+- AI Provider (choose one):
+  - Ollama server (free, local) - recommended for privacy
+  - Google Gemini API key (cloud-based) - may offer better descriptions
 
 ### Installation Steps
 
@@ -144,7 +148,9 @@ Code Grapher provides a **Model Context Protocol (MCP) server** that enables Cla
    # Username: neo4j, Password: set during first startup
    ```
 
-3. **Setup Ollama AI Server**
+3. **Setup AI Provider**
+
+   **Option A: Ollama (Free, Local)**
    ```bash
    # Install Ollama
    curl -fsSL https://ollama.ai/install.sh | sh
@@ -157,31 +163,40 @@ Code Grapher provides a **Model Context Protocol (MCP) server** that enables Cla
    ollama run gemma3:4b "Hello"
    ```
 
+   **Option B: Google Gemini (Cloud)**
+   - Get API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
+   - Add to your `.env` file: `GEMINI_API_KEY=your_api_key_here`
+   - Set `AI_PROVIDER=gemini` in `.env`
+
 4. **Configure Environment**
    ```bash
-   # Create .env file
-   cat > .env << EOF
-   NEO4J_URL=bolt://localhost:7687
-   NEO4J_USERNAME=neo4j
-   NEO4J_PASSWORD=your_password
-   OLLAMA_URL=http://localhost:11434
-   EOF
+   # Copy example configuration
+   cp .env.example .env
+   
+   # Edit .env with your settings:
+   # NEO4J_URL=bolt://localhost:7687
+   # NEO4J_USERNAME=neo4j  
+   # NEO4J_PASSWORD=your_password
+   # AI_PROVIDER=ollama  # or "gemini"
+   # OLLAMA_URL=http://localhost:11434
+   # GEMINI_API_KEY=your_api_key_here  # if using Gemini
    ```
 
 5. **Setup MCP Server (Optional - for Claude Desktop)**
    ```bash
-   # Install MCP dependencies
+   # Install MCP dependencies (Python 3.10+ required)
    pip install mcp>=1.0.0
    
    # Add to Claude Desktop mcp_servers config:
    {
      "code-grapher": {
-       "command": "python",
-       "args": ["/absolute/path/to/code-grapher/mcp_server.py"],
+       "command": "python3.10",
+       "args": ["/path/to/code-grapher/mcp_server.py"],
        "env": {
          "NEO4J_URL": "bolt://localhost:7687",
          "NEO4J_USERNAME": "neo4j",
-         "NEO4J_PASSWORD": "your_password"
+         "NEO4J_PASSWORD": "your_password",
+         "OLLAMA_URL": "http://localhost:11434"
        }
      }
    }
@@ -270,8 +285,14 @@ NEO4J_URL=bolt://localhost:7687
 NEO4J_USERNAME=neo4j
 NEO4J_PASSWORD=your_password
 
-# Optional - Ollama AI Server (for descriptions only)
+# AI Provider Selection
+AI_PROVIDER=ollama  # Options: "ollama" or "gemini"
+
+# Ollama Configuration (if using AI_PROVIDER=ollama)
 OLLAMA_URL=http://localhost:11434
+
+# Gemini Configuration (if using AI_PROVIDER=gemini)
+GEMINI_API_KEY=your_gemini_api_key
 
 # Optional
 LOG_LEVEL=INFO
@@ -285,8 +306,8 @@ Add to your Claude Desktop `mcp_servers` configuration:
 {
   "mcpServers": {
     "code-grapher": {
-      "command": "python",
-      "args": ["/Users/danielbeach/Code/code-grapher/mcp_server.py"],
+      "command": "python3.10",
+      "args": ["/path/to/code-grapher/mcp_server.py"],
       "env": {
         "NEO4J_URL": "bolt://localhost:7687", 
         "NEO4J_USERNAME": "neo4j",
@@ -298,20 +319,27 @@ Add to your Claude Desktop `mcp_servers` configuration:
 ```
 
 #### For Claude Code MCP
-Use the command line to add the server:
+
+**Prerequisites:** Python 3.10+ with MCP installed
 ```bash
-claude mcp add code-grapher -e NEO4J_URL=bolt://localhost:7687 -e NEO4J_USERNAME=neo4j -e OLLAMA_URL=http://localhost:11434 -- python /Users/danielbeach/Code/code-grapher/mcp_server.py
+pip install mcp>=1.0.0
 ```
 
-Or add via JSON configuration:
+**Add MCP Server:** Use the command line to add the server (adjust paths and URLs for your setup):
+```bash
+claude mcp add code-grapher -e NEO4J_URL=bolt://localhost:7687 -e NEO4J_USERNAME=neo4j -e NEO4J_PASSWORD=your_password -e OLLAMA_URL=http://localhost:11434 -- python3.10 /path/to/code-grapher/mcp_server.py
+```
+
+**Or add via JSON configuration:**
 ```json
 {
   "code-grapher": {
-    "command": "python",
+    "command": "python3.10",
     "args": ["/Users/danielbeach/Code/code-grapher/mcp_server.py"],
     "env": {
       "NEO4J_URL": "bolt://localhost:7687", 
       "NEO4J_USERNAME": "neo4j",
+      "NEO4J_PASSWORD": "your_password",
       "OLLAMA_URL": "http://localhost:11434"
     }
   }
