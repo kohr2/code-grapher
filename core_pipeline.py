@@ -28,17 +28,59 @@ from ollama_client import OllamaClient
 from gemini_client import GeminiClient
 
 
-def generate_code_descriptions(parsed_files: List[Dict[str, Any]]) -> Dict[str, Dict[str, str]]:
+def load_primer_context(project_root: str = ".") -> str:
+    """
+    Load business context from PRIMER.md file in the target project directory
+    
+    Args:
+        project_root: Root directory of the project being analyzed (not MCP server directory)
+        
+    Returns:
+        Primer content as string, empty if not found
+    """
+    primer_paths = [
+        os.path.join(project_root, "PRIMER.md"),
+        os.path.join(project_root, "primer.md"),
+        os.path.join(project_root, "BUSINESS_CONTEXT.md"),
+        os.path.join(project_root, "business_context.md")
+    ]
+    
+    # Check environment variable for custom primer path
+    custom_primer = os.getenv("PRIMER_FILE_PATH")
+    if custom_primer:
+        primer_paths.insert(0, custom_primer)
+    
+    for primer_path in primer_paths:
+        try:
+            if os.path.exists(primer_path):
+                with open(primer_path, 'r', encoding='utf-8') as f:
+                    content = f.read().strip()
+                    if content:
+                        print(f"   📋 Loaded primer context from: {primer_path}")
+                        print(f"       (Project root: {project_root})")
+                        return content
+        except Exception as e:
+            print(f"   ⚠️  Could not read primer file {primer_path}: {e}")
+    
+    print(f"   ➖ No primer context file found in: {project_root}")
+    return ""
+
+
+def generate_code_descriptions(parsed_files: List[Dict[str, Any]], project_root: str = ".") -> Dict[str, Dict[str, str]]:
     """
     Generate AI-powered descriptions for code entities
     
     Args:
         parsed_files: List of parsed file data with entities
+        project_root: Root directory for finding primer context
         
     Returns:
         Dict mapping file_path -> entity_name -> description
     """
     print("🤖 Generating AI code descriptions...")
+    
+    # Load business context primer
+    primer_context = load_primer_context(project_root)
     
     descriptions = {}
     
@@ -83,8 +125,8 @@ def generate_code_descriptions(parsed_files: List[Dict[str, Any]]) -> Dict[str, 
                     end_line = min(start_line + 20, len(lines))  # Limit snippet size
                     code_snippet = '\n'.join(lines[start_line-1:end_line])
                     
-                    # Generate description
-                    description = _generate_entity_description(ai_client, entity_name, entity["type"], code_snippet)
+                    # Generate description with primer context
+                    description = _generate_entity_description(ai_client, entity_name, entity["type"], code_snippet, primer_context)
                     descriptions[file_path][entity_name] = description
                     
                     print(f"     🎯 {entity['type']}: {entity_name}")
@@ -112,10 +154,19 @@ def _get_entity_code_snippet(file_path: str, entity: Dict[str, Any]) -> str:
         return f"{entity.get('type', 'entity')} {entity.get('name', 'unknown')}"
 
 
-def _generate_entity_description(ai_client, entity_name: str, entity_type: str, code_snippet: str) -> str:
-    """Generate a concise description of a code entity using AI"""
+def _generate_entity_description(ai_client, entity_name: str, entity_type: str, code_snippet: str, primer_context: str = "") -> str:
+    """Generate a concise description of a code entity using AI with business context"""
     
-    prompt = f"""Analyze this {entity_type} and provide a concise 1-2 sentence description of what it does:
+    # Build prompt with optional business context
+    prompt_parts = []
+    
+    if primer_context:
+        prompt_parts.append(f"""BUSINESS CONTEXT:
+{primer_context}
+
+---""")
+    
+    prompt_parts.append(f"""Analyze this {entity_type} and provide a concise 1-2 sentence description of what it does:
 
 {entity_type.title()}: {entity_name}
 Code:
@@ -123,7 +174,14 @@ Code:
 {code_snippet}
 ```
 
-Provide a clear, concise description focusing on the purpose and functionality. Keep it under 100 words."""
+Provide a clear, concise description focusing on the purpose and functionality.""")
+    
+    if primer_context:
+        prompt_parts.append("Consider the business context above when describing this code's role and purpose.")
+    
+    prompt_parts.append("Keep it under 100 words.")
+    
+    prompt = "\n\n".join(prompt_parts)
 
     try:
         # Use appropriate method based on client type
@@ -730,7 +788,7 @@ def run_enhanced_pipeline(directory: str = ".", use_ai: bool = True):
     print(f"   ✅ Successfully parsed {len(successful_files)}/{len(python_files)} files")
     
     # Generate AI descriptions for code entities
-    code_descriptions = generate_code_descriptions(parsed_files) if use_ai else {}
+    code_descriptions = generate_code_descriptions(parsed_files, directory) if use_ai else {}
     
     # Extract enhanced relationships
     ai_relationships = extract_enhanced_relationships(parsed_files, use_ai)

@@ -10,6 +10,7 @@ Ultra-fast codebase analysis system that creates knowledge graphs from code usin
 - **Vector Database**: ChromaDB for semantic search
 - **Relationship Engine**: Deterministic AST-based relationship extraction
 - **RAG System**: Hybrid retrieval combining graph + vector search
+- **Primer System**: Business context injection for AI-powered semantic understanding
 
 **Key Components:**
 - `graph_manager.py` - Neo4j operations and graph building
@@ -45,7 +46,37 @@ OLLAMA_URL=http://localhost:11434
 
 # Gemini Configuration (if using gemini)
 GEMINI_API_KEY=your_gemini_api_key
+
+# Optional: Custom primer file path
+PRIMER_FILE_PATH=/path/to/custom/primer.md
 ```
+
+**Business Context Primer:**
+Create a `PRIMER.md` file in the **target project's root directory** (the project being analyzed, not the code-grapher MCP server directory) to provide business context for AI-powered semantic understanding:
+
+```markdown
+# Project Business Context
+
+## Project Overview
+Brief description of what this codebase does
+
+## Business Purpose  
+- Primary goals and objectives
+- Target users and use cases
+- Core value proposition
+
+## Key Business Concepts
+- Domain-specific terminology
+- Important business rules
+- Integration patterns
+
+## Quality Standards
+- Performance requirements
+- Scalability needs
+- Integration requirements
+```
+
+The primer context is automatically injected into AI entity descriptions to provide more accurate, business-aware semantic understanding.
 
 **Start services:**
 ```bash

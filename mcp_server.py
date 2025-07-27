@@ -87,6 +87,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from mcp.server import Server
 from mcp.server.models import InitializationOptions
 from mcp.server.stdio import stdio_server
+from mcp.server.lowlevel.server import NotificationOptions
 from mcp.types import (
     Resource, 
     Tool, 
@@ -518,7 +519,7 @@ class CodeGrapherMCPServer:
             # Generate descriptions if requested
             code_descriptions = {}
             if use_ai:
-                code_descriptions = generate_code_descriptions(parsed_files)
+                code_descriptions = generate_code_descriptions(parsed_files, project_path)
             
             # Extract relationships  
             relationships = extract_enhanced_relationships(parsed_files, use_ai=use_ai)
@@ -761,7 +762,11 @@ class CodeGrapherMCPServer:
                     server_name="code-grapher",
                     server_version="1.0.0",
                     capabilities=self.server.get_capabilities(
-                        notification_options=None,
+                        notification_options=NotificationOptions(
+                            prompts_changed=False,
+                            resources_changed=True,
+                            tools_changed=False
+                        ),
                         experimental_capabilities={}
                     )
                 )
