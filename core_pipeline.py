@@ -19,13 +19,63 @@ load_dotenv()
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from graph_manager import CodeGraphManager
-from logger import logger
-from ai_relationship_extractor import RelationshipExtraction
+# CodeGraphManager will be accessed through ServiceLocator
+from shared.services.service_locator import ServiceLocator
+from ai_relationship_extractor import RelationshipExtraction, AIRelationshipExtractor
+
+# Get logger through service locator
+logger = ServiceLocator.get_logger("core_pipeline")
 from ast_relationship_extractor import extract_ast_relationships
 from entity_classifier import classify_entities
-from ollama_client import OllamaClient
-from gemini_client import GeminiClient
+
+# AI Services
+import sys
+sys.path.append(str(Path(__file__).parent / "ai-services"))
+from interfaces.ai_services_interface import AIServicesInterface
+from services.ai_service import AIService  
+from config.ai_config import AIServiceConfig
+
+
+def get_ai_service() -> AIServicesInterface:
+    """Get or create AI service instance"""
+    try:
+        # Try to get from service registry first
+        registry = ServiceLocator.get_registry()
+        if registry.is_registered(AIServicesInterface):
+            return registry.get(AIServicesInterface)
+    except Exception:
+        pass
+    
+    # Create new AI service
+    try:
+        # Get AI configuration from environment
+        ai_config = AIServiceConfig()
+        
+        # Override with environment variables
+        import os
+        if os.getenv("AI_PROVIDER"):
+            from models.provider_models import AIProviderType
+            try:
+                ai_config.default_provider = AIProviderType(os.getenv("AI_PROVIDER").lower())
+            except ValueError:
+                pass
+        
+        if os.getenv("OLLAMA_URL"):
+            ai_config.ollama_url = os.getenv("OLLAMA_URL")
+        
+        if os.getenv("GEMINI_API_KEY"):
+            ai_config.gemini_api_key = os.getenv("GEMINI_API_KEY")
+        
+        # Create and initialize AI service
+        ai_service = AIService(ai_config, logger)
+        ai_service.initialize({})
+        
+        return ai_service
+        
+    except Exception as e:
+        logger.log_error(f"Failed to create AI service: {e}")
+        # Return a mock service or raise error
+        raise RuntimeError(f"Could not initialize AI service: {e}")
 
 
 def load_primer_context(project_root: str = ".") -> str:
@@ -79,64 +129,62 @@ def generate_code_descriptions(parsed_files: List[Dict[str, Any]], project_root:
     """
     print("🤖 Generating AI code descriptions...")
     
-    # Load business context primer
-    primer_context = load_primer_context(project_root)
-    
-    descriptions = {}
-    
-    # Select AI client based on environment variable
-    ai_provider = os.getenv("AI_PROVIDER", "ollama").lower()
-    
-    if ai_provider == "gemini":
-        ai_client = GeminiClient(api_key=os.getenv("GEMINI_API_KEY"))
-        if not ai_client.is_available():
-            print("⚠️  Gemini API key not configured, falling back to Ollama")
-            ai_client = OllamaClient()
-    else:
-        ai_client = OllamaClient()
-    
-    successful_files = [f for f in parsed_files if f.get("success", False)]
-    
-    for file_data in successful_files:
-        file_path = file_data["file_path"]
-        entities = file_data.get("entities", [])
-        descriptions[file_path] = {}
+    try:
+        # Get AI service
+        ai_service = get_ai_service()
         
-        print(f"   📄 Describing entities in {file_path}")
+        # Load business context primer  
+        primer_context = load_primer_context(project_root)
         
-        # Read the source code
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-                lines = content.split('\n')
-        except Exception as e:
-            print(f"   ⚠️  Could not read {file_path}: {e}")
-            continue
+        descriptions = {}
+        successful_files = [f for f in parsed_files if f.get("success", False)]
         
-        # Generate descriptions for functions and classes
-        for entity in entities:
-            if entity.get("type") in ["function", "class"]:
-                entity_name = entity["name"]
-                start_line = entity.get("line", 1)
-                
-                # Extract code snippet (function/class + some context)
-                try:
-                    # Get code snippet around the entity
-                    end_line = min(start_line + 20, len(lines))  # Limit snippet size
-                    code_snippet = '\n'.join(lines[start_line-1:end_line])
+        for file_data in successful_files:
+            file_path = file_data["file_path"]
+            entities = file_data.get("entities", [])
+            descriptions[file_path] = {}
+            
+            print(f"   📄 Describing entities in {file_path}")
+            
+            # Generate descriptions for functions and classes
+            for entity in entities:
+                if entity.get("type") in ["function", "class"]:
+                    entity_name = entity["name"]
                     
-                    # Generate description with primer context
-                    description = _generate_entity_description(ai_client, entity_name, entity["type"], code_snippet, primer_context)
-                    descriptions[file_path][entity_name] = description
+                    # Prepare entity data for AI service
+                    entity_data = {
+                        "name": entity_name,
+                        "type": entity.get("type", "unknown"),
+                        "file_path": file_path,
+                        "line": entity.get("line", 1),
+                        "properties": entity.get("properties", {})
+                    }
                     
-                    print(f"     🎯 {entity['type']}: {entity_name}")
-                    
-                except Exception as e:
-                    print(f"   ⚠️  Could not describe {entity_name}: {e}")
-                    descriptions[file_path][entity_name] = f"A {entity['type']} named {entity_name}"
-    
-    print(f"   ✅ Generated descriptions for entities")
-    return descriptions
+                    try:
+                        # Generate description using AI service
+                        description = ai_service.generate_description(entity_data, primer_context)
+                        descriptions[file_path][entity_name] = description
+                        
+                        print(f"     🎯 {entity['type']}: {entity_name}")
+                        
+                    except Exception as e:
+                        print(f"   ⚠️  Could not describe {entity_name}: {e}")
+                        descriptions[file_path][entity_name] = f"A {entity['type']} named {entity_name}"
+        
+        print(f"   ✅ Generated descriptions for entities across {len(successful_files)} files")
+        return descriptions
+        
+    except Exception as e:
+        logger.log_error(f"Failed to generate descriptions with AI service: {e}")
+        print(f"   ❌ Failed to generate descriptions: {e}")
+        
+        # Fallback to empty descriptions
+        descriptions = {}
+        for file_data in parsed_files:
+            if file_data.get("success", False):
+                descriptions[file_data["file_path"]] = {}
+        
+        return descriptions
 
 
 def _get_entity_code_snippet(file_path: str, entity: Dict[str, Any]) -> str:
@@ -207,7 +255,7 @@ def clear_neo4j_database():
     print("🗑️  Clearing Neo4j database...")
     
     try:
-        graph_manager = CodeGraphManager()
+        graph_manager = ServiceLocator.get_graph_manager()
         
         # Clear all nodes and relationships
         clear_query = "MATCH (n) DETACH DELETE n"
@@ -377,8 +425,8 @@ def extract_enhanced_relationships(parsed_files: List[Dict[str, Any]],
         return []
     
     try:
-        # Initialize AI extractor
-        extractor = AIRelationshipExtractor()
+        # Get AI service for relationship extraction
+        ai_service = get_ai_service()
         
         all_relationships = []
         successful_files = [f for f in parsed_files if f["success"]]
@@ -394,10 +442,31 @@ def extract_enhanced_relationships(parsed_files: List[Dict[str, Any]],
                         source_entities = source_file.get("entities", [])
                         target_entities = target_file.get("entities", [])
                         
-                        # Extract relationships based on entity types
-                        relationships = extract_relationships_for_entities(
-                            source_file, target_file, source_entities, target_entities, extractor
+                        # Extract relationships using AI service
+                        result = ai_service.extract_relationships(
+                            source_file['file_path'], 
+                            target_file['file_path'],
+                            source_file.get('content', ''),
+                            target_file.get('content', '')
                         )
+                        
+                        # Convert to legacy format for compatibility
+                        relationships = []
+                        if result.success:
+                            for rel in result.relationships:
+                                # Create RelationshipExtraction object for compatibility
+                                rel_extraction = RelationshipExtraction(
+                                    source_file=rel.source_file,
+                                    target_file=rel.target_file,
+                                    source_entity=rel.source_entity,
+                                    target_entity=rel.target_entity,
+                                    relationship_type=rel.relationship_type,
+                                    confidence=rel.confidence,
+                                    relationship_strength=rel.confidence_level.value,
+                                    line_number=rel.line_number,
+                                    context=rel.context
+                                )
+                                relationships.append(rel_extraction)
                         
                         all_relationships.extend(relationships)
                         
@@ -522,7 +591,7 @@ def create_enhanced_graph_with_entities(parsed_files: List[Dict[str, Any]],
     print("🏗️  Creating enhanced graph with specialized entities...")
     
     try:
-        graph_manager = CodeGraphManager()
+        graph_manager = ServiceLocator.get_graph_manager()
         
         total_entities = 0
         total_files = 0

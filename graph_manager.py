@@ -3,7 +3,10 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any, Tuple
 from neo4j import GraphDatabase
 from py2neo import Graph, Node, Relationship
-from logger import logger, CodeGrapherLogger
+from shared.services.service_locator import ServiceLocator
+
+# Get logger through service locator
+logger = ServiceLocator.get_logger("graph_manager")
 # Removed ai_evaluation_tracker dependency
 import time
 from dotenv import load_dotenv
@@ -47,7 +50,7 @@ class CodeGraphManager:
             )
             
             # Log successful connection
-            logger.logger.info(f"Successfully connected to Neo4j graph database in {duration:.2f}s")
+            logger.log_info(f"Successfully connected to Neo4j graph database in {duration:.2f}s")
             
         except Exception as e:
             duration = time.time() - start_time
@@ -59,7 +62,7 @@ class CodeGraphManager:
             )
             
             # Log connection failure
-            logger.logger.error(f"Failed to connect to Neo4j: {str(e)}")
+            logger.log_error(f"Failed to connect to Neo4j: {str(e)}")
             raise
     
     def create_code_entity(self, entity_type: str, name: str, 
@@ -313,7 +316,7 @@ class CodeGraphManager:
             )
             
             # Log performance
-            logger.logger.info(f"Analyzed {file_path} creating {nodes_created} nodes in {duration:.2f}s")
+            logger.log_info(f"Analyzed {file_path} creating {nodes_created} nodes in {duration:.2f}s")
             
         except Exception as e:
             duration = time.time() - start_time
@@ -327,7 +330,7 @@ class CodeGraphManager:
             self.session_logger.log_error(e, {"file": file_path})
             
             # Log failure
-            logger.logger.error(f"Failed to analyze {file_path}: {str(e)}")
+            logger.log_error(f"Failed to analyze {file_path}: {str(e)}")
             raise
     
     def query_for_rag(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
@@ -522,7 +525,7 @@ class CodeGraphManager:
             )
             
             # Log export success
-            logger.logger.info(f"Exported {len(nodes)} nodes and {len(links)} links to D3 format in {duration:.2f}s")
+            logger.log_info(f"Exported {len(nodes)} nodes and {len(links)} links to D3 format in {duration:.2f}s")
             
             return export_data
             
@@ -538,7 +541,7 @@ class CodeGraphManager:
             self.session_logger.log_error(e)
             
             # Log export failure
-            logger.logger.error(f"Failed to export graph to D3 format: {str(e)}")
+            logger.log_error(f"Failed to export graph to D3 format: {str(e)}")
             raise
     
     def export_mermaid_format(self) -> str:

@@ -18,12 +18,15 @@ from datetime import datetime
 # Add current directory to path for imports
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from graph_manager import CodeGraphManager
+# CodeGraphManager will be accessed through ServiceLocator
 from graph_state_manager import GraphStateManager
 from graph_update_engine import GraphUpdateEngine
 from agents.git_diff_agent import GitDiffAgent, DiffAnalysis
-from logger import logger
+from shared.services.service_locator import ServiceLocator
 from ai_evaluation_tracker import ai_tracker
+
+# Get logger through service locator  
+logger = ServiceLocator.get_logger("surgical_update_coordinator")
 from coordinator.agent_coordinator import AgentCoordinator
 
 
@@ -35,7 +38,7 @@ class SurgicalUpdateCoordinator:
     
     def __init__(self, 
                  repo_path: str = ".",
-                 graph_manager: Optional[CodeGraphManager] = None,
+                 graph_manager: Optional[Any] = None,
                  auto_snapshot: bool = True):
         """
         Initialize the surgical update coordinator.
@@ -53,7 +56,7 @@ class SurgicalUpdateCoordinator:
         self.entity_coordinator = None
         
         # Initialize components
-        self.graph_manager = graph_manager or CodeGraphManager()
+        self.graph_manager = graph_manager or ServiceLocator.get_graph_manager()
         self.state_manager = GraphStateManager(self.graph_manager)
         self.update_engine = GraphUpdateEngine(self.graph_manager)
         

@@ -200,7 +200,7 @@ Code Grapher provides a **Model Context Protocol (MCP) server** that enables Cla
        }
      }
    }
-   ```
+   ``
 
 ## 💡 Usage Examples
 

@@ -102,10 +102,12 @@ from mcp.types import (
 
 # Code Grapher imports
 from core_pipeline import run_enhanced_pipeline, parse_and_extract_entities, create_enhanced_graph_with_entities, extract_enhanced_relationships, generate_code_descriptions
-from graph_manager import CodeGraphManager
-from surgical_update_coordinator import SurgicalUpdateCoordinator
+from shared.services.service_locator import ServiceLocator
+from update_agents.services.surgical_update_wrapper import create_surgical_update_coordinator
 from rag_pipeline import CodeRAGPipeline
-from logger import logger
+
+# Get logger through service locator
+logger = ServiceLocator.get_logger("mcp_server")
 
 
 class CodeGrapherMCPServer:
@@ -465,7 +467,7 @@ class CodeGrapherMCPServer:
     async def _ensure_graph_manager(self):
         """Ensure graph manager is initialized"""
         if not self.graph_manager:
-            self.graph_manager = CodeGraphManager()
+            self.graph_manager = ServiceLocator.get_graph_manager()
             self.session_logger.log_info("Graph manager initialized")
     
     async def _ensure_rag_pipeline(self):
@@ -479,8 +481,8 @@ class CodeGrapherMCPServer:
         """Ensure surgical coordinator is initialized"""
         await self._ensure_graph_manager()
         if not self.surgical_coordinator:
-            self.surgical_coordinator = SurgicalUpdateCoordinator(graph_manager=self.graph_manager)
-            self.session_logger.log_info("Surgical coordinator initialized")
+            self.surgical_coordinator = create_surgical_update_coordinator(graph_manager=self.graph_manager)
+            self.session_logger.log_info("Enhanced surgical coordinator initialized with UpdateService")
     
     async def _create_code_graph(self, arguments: dict) -> List[TextContent]:
         """Create code graph from project"""

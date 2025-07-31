@@ -546,13 +546,103 @@ class GraphUpdateEngine:
                 self.session_logger.log_warning(f"File not found for relationship update: {update.file_path}")
                 return
             
-            # For now, this is a simplified approach
-            # In a full implementation, we would re-parse the file and update relationships
-            self.session_logger.log_info(f"Relationship update planned for {update.file_path}")
+            self.session_logger.log_info(f"Re-analyzing relationships for {update.file_path}")
+            
+            # Read and parse the file content
+            with open(update.file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # Create parsed file structure for AST relationship extractor
+            parsed_file = {
+                "file_path": update.file_path,
+                "success": True, 
+                "entities": [],
+                "content": content
+            }
+            
+            # Extract relationships using existing AST extractor
+            from ast_relationship_extractor import extract_ast_relationships
+            relationships = extract_ast_relationships([parsed_file])
+            
+            # Validate and update relationships in graph
+            self._validate_and_update_relationships(relationships, update.file_path)
+            
+            self.session_logger.log_info(f"Updated {len(relationships)} relationships for {update.file_path}")
             
         except Exception as e:
-            self.session_logger.log_error(e, {"update": update})
-            raise
+            self.session_logger.log_error(f"Failed to update relationships for {update.file_path}: {e}")
+            # Don't raise - continue with other updates
+    
+    def _validate_and_update_relationships(self, relationships: List[Dict], file_path: str):
+        """Validate extracted relationships and update them in the graph"""
+        valid_relationships = []
+        invalid_count = 0
+        
+        for rel in relationships:
+            if self._is_relationship_valid(rel, file_path):
+                valid_relationships.append(rel)
+            else:
+                invalid_count += 1
+                self.session_logger.log_warning(f"Invalid relationship detected: {rel}")
+        
+        if invalid_count > 0:
+            self.session_logger.log_warning(f"Filtered out {invalid_count} invalid relationships from {file_path}")
+        
+        # Update graph with valid relationships
+        for rel in valid_relationships:
+            try:
+                # Remove old relationships for this file first
+                self.graph_manager.remove_entity_relationships(file_path)
+                
+                # Add the validated relationship
+                self.graph_manager.add_relationship(
+                    rel.get("source_entity", ""),
+                    rel.get("target_entity", ""),
+                    rel.get("relationship_type", "RELATED_TO"),
+                    rel.get("properties", {})
+                )
+                self.stats["relationships_added"] += 1
+                
+            except Exception as e:
+                self.session_logger.log_error(f"Failed to add relationship to graph: {e}")
+    
+    def _is_relationship_valid(self, relationship: Dict, file_path: str) -> bool:
+        """Validate that a relationship makes sense and has valid targets"""
+        try:
+            # Check required fields
+            source_entity = relationship.get("source_entity")
+            target_entity = relationship.get("target_entity") 
+            relationship_type = relationship.get("relationship_type")
+            
+            if not all([source_entity, target_entity, relationship_type]):
+                return False
+            
+            # Don't allow self-relationships
+            if source_entity == target_entity:
+                return False
+            
+            # Basic validation - source entity should exist in the file
+            if not self._entity_exists_in_context(source_entity, file_path):
+                return False
+                
+            return True
+            
+        except Exception as e:
+            self.session_logger.log_warning(f"Relationship validation error: {e}")
+            return False
+    
+    def _entity_exists_in_context(self, entity_name: str, file_path: str) -> bool:
+        """Check if an entity actually exists in the given file context"""
+        try:
+            # Query graph to see if entity exists
+            result = self.graph_manager.query_entities(
+                {"name": entity_name, "file_path": file_path}, 
+                limit=1
+            )
+            return len(result) > 0
+        except Exception:
+            # If we can't verify, assume it's valid to avoid false negatives
+            return True
     
     def _estimate_execution_time(self, updates: List[GraphUpdate]) -> float:
         """Estimate how long the updates will take to execute"""

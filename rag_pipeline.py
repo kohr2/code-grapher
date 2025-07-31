@@ -5,7 +5,10 @@ from sentence_transformers import SentenceTransformer
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from graph_manager import CodeGraphManager
 from gemini_client import GeminiClient
-from logger import logger, CodeGrapherLogger
+from shared.services.service_locator import ServiceLocator
+
+# Get logger through service locator
+logger = ServiceLocator.get_logger("rag_pipeline")
 from ai_evaluation_tracker import ai_tracker, EvaluationCategory, Sentiment
 import time
 import numpy as np

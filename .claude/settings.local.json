@@ -13,7 +13,12 @@
       "mcp__gemini-chat__gemini_status",
       "Bash(rm:*)",
       "Bash(find:*)",
-      "WebFetch(domain:docs.anthropic.com)"
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(pip install:*)",
+      "mcp__code-grapher__create_code_graph",
+      "Bash(chmod:*)",
+      "Bash(git push:*)",
+      "Bash(cp:*)"
     ],
     "deny": []
   }
