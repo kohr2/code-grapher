@@ -1,8 +1,11 @@
+#!/opt/homebrew/bin/python3.10
 """
 Main Entry Point
 
 Phase 5 verticalization - main application entry point with proper dependency injection.
 This replaces the monolithic approach with a clean, service-based architecture.
+
+Requires Python 3.10+ for MCP server compatibility and modern async features.
 """
 
 import asyncio

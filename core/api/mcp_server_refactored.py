@@ -10,8 +10,9 @@ import json
 from typing import List, Dict, Any
 
 from mcp.server import Server
-from mcp.server.models import Resource, Tool
 from mcp.types import (
+    Resource,
+    Tool,
     TextContent,
     ImageContent,
     EmbeddedResource,
