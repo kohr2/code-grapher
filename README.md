@@ -150,8 +150,12 @@ Code Grapher provides a **Model Context Protocol (MCP) server** that enables Cla
    git clone https://github.com/your-org/code-grapher.git
    cd code-grapher
    
-   # Install with Python 3.10+ (required)
-   python3.10 -m pip install -r requirements.txt
+   # Create Python 3.10 virtual environment (required for MCP)
+   python3.10 -m venv venv310
+   source venv310/bin/activate
+   
+   # Install dependencies in virtual environment
+   pip install -r requirements.txt
    ```
 
 2. **Setup Neo4j Database**
@@ -368,11 +372,12 @@ Add to your Claude Desktop `mcp_servers` configuration:
 {
   "mcpServers": {
     "code-grapher": {
-      "command": "python3.10", 
+      "command": "/path/to/code-grapher/venv310/bin/python", 
       "args": ["/path/to/code-grapher/main.py", "mcp"],
       "env": {
         "NEO4J_URL": "bolt://localhost:7687",
         "NEO4J_USERNAME": "neo4j",
+        "NEO4J_PASSWORD": "your_password",
         "OLLAMA_URL": "http://localhost:11434"
       }
     }
@@ -382,13 +387,18 @@ Add to your Claude Desktop `mcp_servers` configuration:
 
 #### For Claude Code MCP
 ```bash
-# Add via command line
-claude mcp add code-grapher -e NEO4J_URL=bolt://localhost:7687 -e NEO4J_USERNAME=neo4j -e NEO4J_PASSWORD=your_password -e OLLAMA_URL=http://localhost:11434 -- python3.10 /path/to/code-grapher/main.py mcp
+# Add via command line (use the virtual environment Python)
+claude mcp add code-grapher \
+  -e NEO4J_URL=bolt://localhost:7687 \
+  -e NEO4J_USERNAME=neo4j \
+  -e NEO4J_PASSWORD=your_password \
+  -e OLLAMA_URL=http://localhost:11434 \
+  -- /path/to/code-grapher/venv310/bin/python /path/to/code-grapher/main.py mcp
 
 # Or add via JSON configuration
 {
   "code-grapher": {
-    "command": "python3.10",
+    "command": "/path/to/code-grapher/venv310/bin/python",
     "args": ["/path/to/code-grapher/main.py", "mcp"],
     "env": {
       "NEO4J_URL": "bolt://localhost:7687",
@@ -434,6 +444,63 @@ claude mcp add code-grapher -e NEO4J_URL=bolt://localhost:7687 -e NEO4J_USERNAME
 - **Incremental Updates**: Git-based surgical updates for large codebases  
 - **Memory Efficiency**: Optimized processing with comprehensive logging
 - **Privacy Options**: Local Ollama processing available - no external API calls required
+
+## 🐛 Troubleshooting
+
+### MCP Server Not Starting
+
+**Issue**: MCP server fails to start with "failed" status in Claude Code
+
+**Common Causes & Solutions**:
+
+1. **Python Version Issue** (Most Common)
+   ```bash
+   # Check Python version in virtual environment
+   source venv310/bin/activate
+   python --version  # Should be 3.10+
+   
+   # If not 3.10+, recreate the virtual environment
+   rm -rf venv310
+   python3.10 -m venv venv310
+   source venv310/bin/activate
+   pip install -r requirements.txt
+   ```
+
+2. **MCP Package Missing**
+   ```bash
+   # Ensure MCP is installed in the virtual environment
+   source venv310/bin/activate
+   pip install "mcp>=0.9.0"
+   ```
+
+3. **Incorrect Python Path in Configuration**
+   - Make sure you're using the full path to the virtual environment Python
+   - Example: `/Users/username/Code/code-grapher/venv310/bin/python`
+   - NOT just `python3.10` or `python`
+
+4. **Database Connection Issues**
+   ```bash
+   # Test Neo4j connection
+   neo4j status
+   # If not running: neo4j start
+   
+   # Test with correct environment variables
+   source venv310/bin/activate
+   python main.py health
+   ```
+
+### Quick Diagnostic Commands
+```bash
+# Test MCP server manually
+source venv310/bin/activate
+python main.py mcp  # Should start without errors
+
+# Check service health
+python main.py health
+
+# Check dependencies
+pip show mcp neo4j py2neo
+```
 
 ## 🔧 Development & Testing
 
