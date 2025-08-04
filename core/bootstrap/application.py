@@ -198,32 +198,36 @@ class Application:
             except Exception as e:
                 print(f"     ⚠️  AI Services registration failed: {e}")
         
-        # 3. RAG Service - Skip for now due to missing langchain dependency
-        # try:
-        #     from core.services.rag_service import RAGService
-        #     
-        #     rag_service = RAGService(
-        #         graph_service=None,  # Will be injected during initialization
-        #         ai_service=None,     # Will be injected during initialization
-        #         config=self.orchestration_config.rag,
-        #         logger=self.logger
-        #     )
-        #     self.service_registry.register(RAGServiceInterface, rag_service)
-        #     
-        #     dependencies = [LoggerInterface, GraphOperationsInterface]
-        #     optional_deps = [AIServicesInterface] if AIServicesInterface else []
-        #     
-        #     self.dependency_resolver.register_service_with_dependencies(
-        #         RAGServiceInterface,
-        #         rag_service,
-        #         dependencies=dependencies,
-        #         optional_dependencies=optional_deps
-        #     )
-        #     
-        #     print("     ✅ RAG Service registered")
-        # except Exception as e:
-        #     print(f"     ⚠️  RAG Service registration failed: {e}")
-        print("     ⚠️  RAG Service skipped (missing dependencies)")
+        # 3. RAG Service - Register after graph service
+        try:
+            from core.services.rag_service import RAGService
+            
+            # Get the already registered graph service
+            graph_service = self.service_registry.get(GraphOperationsInterface)
+            
+            rag_service = RAGService(
+                graph_service=graph_service,
+                ai_service=None,     # Will be injected if available
+                config=self.orchestration_config.rag,
+                logger=self.logger
+            )
+            self.service_registry.register(RAGServiceInterface, rag_service)
+            
+            dependencies = [LoggerInterface, GraphOperationsInterface]
+            optional_deps = []
+            if AIServicesInterface:
+                optional_deps.append(AIServicesInterface)
+            
+            self.dependency_resolver.register_service_with_dependencies(
+                RAGServiceInterface,
+                rag_service,
+                dependencies=dependencies,
+                optional_dependencies=optional_deps
+            )
+            
+            print("     ✅ RAG Service registered")
+        except Exception as e:
+            print(f"     ⚠️  RAG Service registration failed: {e}")
         
         # 4. Classification Service
         try:
@@ -253,33 +257,32 @@ class Application:
             print(f"     ⚠️  Pipeline Service creation failed: {e}")
             pipeline_service = None
         
-        # 6. Pipeline Orchestrator - Skip for now due to import issues
-        # try:
-        #     from core.orchestration.pipeline_orchestrator import PipelineOrchestrator
-        #     
-        #     pipeline_orchestrator = PipelineOrchestrator(
-        #         services=self.service_registry,
-        #         config=self.orchestration_config,
-        #         logger=self.logger
-        #     )
-        #     self.service_registry.register(PipelineInterface, pipeline_orchestrator)
-        #     
-        #     dependencies = [LoggerInterface, GraphOperationsInterface]
-        #     optional_deps = []
-        #     if AIServicesInterface:
-        #         optional_deps.append(AIServicesInterface)
-        #     
-        #     self.dependency_resolver.register_service_with_dependencies(
-        #         PipelineInterface,
-        #         pipeline_orchestrator,
-        #         dependencies=dependencies,
-        #         optional_dependencies=optional_deps
-        #     )
-        #     
-        #     print("     ✅ Pipeline Orchestrator registered")
-        # except Exception as e:
-        #     print(f"     ⚠️  Pipeline Orchestrator registration failed: {e}")
-        print("     ⚠️  Pipeline Orchestrator skipped (import issues)")
+        # 6. Pipeline Orchestrator - Use real implementation
+        try:
+            from core.orchestration.pipeline_orchestrator import PipelineOrchestrator
+            
+            pipeline_orchestrator = PipelineOrchestrator(
+                services=self.service_registry,
+                config=self.orchestration_config,
+                logger=self.logger
+            )
+            self.service_registry.register(PipelineInterface, pipeline_orchestrator)
+            
+            dependencies = [LoggerInterface, GraphOperationsInterface, RAGServiceInterface]
+            optional_deps = []
+            if AIServicesInterface:
+                optional_deps.append(AIServicesInterface)
+            
+            self.dependency_resolver.register_service_with_dependencies(
+                PipelineInterface,
+                pipeline_orchestrator,
+                dependencies=dependencies,
+                optional_dependencies=optional_deps
+            )
+            
+            print("     ✅ Pipeline Orchestrator registered")
+        except Exception as e:
+            print(f"     ⚠️  Pipeline Orchestrator registration failed: {e}")
         
         # 7. Update Intelligence Service (from Phase 3) - Optional
         if UpdateIntelligenceInterface:

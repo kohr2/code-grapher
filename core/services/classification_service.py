@@ -28,28 +28,32 @@ class ClassificationService:
         """Initialize classification rules and patterns"""
         return {
             'function_patterns': {
-                'api_endpoint': ['@app.route', '@api.route', '@blueprint.route'],
-                'test_function': ['test_', 'Test', '@pytest', '@unittest'],
-                'property_getter': ['@property'],
-                'static_method': ['@staticmethod'],
+                'api_endpoint': ['@app.route', '@api.route', '@blueprint.route', 'app.get', 'app.post', 'app.put', 'app.delete'],
+                'test_function': ['test_', 'Test', '@pytest', '@unittest', 'describe', 'it(', 'test('],
+                'property_getter': ['@property', 'get '],
+                'static_method': ['@staticmethod', 'static '],
                 'class_method': ['@classmethod'],
-                'async_function': ['async def'],
-                'generator': ['yield'],
+                'async_function': ['async def', 'async '],
+                'generator': ['yield', 'function*'],
                 'decorator': ['@'],
-                'main_function': ['if __name__ == "__main__"'],
-                'init_function': ['__init__', '__new__'],
+                'main_function': ['if __name__ == "__main__"', 'if (require.main === module)'],
+                'init_function': ['__init__', '__new__', 'constructor'],
                 'magic_method': ['__', '__'],
-                'private_method': ['_'],
+                'private_method': ['_', 'private '],
                 'utility_function': ['util', 'helper', 'common'],
                 'validation_function': ['validate', 'check', 'verify'],
                 'conversion_function': ['convert', 'transform', 'parse'],
-                'handler_function': ['handle', 'process', 'execute'],
+                'handler_function': ['handle', 'process', 'execute', 'Handler'],
                 'factory_function': ['create', 'build', 'make', 'factory'],
                 'config_function': ['config', 'setup', 'configure'],
                 'logging_function': ['log', 'debug', 'error', 'warn'],
                 'database_function': ['db_', 'query', 'insert', 'update', 'delete'],
                 'cache_function': ['cache', 'memoize'],
-                'serialization_function': ['serialize', 'deserialize', 'json', 'pickle']
+                'serialization_function': ['serialize', 'deserialize', 'json', 'pickle'],
+                'arrow_function': ['=>'],
+                'react_component': ['React.Component', 'useState', 'useEffect', 'Component'],
+                'hook_function': ['use'],
+                'middleware': ['middleware', 'next(']
             },
             'class_patterns': {
                 'model': ['Model', 'Entity', 'Schema'],
@@ -72,7 +76,13 @@ class ClassificationService:
                 'singleton': ['Singleton'],
                 'observer': ['Observer', 'Listener'],
                 'command': ['Command', 'Action'],
-                'strategy': ['Strategy', 'Algorithm']
+                'strategy': ['Strategy', 'Algorithm'],
+                'react_component': ['Component', 'PureComponent'],
+                'typescript_interface': ['interface'],
+                'typescript_type': ['type'],
+                'vue_component': ['Vue', 'Component'],
+                'angular_component': ['@Component', 'Component'],
+                'express_router': ['Router', 'router']
             },
             'variable_patterns': {
                 'constant': ['UPPER_CASE', 'ALL_CAPS'],
@@ -147,6 +157,12 @@ class ClassificationService:
                 classification = self._classify_class(entity_name, entity_content, entity.get('properties', {}))
             elif entity_type == 'variable':
                 classification = self._classify_variable(entity_name, entity_content, entity.get('properties', {}))
+            elif entity_type == 'interface':
+                classification = self._classify_interface(entity_name, entity_content, entity.get('properties', {}))
+            elif entity_type in ['dependency', 'script', 'config_option', 'project', 'file_pattern', 'data_structure']:
+                classification = self._classify_json_entity(entity_name, entity_type, entity)
+            elif entity_type in ['documentation_section', 'code_example', 'reference_link', 'api_reference', 'project_documentation']:
+                classification = self._classify_markdown_entity(entity_name, entity_type, entity)
             else:
                 classification = {'specialized_type': entity_type, 'confidence': 0.5}
             
@@ -256,6 +272,239 @@ class ClassificationService:
         return {
             'specialized_type': 'variable',
             'confidence': 0.5,
+            'matched_patterns': []
+        }
+    
+    def _classify_interface(self, name: str, content: str, properties: Dict[str, Any]) -> Dict[str, Any]:
+        """Classify a TypeScript interface entity"""
+        patterns = self._classification_rules['class_patterns']  # Reuse class patterns for interfaces
+        
+        # Check for specific patterns
+        for specialized_type, keywords in patterns.items():
+            confidence = self._calculate_pattern_confidence(name, content, keywords)
+            if confidence > 0.7:
+                return {
+                    'specialized_type': f'interface_{specialized_type}',
+                    'confidence': confidence,
+                    'matched_patterns': [kw for kw in keywords if kw.lower() in (name + content).lower()]
+                }
+        
+        # Check naming conventions for interfaces
+        if name.startswith('I') and len(name) > 1 and name[1].isupper():
+            return {
+                'specialized_type': 'interface_contract',
+                'confidence': 0.8,
+                'matched_patterns': ['I_prefix'],
+                'inference_source': 'naming_convention'
+            }
+        
+        # Default interface classification
+        return {
+            'specialized_type': 'typescript_interface',
+            'confidence': 0.7,
+            'matched_patterns': []
+        }
+    
+    def _classify_json_entity(self, name: str, entity_type: str, entity: Dict[str, Any]) -> Dict[str, Any]:
+        """Classify JSON-based entities"""
+        if entity_type == 'dependency':
+            dep_type = entity.get('dependency_type', 'dependencies')
+            
+            # Classify by dependency type
+            if dep_type == 'devDependencies':
+                return {
+                    'specialized_type': 'dev_dependency',
+                    'confidence': 0.9,
+                    'matched_patterns': ['devDependencies']
+                }
+            elif dep_type == 'peerDependencies':
+                return {
+                    'specialized_type': 'peer_dependency',
+                    'confidence': 0.9,
+                    'matched_patterns': ['peerDependencies']
+                }
+            
+            # Classify by common framework/library patterns
+            frameworks = {
+                'react': ['react', 'react-dom', '@types/react'],
+                'vue': ['vue', '@vue/'],
+                'angular': ['@angular/', 'ng'],
+                'express': ['express', 'koa', 'fastify'],
+                'testing': ['jest', 'mocha', 'chai', 'cypress', 'playwright'],
+                'build_tool': ['webpack', 'vite', 'rollup', 'parcel', 'esbuild'],
+                'typescript': ['typescript', '@types/', 'ts-node'],
+                'linting': ['eslint', 'prettier', 'tslint']
+            }
+            
+            for framework, patterns in frameworks.items():
+                if any(pattern in name.lower() for pattern in patterns):
+                    return {
+                        'specialized_type': f'{framework}_dependency',
+                        'confidence': 0.8,
+                        'matched_patterns': [pattern for pattern in patterns if pattern in name.lower()]
+                    }
+            
+            return {
+                'specialized_type': 'runtime_dependency',
+                'confidence': 0.6,
+                'matched_patterns': []
+            }
+        
+        elif entity_type == 'script':
+            # Classify npm scripts by common patterns
+            script_patterns = {
+                'build_script': ['build', 'compile', 'bundle'],
+                'test_script': ['test', 'spec', 'coverage'],
+                'dev_script': ['dev', 'serve', 'start:dev', 'watch'],
+                'start_script': ['start', 'serve'],
+                'lint_script': ['lint', 'format', 'check'],
+                'deploy_script': ['deploy', 'publish', 'release']
+            }
+            
+            for script_type, patterns in script_patterns.items():
+                if any(pattern in name.lower() for pattern in patterns):
+                    return {
+                        'specialized_type': script_type,
+                        'confidence': 0.8,
+                        'matched_patterns': [pattern for pattern in patterns if pattern in name.lower()]
+                    }
+            
+            return {
+                'specialized_type': 'custom_script',
+                'confidence': 0.6,
+                'matched_patterns': []
+            }
+        
+        elif entity_type == 'config_option':
+            category = entity.get('category', '')
+            
+            if 'typescript' in category:
+                return {
+                    'specialized_type': 'typescript_config',
+                    'confidence': 0.9,
+                    'matched_patterns': ['typescript']
+                }
+            elif 'eslint' in category:
+                return {
+                    'specialized_type': 'linting_config',
+                    'confidence': 0.9,
+                    'matched_patterns': ['eslint']
+                }
+            
+            return {
+                'specialized_type': 'build_config',
+                'confidence': 0.7,
+                'matched_patterns': []
+            }
+        
+        # Default JSON classification
+        return {
+            'specialized_type': entity_type,
+            'confidence': 0.7,
+            'matched_patterns': []
+        }
+    
+    def _classify_markdown_entity(self, name: str, entity_type: str, entity: Dict[str, Any]) -> Dict[str, Any]:
+        """Classify Markdown-based entities"""
+        if entity_type == 'documentation_section':
+            level = entity.get('level', 1)
+            
+            # Classify by section content patterns
+            section_patterns = {
+                'api_documentation': ['api', 'endpoint', 'method', 'function'],
+                'installation_guide': ['install', 'setup', 'getting started', 'quickstart'],
+                'usage_guide': ['usage', 'example', 'how to', 'tutorial'],
+                'architecture_doc': ['architecture', 'design', 'structure', 'overview'],
+                'config_documentation': ['config', 'configuration', 'settings', 'options'],
+                'troubleshooting': ['troubleshooting', 'issues', 'problems', 'faq']
+            }
+            
+            name_lower = name.lower()
+            for doc_type, patterns in section_patterns.items():
+                if any(pattern in name_lower for pattern in patterns):
+                    return {
+                        'specialized_type': doc_type,
+                        'confidence': 0.8,
+                        'matched_patterns': [pattern for pattern in patterns if pattern in name_lower],
+                        'section_level': level
+                    }
+            
+            # Classify by level
+            if level == 1:
+                return {
+                    'specialized_type': 'main_section',
+                    'confidence': 0.7,
+                    'matched_patterns': [],
+                    'section_level': level
+                }
+            else:
+                return {
+                    'specialized_type': 'subsection',
+                    'confidence': 0.6,
+                    'matched_patterns': [],
+                    'section_level': level
+                }
+        
+        elif entity_type == 'code_example':
+            language = entity.get('language', 'text')
+            
+            if language in ['javascript', 'typescript', 'js', 'ts']:
+                return {
+                    'specialized_type': 'javascript_example',
+                    'confidence': 0.9,
+                    'matched_patterns': [language]
+                }
+            elif language in ['python', 'py']:
+                return {
+                    'specialized_type': 'python_example', 
+                    'confidence': 0.9,
+                    'matched_patterns': [language]
+                }
+            elif language in ['bash', 'shell', 'sh']:
+                return {
+                    'specialized_type': 'shell_example',
+                    'confidence': 0.9,
+                    'matched_patterns': [language]
+                }
+            
+            return {
+                'specialized_type': 'code_snippet',
+                'confidence': 0.7,
+                'matched_patterns': []
+            }
+        
+        elif entity_type == 'reference_link':
+            url = entity.get('url', '')
+            
+            if url.startswith('http'):
+                return {
+                    'specialized_type': 'external_reference',
+                    'confidence': 0.8,
+                    'matched_patterns': ['http']
+                }
+            elif url.startswith('#'):
+                return {
+                    'specialized_type': 'internal_reference',
+                    'confidence': 0.8,
+                    'matched_patterns': ['#']
+                }
+            elif url.endswith('.md'):
+                return {
+                    'specialized_type': 'documentation_reference',
+                    'confidence': 0.8,
+                    'matched_patterns': ['.md']
+                }
+            
+            return {
+                'specialized_type': 'file_reference',
+                'confidence': 0.6,
+                'matched_patterns': []
+            }
+        
+        # Default markdown classification
+        return {
+            'specialized_type': entity_type,
+            'confidence': 0.7,
             'matched_patterns': []
         }
     

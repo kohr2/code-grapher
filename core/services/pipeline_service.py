@@ -16,17 +16,29 @@ from core.interfaces.pipeline_interface import PipelineInterface, PipelineResult
 from core.config.orchestration_config import PipelineConfig
 from core.services.classification_service import ClassificationService
 
-# Import existing pipeline functions to maintain compatibility
+# Import enhanced multi-language parsing functions
+try:
+    from shared.services.multi_language_parser import parse_and_extract_entities
+    MULTI_LANGUAGE_PARSING = True
+except ImportError:
+    # Fallback to original pipeline functions
+    try:
+        from core_pipeline import parse_and_extract_entities
+        MULTI_LANGUAGE_PARSING = False
+    except ImportError:
+        # Final fallback
+        def parse_and_extract_entities(files): return []
+        MULTI_LANGUAGE_PARSING = False
+
+# Import other pipeline functions
 try:
     from core_pipeline import (
-        parse_and_extract_entities,
         extract_enhanced_relationships,
         create_enhanced_graph_with_entities,
         clear_neo4j_database
     )
 except ImportError:
     # Fallback functions for when core_pipeline is not available
-    def parse_and_extract_entities(files): return []
     def extract_enhanced_relationships(files, use_ai): return []
     def create_enhanced_graph_with_entities(files, rels, descs): return {}
     def clear_neo4j_database(): return True
@@ -71,13 +83,13 @@ class PipelineService:
         start_time = time.time()
         
         try:
-            # Find Python files
-            python_files = self._find_python_files(directory)
+            # Find source files (Python, TypeScript, JavaScript)
+            source_files = self._find_source_files(directory)
             
-            if not python_files:
+            if not source_files:
                 return {
                     'success': False,
-                    'error': 'No Python files found',
+                    'error': 'No source files found (Python, TypeScript, JavaScript, JSON, Markdown)',
                     'files': [],
                     'entities': [],
                     'execution_time': time.time() - start_time
@@ -85,9 +97,9 @@ class PipelineService:
             
             # Parse files with entity extraction
             if self.config.parallel_processing:
-                parsed_files = await self._parse_files_parallel(python_files)
+                parsed_files = await self._parse_files_parallel(source_files)
             else:
-                parsed_files = await self._parse_files_sequential(python_files)
+                parsed_files = await self._parse_files_sequential(source_files)
             
             # Classify entities
             all_entities = []
@@ -110,7 +122,7 @@ class PipelineService:
                 'files': parsed_files,
                 'entities': all_entities,
                 'statistics': {
-                    'total_files': len(python_files),
+                    'total_files': len(source_files),
                     'successful_files': len(successful_files),
                     'total_entities': len(all_entities),
                     'execution_time': execution_time
@@ -118,7 +130,7 @@ class PipelineService:
                 'execution_time': execution_time
             }
             
-            self.logger.log_info(f"Codebase parsing complete: {len(successful_files)}/{len(python_files)} files, {len(all_entities)} entities")
+            self.logger.log_info(f"Codebase parsing complete: {len(successful_files)}/{len(source_files)} files, {len(all_entities)} entities")
             
             return result
             
@@ -290,26 +302,36 @@ class PipelineService:
             }
     
     def _find_python_files(self, directory: str) -> List[str]:
-        """Find Python files in directory"""
-        python_files = []
+        """Find Python files in directory - legacy method for backward compatibility"""
+        return self._find_source_files(directory, extensions=['.py'])
+    
+    def _find_source_files(self, directory: str, extensions: List[str] = None) -> List[str]:
+        """Find source files with specified extensions in directory"""
+        if extensions is None:
+            extensions = ['.py', '.ts', '.tsx', '.js', '.jsx', '.json', '.md', '.markdown']
+        
+        source_files = []
         
         for root, dirs, files in os.walk(directory):
             # Skip hidden directories and common non-source directories
             dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ['__pycache__', 'node_modules', '.git']]
             
             for file in files:
-                if file.endswith('.py') and not file.startswith('.'):
-                    python_files.append(os.path.join(root, file))
+                if not file.startswith('.'):
+                    for ext in extensions:
+                        if file.endswith(ext):
+                            source_files.append(os.path.join(root, file))
+                            break
         
-        return python_files
+        return source_files
     
-    async def _parse_files_parallel(self, python_files: List[str]) -> List[Dict[str, Any]]:
+    async def _parse_files_parallel(self, source_files: List[str]) -> List[Dict[str, Any]]:
         """Parse files in parallel batches"""
         batch_size = self.config.batch_size
         parsed_files = []
         
-        for i in range(0, len(python_files), batch_size):
-            batch = python_files[i:i + batch_size]
+        for i in range(0, len(source_files), batch_size):
+            batch = source_files[i:i + batch_size]
             
             # Parse batch in separate thread to avoid blocking
             batch_result = await asyncio.to_thread(parse_and_extract_entities, batch)
@@ -319,9 +341,9 @@ class PipelineService:
         
         return parsed_files
     
-    async def _parse_files_sequential(self, python_files: List[str]) -> List[Dict[str, Any]]:
+    async def _parse_files_sequential(self, source_files: List[str]) -> List[Dict[str, Any]]:
         """Parse files sequentially"""
-        return await asyncio.to_thread(parse_and_extract_entities, python_files)
+        return await asyncio.to_thread(parse_and_extract_entities, source_files)
     
     def get_operation_statistics(self) -> Dict[str, Any]:
         """Get operation statistics"""

@@ -19,15 +19,29 @@ from shared.interfaces.logger_interface import LoggerInterface
 from shared.services.service_registry import ServiceRegistry
 
 # Service interfaces from Phase 2-4
+import sys
+import os
+# Add project root to Python path for proper imports
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 try:
     from ai_services.interfaces.ai_services_interface import AIServicesInterface
 except ImportError:
-    from interfaces.ai_services_interface import AIServicesInterface
+    # Fallback interface if ai_services not available
+    from abc import ABC, abstractmethod
+    
+    class AIServicesInterface(ABC):
+        @abstractmethod
+        async def generate_description(self, entity_data: dict, primer_context: str = "") -> str:
+            pass
+        
+        @abstractmethod
+        async def extract_relationships(self, parsed_files: list) -> list:
+            pass
 
-try:
-    from graph_ops.interfaces.graph_service_interface import GraphOperationsInterface
-except ImportError:
-    from shared.interfaces.graph_operations_interface import GraphOperationsInterface
+from shared.interfaces.graph_operations_interface import GraphOperationsInterface
 
 try:
     from update_agents.interfaces.update_coordinator_interface import UpdateIntelligenceInterface
@@ -112,12 +126,16 @@ class PipelineOrchestrator(PipelineInterface):
             use_ai = kwargs.get('use_ai', self.config.pipeline.enable_ai_descriptions)
             enable_relationships = kwargs.get('enable_relationships', self.config.pipeline.enable_relationship_extraction)
             enable_embeddings = kwargs.get('enable_embeddings', self.config.pipeline.enable_embeddings)
+            primer_file_path = kwargs.get('primer_file_path')
+            include_documentation = kwargs.get('include_documentation', True)
             
             pipeline_data = {
                 'target_directory': target_directory,
                 'use_ai': use_ai,
                 'enable_relationships': enable_relationships,
-                'enable_embeddings': enable_embeddings
+                'enable_embeddings': enable_embeddings,
+                'primer_file_path': primer_file_path,
+                'include_documentation': include_documentation
             }
             
             # Step 1: Clear and prepare database
@@ -126,16 +144,16 @@ class PipelineOrchestrator(PipelineInterface):
             await self._clear_database(graph_service)
             
             # Step 2: File discovery and parsing
-            self.logger.log_info("Discovering and parsing Python files...")
+            self.logger.log_info("Discovering and parsing source files (Python, TypeScript, JavaScript, JSON, Markdown)...")
             parsed_files = await self._parse_codebase(target_directory)
             
             if not parsed_files:
                 return PipelineResult.failure(
-                    ["No Python files found or parsed successfully"],
+                    ["No source files found or parsed successfully (Python, TypeScript, JavaScript, JSON, Markdown)"],
                     "Pipeline failed - no files to process"
                 )
             
-            successful_files = [f for f in parsed_files if f.get("success", False)]
+            successful_files = [f for f in parsed_files if f.get("success", False) or f.get("parse_success", False)]
             pipeline_data['files_processed'] = len(successful_files)
             pipeline_data['total_files'] = len(parsed_files)
             
@@ -143,7 +161,7 @@ class PipelineOrchestrator(PipelineInterface):
             descriptions = {}
             if use_ai:
                 self.logger.log_info("Generating AI descriptions...")
-                descriptions = await self._generate_descriptions(parsed_files, target_directory)
+                descriptions = await self._generate_descriptions(parsed_files, target_directory, primer_file_path)
                 pipeline_data['descriptions_generated'] = len(descriptions)
             
             # Step 4: Extract relationships (if enabled)
@@ -194,7 +212,16 @@ class PipelineOrchestrator(PipelineInterface):
         """Clear the graph database"""
         try:
             # Use graph service to clear database
-            await graph_service.clear_all_data()
+            if hasattr(graph_service, 'clear_all_data'):
+                # Async version
+                await graph_service.clear_all_data()
+            elif hasattr(graph_service, 'clear_database'):
+                # Sync version
+                result = graph_service.clear_database()
+                if asyncio.iscoroutine(result):
+                    await result
+            else:
+                self.logger.log_warning("No clear database method available on graph service")
             self.logger.log_info("Database cleared successfully")
         except Exception as e:
             self.logger.log_error(f"Failed to clear database: {e}")
@@ -202,42 +229,37 @@ class PipelineOrchestrator(PipelineInterface):
     
     async def _parse_codebase(self, directory: str) -> List[Dict[str, Any]]:
         """
-        Parse codebase files to extract entities
-        
-        This delegates to the existing parse_and_extract_entities function
-        but adds proper async support and service integration
+        Parse codebase files to extract entities using multi-language parsing
         """
         try:
-            # Find Python files
-            python_files = []
+            # Find source files (Python, TypeScript, JavaScript, JSON, Markdown)
+            source_files = []
+            supported_extensions = ['.py', '.ts', '.tsx', '.js', '.jsx', '.json', '.md', '.markdown']
+            
             for root, dirs, files in os.walk(directory):
                 # Skip hidden directories and common non-source directories
                 dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ['__pycache__', 'node_modules', '.git']]
                 
                 for file in files:
-                    if file.endswith('.py') and not file.startswith('.'):
-                        python_files.append(os.path.join(root, file))
+                    if not file.startswith('.'):
+                        for ext in supported_extensions:
+                            if file.endswith(ext):
+                                source_files.append(os.path.join(root, file))
+                                break
             
-            self.logger.log_info(f"Found {len(python_files)} Python files")
+            self.logger.log_info(f"Found {len(source_files)} source files")
             
-            if not python_files:
+            if not source_files:
                 return []
             
-            # Import and use existing parsing logic
-            # This maintains compatibility while allowing future refactoring
-            from core_pipeline import parse_and_extract_entities
-            
-            if self.config.pipeline.parallel_processing:
-                # Process files in batches for better performance
-                batch_size = self.config.pipeline.batch_size
-                parsed_files = []
-                
-                for i in range(0, len(python_files), batch_size):
-                    batch = python_files[i:i + batch_size]
-                    batch_result = await asyncio.to_thread(parse_and_extract_entities, batch)
-                    parsed_files.extend(batch_result)
-            else:
-                parsed_files = await asyncio.to_thread(parse_and_extract_entities, python_files)
+            # Use multi-language parsing implementation
+            try:
+                from shared.services.multi_language_parser import parse_and_extract_entities
+                parsed_files = await asyncio.to_thread(parse_and_extract_entities, source_files)
+            except ImportError:
+                # Fallback to direct parsing for Python files only
+                python_files = [f for f in source_files if f.endswith('.py')]
+                parsed_files = await self._parse_files_direct(python_files)
             
             return parsed_files
             
@@ -245,16 +267,16 @@ class PipelineOrchestrator(PipelineInterface):
             self.logger.log_error(f"Failed to parse codebase: {e}")
             raise
     
-    async def _generate_descriptions(self, parsed_files: List[Dict[str, Any]], project_root: str) -> Dict[str, Dict[str, str]]:
+    async def _generate_descriptions(self, parsed_files: List[Dict[str, Any]], project_root: str, primer_file_path: str = None) -> Dict[str, Dict[str, str]]:
         """Generate AI descriptions using AI service"""
         try:
             ai_service = self._get_ai_service()
             
-            # Load primer context
-            primer_context = await self._load_primer_context(project_root)
+            # Load primer context (use custom path if provided)
+            primer_context = await self._load_primer_context(project_root, primer_file_path)
             
             descriptions = {}
-            successful_files = [f for f in parsed_files if f.get("success", False)]
+            successful_files = [f for f in parsed_files if f.get("success", False) or f.get("parse_success", False)]
             
             for file_data in successful_files:
                 file_path = file_data["file_path"]
@@ -283,21 +305,28 @@ class PipelineOrchestrator(PipelineInterface):
         except Exception as e:
             self.logger.log_error(f"Failed to generate descriptions: {e}")
             # Return empty descriptions as fallback
-            return {f["file_path"]: {} for f in parsed_files if f.get("success", False)}
+            return {f["file_path"]: {} for f in parsed_files if f.get("success", False) or f.get("parse_success", False)}
     
-    async def _load_primer_context(self, project_root: str) -> str:
+    async def _load_primer_context(self, project_root: str, custom_primer_path: str = None) -> str:
         """Load business context from PRIMER.md file"""
-        primer_paths = [
-            os.path.join(project_root, "PRIMER.md"),
-            os.path.join(project_root, "primer.md"),
-            os.path.join(project_root, "BUSINESS_CONTEXT.md"),
-            os.path.join(project_root, "business_context.md")
-        ]
+        primer_paths = []
+        
+        # Use custom primer path if provided (highest priority)
+        if custom_primer_path:
+            primer_paths.append(custom_primer_path)
         
         # Check environment variable for custom primer path
-        custom_primer = os.getenv("PRIMER_FILE_PATH")
-        if custom_primer:
-            primer_paths.insert(0, custom_primer)
+        env_primer = os.getenv("PRIMER_FILE_PATH")
+        if env_primer:
+            primer_paths.append(env_primer)
+        
+        # Default primer locations
+        primer_paths.extend([
+            os.path.join(project_root, "PRIMER.md"),
+            os.path.join(project_root, "primer.md"),
+            os.path.join(project_root, "BUSINESS_CONTEXT.md"), 
+            os.path.join(project_root, "business_context.md")
+        ])
         
         for primer_path in primer_paths:
             try:
@@ -313,15 +342,14 @@ class PipelineOrchestrator(PipelineInterface):
         return ""
     
     async def _extract_relationships(self, parsed_files: List[Dict[str, Any]], use_ai: bool) -> List[Dict[str, Any]]:
-        """Extract code relationships using AI service"""
+        """Extract code relationships using AI service or AST parsing"""
         try:
             if use_ai:
                 ai_service = self._get_ai_service()
                 return await ai_service.extract_relationships(parsed_files)
             else:
-                # Use AST-based relationship extraction
-                from core_pipeline import extract_enhanced_relationships
-                return await asyncio.to_thread(extract_enhanced_relationships, parsed_files, False)
+                # Use direct AST-based relationship extraction
+                return await self._extract_relationships_direct(parsed_files)
                 
         except Exception as e:
             self.logger.log_error(f"Failed to extract relationships: {e}")
@@ -332,14 +360,8 @@ class PipelineOrchestrator(PipelineInterface):
         try:
             graph_service = self._get_graph_service()
             
-            # Use existing graph building logic through service
-            from core_pipeline import create_enhanced_graph_with_entities
-            graph_stats = await asyncio.to_thread(
-                create_enhanced_graph_with_entities, 
-                parsed_files, 
-                relationships, 
-                descriptions
-            )
+            # Build graph directly using graph service
+            graph_stats = await self._build_graph_direct(graph_service, parsed_files, relationships, descriptions)
             
             return graph_stats
             
@@ -426,3 +448,201 @@ class PipelineOrchestrator(PipelineInterface):
         """Get status of running pipeline (placeholder for future implementation)"""
         # TODO: Implement pipeline tracking
         return PipelineStatus.PENDING
+    
+    async def _parse_files_direct(self, file_paths: List[str]) -> List[Dict[str, Any]]:
+        """Direct AST parsing implementation without core_pipeline dependency"""
+        import ast
+        
+        parsed_files = []
+        
+        for file_path in file_paths:
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                
+                # Parse with AST
+                tree = ast.parse(content)
+                
+                # Extract basic entities
+                entities = []
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.FunctionDef):
+                        entities.append({
+                            'name': node.name,
+                            'type': 'function',
+                            'line': node.lineno,
+                            'file_path': file_path,
+                            'properties': {
+                                'docstring': ast.get_docstring(node) or '',
+                                'args': [arg.arg for arg in node.args.args]
+                            }
+                        })
+                    elif isinstance(node, ast.ClassDef):
+                        entities.append({
+                            'name': node.name,
+                            'type': 'class',
+                            'line': node.lineno,
+                            'file_path': file_path,
+                            'properties': {
+                                'docstring': ast.get_docstring(node) or '',
+                                'bases': [base.id if isinstance(base, ast.Name) else str(base) for base in node.bases]
+                            }
+                        })
+                
+                parsed_files.append({
+                    'file_path': file_path,
+                    'success': True,
+                    'entities': entities,
+                    'imports': self._extract_imports(tree),
+                    'content': content[:1000]  # First 1000 chars for context
+                })
+                
+            except Exception as e:
+                self.logger.log_warning(f"Failed to parse {file_path}: {e}")
+                parsed_files.append({
+                    'file_path': file_path,
+                    'success': False,
+                    'error': str(e),
+                    'entities': []
+                })
+        
+        successful_files = [f for f in parsed_files if f.get('success', False)]
+        self.logger.log_info(f"Successfully parsed {len(successful_files)}/{len(file_paths)} files")
+        
+        return parsed_files
+    
+    def _extract_imports(self, tree) -> List[Dict[str, Any]]:
+        """Extract import statements from AST"""
+        import ast
+        imports = []
+        
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    imports.append({
+                        'type': 'import',
+                        'module': alias.name,
+                        'alias': alias.asname,
+                        'line': node.lineno
+                    })
+            elif isinstance(node, ast.ImportFrom):
+                for alias in node.names:
+                    imports.append({
+                        'type': 'from_import',
+                        'module': node.module,
+                        'name': alias.name,
+                        'alias': alias.asname,
+                        'line': node.lineno
+                    })
+        
+        return imports
+    
+    async def _extract_relationships_direct(self, parsed_files: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Direct relationship extraction without external dependencies"""
+        relationships = []
+        
+        # Simple relationship extraction based on imports and calls
+        for file_data in parsed_files:
+            if not (file_data.get('success', False) or file_data.get('parse_success', False)):
+                continue
+                
+            file_path = file_data['file_path']
+            entities = file_data.get('entities', [])
+            imports = file_data.get('imports', [])
+            
+            # Create import relationships
+            for imp in imports:
+                relationships.append({
+                    'source': file_path,
+                    'target': imp.get('module', ''),
+                    'type': 'IMPORTS',
+                    'properties': {
+                        'import_type': imp.get('type', ''),
+                        'line': imp.get('line', imp.get('line_number', 0))
+                    }
+                })
+            
+            # Create containment relationships (file contains entities)
+            for entity in entities:
+                relationships.append({
+                    'source': file_path,
+                    'target': entity['name'],
+                    'type': 'CONTAINS',
+                    'properties': {
+                        'entity_type': entity['type'],
+                        'line': entity.get('line', entity.get('line_number', 0))
+                    }
+                })
+        
+        self.logger.log_info(f"Extracted {len(relationships)} relationships")
+        return relationships
+    
+    async def _build_graph_direct(self, graph_service: GraphOperationsInterface, 
+                                 parsed_files: List[Dict[str, Any]], 
+                                 relationships: List[Dict[str, Any]], 
+                                 descriptions: Dict[str, Dict[str, str]]) -> Dict[str, Any]:
+        """Direct graph building using graph service"""
+        entities_created = 0
+        relationships_created = 0
+        
+        # Create file nodes
+        for file_data in parsed_files:
+            if not (file_data.get('success', False) or file_data.get('parse_success', False)):
+                continue
+                
+            file_path = file_data['file_path']
+            
+            # Create file entity
+            graph_service.create_entity_node(
+                'file',
+                file_path,
+                {
+                    'path': file_path,
+                    'entity_count': len(file_data.get('entities', [])),
+                    'success': file_data.get('success', False)
+                }
+            )
+            entities_created += 1
+            
+            # Create entity nodes
+            for entity in file_data.get('entities', []):
+                entity_name = entity['name']
+                entity_type = entity['type']
+                
+                # Get description if available
+                description = descriptions.get(file_path, {}).get(entity_name, '')
+                
+                properties = entity.get('properties', {})
+                properties['description'] = description
+                properties['file_path'] = file_path
+                properties['line'] = entity.get('line', entity.get('line_number', 0))
+                
+                graph_service.create_entity_node(
+                    entity_type,
+                    entity_name,
+                    properties
+                )
+                entities_created += 1
+        
+        # Create relationships
+        for rel in relationships:
+            try:
+                graph_service.add_relationship(
+                    rel['source'],
+                    rel['target'],
+                    rel['type'],
+                    rel.get('properties', {})
+                )
+                relationships_created += 1
+            except Exception as e:
+                # Skip failed relationships
+                self.logger.log_warning(f"Failed to create relationship {rel['type']}: {e}")
+        
+        # Get final stats
+        stats = graph_service.get_database_stats()
+        
+        return {
+            'total_entities': entities_created,
+            'total_relationships': relationships_created,
+            'database_stats': stats
+        }

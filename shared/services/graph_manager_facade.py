@@ -74,7 +74,7 @@ class GraphManagerFacade(GraphOperationsInterface, ServiceInterface):
         """Create an entity node in the graph"""
         self._ensure_manager()
         try:
-            result = self._legacy_manager.create_entity_node(entity_type, name, properties)
+            result = self._legacy_manager.create_code_entity(entity_type, name, properties)
             if self.logger:
                 self.logger.log_debug(f"Created entity node: {entity_type}:{name}")
             return result
@@ -88,8 +88,19 @@ class GraphManagerFacade(GraphOperationsInterface, ServiceInterface):
         """Add a relationship between entities"""
         self._ensure_manager()
         try:
-            result = self._legacy_manager.add_relationship(
-                source_entity, target_entity, relationship_type, properties or {}
+            # Find source and target nodes
+            source_node = self._legacy_manager.find_entity("unknown", source_entity)
+            target_node = self._legacy_manager.find_entity("unknown", target_entity)
+            
+            # Skip relationship if either node not found (they should exist from entity creation)
+            if not source_node or not target_node:
+                if self.logger:
+                    self.logger.log_warning(f"Skipping relationship - missing nodes: {source_entity}({source_node is not None}) -> {target_entity}({target_node is not None})")
+                return None
+            
+            # Create relationship between nodes
+            result = self._legacy_manager.create_relationship(
+                source_node, target_node, relationship_type, properties or {}
             )
             if self.logger:
                 self.logger.log_debug(f"Added relationship: {source_entity} -{relationship_type}-> {target_entity}")

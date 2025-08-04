@@ -130,9 +130,10 @@ class MCPHandlers:
 - When existing graph is stale or corrupted
 
 🎯 WHAT IT DOES:
-- Parses ALL code files using AST for 100% accuracy
-- Extracts 25+ entity types (functions, classes, imports, decorators, etc.)
-- Detects relationships: INHERITS, DECORATES, CALLS across files
+- Parses ALL source files (Python, TypeScript, JavaScript, JSON, Markdown) using AST for 100% accuracy
+- Extracts 25+ entity types (functions, classes, imports, decorators, dependencies, documentation, etc.)
+- Detects relationships: INHERITS, DECORATES, CALLS, DEPENDS_ON, DOCUMENTS across files
+- Automatically loads PRIMER.md for business context in AI descriptions
 - Creates semantic embeddings for intelligent search
 - Processes typical codebase in 30-60 seconds
 
@@ -162,6 +163,15 @@ class MCPHandlers:
                         "clear_existing": {
                             "type": "boolean",
                             "description": "Clear existing graph data before analysis (recommended: true for fresh start)", 
+                            "default": True
+                        },
+                        "primer_file_path": {
+                            "type": "string",
+                            "description": "Optional path to custom PRIMER.md file for business context (defaults to PRIMER.md in project root)"
+                        },
+                        "include_documentation": {
+                            "type": "boolean",
+                            "description": "Include JSON/Markdown files for enhanced context (package.json, README.md, etc.)",
                             "default": True
                         }
                     },
@@ -343,6 +353,76 @@ class MCPHandlers:
                     },
                     "required": ["entity_name"]
                 }
+            ),
+            Tool(
+                name="load_primer_context",
+                description="""
+🔧 TOOL PURPOSE: View and validate current PRIMER context for business-aware AI descriptions
+
+⚡ WHEN TO USE:
+- Check what business context is currently loaded
+- Validate PRIMER.md content before analysis
+- Troubleshoot AI description quality issues
+- Verify custom PRIMER path is working
+
+🎯 WHAT IT DOES:
+- Loads and displays current PRIMER content
+- Shows PRIMER file path and validation status
+- Helps troubleshoot business context issues
+- Confirms custom PRIMER paths are accessible
+
+📋 WORKFLOW:
+1. Use this to check PRIMER before running create_code_graph
+2. Verify business context is relevant to your project
+3. Troubleshoot if AI descriptions lack domain knowledge
+                """,
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "project_path": {
+                            "type": "string",
+                            "description": "Path to project root (defaults to current directory)",
+                            "default": "."
+                        },
+                        "primer_file_path": {
+                            "type": "string",
+                            "description": "Optional custom path to PRIMER.md file"
+                        }
+                    }
+                }
+            ),
+            Tool(
+                name="validate_primer",
+                description="""
+🔧 TOOL PURPOSE: Validate PRIMER file accessibility and content quality
+
+⚡ WHEN TO USE:
+- Before running analysis with custom PRIMER path
+- Troubleshoot PRIMER loading issues
+- Check PRIMER content quality and relevance
+- Validate file permissions and accessibility
+
+🎯 WHAT IT DOES:
+- Checks if PRIMER file exists and is readable
+- Validates content structure and quality
+- Provides recommendations for improvement
+- Tests custom PRIMER paths
+
+📋 WORKFLOW:
+1. Use this before create_code_graph with custom PRIMER
+2. Fix any validation issues found
+3. Ensure PRIMER contains relevant business context
+                """,
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "primer_file_path": {
+                            "type": "string",
+                            "description": "Path to PRIMER.md file to validate"
+                        }
+                    },
+                    "required": ["primer_file_path"]
+                }
             )
         ]
     
@@ -352,6 +432,8 @@ class MCPHandlers:
             project_path = arguments.get("project_path")
             use_ai_descriptions = arguments.get("use_ai_descriptions", True)
             clear_existing = arguments.get("clear_existing", True)
+            primer_file_path = arguments.get("primer_file_path")
+            include_documentation = arguments.get("include_documentation", True)
             
             self.logger.log_info(f"Creating code graph for: {project_path}")
             
@@ -368,7 +450,9 @@ class MCPHandlers:
             result = await pipeline_service.run_enhanced_pipeline(
                 target_directory=project_path,
                 use_ai=use_ai_descriptions,
-                clear_existing=clear_existing
+                clear_existing=clear_existing,
+                primer_file_path=primer_file_path,
+                include_documentation=include_documentation
             )
             
             if result.status.value == "success":
@@ -386,6 +470,8 @@ class MCPHandlers:
 🤖 **AI Features:**
 • **AI Descriptions:** {'✅ Enabled' if use_ai_descriptions else '❌ Disabled'}
 • **Embeddings Created:** {data.get('embeddings_created', 0)}
+• **PRIMER Context:** {'✅ Custom path' if primer_file_path else '✅ Auto-detected' if use_ai_descriptions else '❌ Disabled'} 
+• **Documentation Files:** {'✅ Included' if include_documentation else '❌ Excluded'}
 
 🎯 **Next Steps:**
 1. Use `query_code_graph` to search for specific functionality
@@ -628,6 +714,206 @@ class MCPHandlers:
                 text=f"❌ Error getting related entities: {str(e)}"
             )]
     
+    async def handle_load_primer_context(self, arguments: Dict[str, Any]) -> List[TextContent]:
+        """Handle load_primer_context tool call"""
+        try:
+            project_path = arguments.get("project_path", ".")
+            primer_file_path = arguments.get("primer_file_path")
+            
+            self.logger.log_info(f"Loading PRIMER context for: {project_path}")
+            
+            # Use the pipeline orchestrator's primer loading logic
+            from core.orchestration.pipeline_orchestrator import PipelineOrchestrator
+            
+            # Create a temporary orchestrator to use its primer loading method
+            temp_orchestrator = PipelineOrchestrator(self.services, self.logger, self.config)
+            primer_context = await temp_orchestrator._load_primer_context(project_path, primer_file_path)
+            
+            if primer_context:
+                # Determine which path was used
+                import os
+                primer_paths = []
+                if primer_file_path:
+                    primer_paths.append(primer_file_path)
+                
+                env_primer = os.getenv("PRIMER_FILE_PATH")
+                if env_primer:
+                    primer_paths.append(env_primer)
+                
+                primer_paths.extend([
+                    os.path.join(project_path, "PRIMER.md"),
+                    os.path.join(project_path, "primer.md"),
+                    os.path.join(project_path, "BUSINESS_CONTEXT.md"),
+                    os.path.join(project_path, "business_context.md")
+                ])
+                
+                used_path = None
+                for path in primer_paths:
+                    if os.path.exists(path):
+                        used_path = path
+                        break
+                
+                response = f"""
+✅ **PRIMER Context Loaded Successfully**
+
+📁 **Source File:** {used_path or 'Unknown'}
+📊 **Content Length:** {len(primer_context)} characters
+📝 **Lines:** {len(primer_context.splitlines())} lines
+
+📋 **PRIMER Content:**
+```markdown
+{primer_context[:2000]}{'...' if len(primer_context) > 2000 else ''}
+```
+
+🎯 **Usage:**
+This PRIMER context will be automatically used in AI descriptions when you run `create_code_graph` with `use_ai_descriptions=true`.
+
+💡 **Quality Check:**
+- {'✅' if len(primer_context) > 100 else '⚠️'} Content length: {'Good' if len(primer_context) > 100 else 'Consider adding more context'}
+- {'✅' if any(keyword in primer_context.lower() for keyword in ['business', 'service', 'component', 'class', 'function']) else '⚠️'} Business terms: {'Found' if any(keyword in primer_context.lower() for keyword in ['business', 'service', 'component', 'class', 'function']) else 'Consider adding more business context'}
+"""
+                
+                return [TextContent(type="text", text=response)]
+            else:
+                return [TextContent(
+                    type="text",
+                    text=f"""
+❌ **No PRIMER Context Found**
+
+🔍 **Searched Locations:**
+- Custom path: {primer_file_path or 'Not specified'}
+- Environment: {os.getenv('PRIMER_FILE_PATH') or 'Not set'}
+- {project_path}/PRIMER.md
+- {project_path}/primer.md
+- {project_path}/BUSINESS_CONTEXT.md
+- {project_path}/business_context.md
+
+💡 **Next Steps:**
+1. Create a PRIMER.md file in your project root
+2. Add business context about your codebase
+3. Or specify a custom path with the `primer_file_path` parameter
+"""
+                )]
+                
+        except Exception as e:
+            return [TextContent(
+                type="text",
+                text=f"❌ Error loading PRIMER context: {str(e)}"
+            )]
+    
+    async def handle_validate_primer(self, arguments: Dict[str, Any]) -> List[TextContent]:
+        """Handle validate_primer tool call"""
+        try:
+            primer_file_path = arguments.get("primer_file_path")
+            
+            if not primer_file_path:
+                return [TextContent(
+                    type="text",
+                    text="❌ Error: primer_file_path is required"
+                )]
+            
+            self.logger.log_info(f"Validating PRIMER file: {primer_file_path}")
+            
+            import os
+            
+            # Check file existence
+            if not os.path.exists(primer_file_path):
+                return [TextContent(
+                    type="text",
+                    text=f"""
+❌ **PRIMER File Not Found**
+
+📁 **Path:** {primer_file_path}
+
+💡 **Troubleshooting:**
+- Verify the file path is correct
+- Check file permissions
+- Ensure the file exists at the specified location
+"""
+                )]
+            
+            # Check file readability
+            try:
+                with open(primer_file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+            except Exception as e:
+                return [TextContent(
+                    type="text",
+                    text=f"""
+❌ **PRIMER File Read Error**
+
+📁 **Path:** {primer_file_path}
+🔥 **Error:** {str(e)}
+
+💡 **Troubleshooting:**
+- Check file permissions (should be readable)
+- Verify file encoding (should be UTF-8)
+- Ensure file is not locked or corrupted
+"""
+                )]
+            
+            # Validate content
+            issues = []
+            recommendations = []
+            
+            if not content.strip():
+                issues.append("File is empty")
+            
+            if len(content) < 50:
+                issues.append("Content is very short (less than 50 characters)")
+                recommendations.append("Add more detailed business context")
+            
+            if not any(header in content for header in ['#', '##', '###']):
+                recommendations.append("Consider adding markdown headers for better structure")
+            
+            business_keywords = ['business', 'service', 'component', 'class', 'function', 'api', 'model', 'interface']
+            found_keywords = [kw for kw in business_keywords if kw.lower() in content.lower()]
+            
+            if len(found_keywords) < 3:
+                recommendations.append("Consider adding more business/technical terminology")
+            
+            # Generate response
+            status = "✅ Valid" if not issues else "⚠️ Issues Found"
+            
+            response = f"""
+{status} **PRIMER Validation Results**
+
+📁 **File:** {primer_file_path}
+📊 **Size:** {len(content)} characters, {len(content.splitlines())} lines
+🔑 **Business Keywords Found:** {', '.join(found_keywords) if found_keywords else 'None'}
+
+"""
+            
+            if issues:
+                response += "🔥 **Issues:**\n"
+                for issue in issues:
+                    response += f"- {issue}\n"
+                response += "\n"
+            
+            if recommendations:
+                response += "💡 **Recommendations:**\n"
+                for rec in recommendations:
+                    response += f"- {rec}\n"
+                response += "\n"
+            
+            response += f"""
+📋 **Preview:**
+```markdown
+{content[:500]}{'...' if len(content) > 500 else ''}
+```
+
+🎯 **Next Steps:**
+{"Fix the issues above, then" if issues else ""} Use this PRIMER with `create_code_graph` by setting `primer_file_path="{primer_file_path}"`
+"""
+            
+            return [TextContent(type="text", text=response)]
+            
+        except Exception as e:
+            return [TextContent(
+                type="text",
+                text=f"❌ Error validating PRIMER: {str(e)}"
+            )]
+    
     def get_resources(self) -> List[Resource]:
         """Get list of available MCP resources"""
         return [
@@ -668,54 +954,87 @@ class MCPHandlers:
         try:
             if uri == "graph://stats":
                 graph_service = self._get_graph_service()
-                stats = graph_service.get_database_stats()
-                return json.dumps(stats, indent=2)
+                try:
+                    stats = graph_service.get_database_stats()
+                    return json.dumps(stats, indent=2)
+                except Exception as e:
+                    return json.dumps({"error": f"Failed to get graph stats: {e}"}, indent=2)
             
             elif uri == "graph://entity-types":
                 graph_service = self._get_graph_service()
-                stats = graph_service.get_database_stats()
-                entity_types = stats.get('node_types', {})
-                return json.dumps(entity_types, indent=2)
+                try:
+                    stats = graph_service.get_database_stats()
+                    entity_types = stats.get('node_types', {})
+                    return json.dumps(entity_types, indent=2)
+                except Exception as e:
+                    return json.dumps({"error": f"Failed to get entity types: {e}"}, indent=2)
             
             elif uri == "graph://relationship-types":
                 graph_service = self._get_graph_service()
-                stats = graph_service.get_database_stats()
-                rel_types = stats.get('relationship_types', {})
-                return json.dumps(rel_types, indent=2)
+                try:
+                    stats = graph_service.get_database_stats()
+                    rel_types = stats.get('relationship_types', {})
+                    return json.dumps(rel_types, indent=2)
+                except Exception as e:
+                    return json.dumps({"error": f"Failed to get relationship types: {e}"}, indent=2)
             
             elif uri == "rag://collection-info":
-                rag_service = self._get_rag_service()
-                # Implement collection info method
-                info = {"status": "RAG service available", "collection": "code_embeddings"}
-                return json.dumps(info, indent=2)
+                try:
+                    rag_service = self._get_rag_service()
+                    if hasattr(rag_service, 'health_check'):
+                        health = rag_service.health_check()
+                        info = {
+                            "status": health.get("status", "unknown"),
+                            "message": health.get("message", "RAG service available"),
+                            "capabilities": health.get("capabilities", {})
+                        }
+                    else:
+                        info = {"status": "RAG service available", "collection": "code_embeddings"}
+                    return json.dumps(info, indent=2)
+                except Exception as e:
+                    return json.dumps({"error": f"Failed to get RAG info: {e}"}, indent=2)
             
             elif uri == "system://service-health":
                 health_info = {}
                 
-                # Check all services
+                # Check pipeline service
                 try:
                     pipeline_service = self._get_pipeline_service()
-                    health_info['pipeline'] = "Available"
+                    if hasattr(pipeline_service, 'health_check'):
+                        health_info['pipeline'] = pipeline_service.health_check()
+                    else:
+                        health_info['pipeline'] = {"status": "available", "message": "Pipeline service active"}
                 except Exception as e:
-                    health_info['pipeline'] = f"Error: {e}"
+                    health_info['pipeline'] = {"status": "error", "error": str(e)}
                 
+                # Check graph service
                 try:
                     graph_service = self._get_graph_service()
-                    health_info['graph'] = graph_service.health_check()
+                    if hasattr(graph_service, 'health_check'):
+                        health_result = graph_service.health_check()
+                        if asyncio.iscoroutine(health_result):
+                            health_result = await health_result
+                        health_info['graph'] = health_result
+                    else:
+                        health_info['graph'] = {"status": "available", "message": "Graph service active"}
                 except Exception as e:
-                    health_info['graph'] = f"Error: {e}"
+                    health_info['graph'] = {"status": "error", "error": str(e)}
                 
+                # Check RAG service
                 try:
                     rag_service = self._get_rag_service()
-                    health_info['rag'] = "Available"
+                    if hasattr(rag_service, 'health_check'):
+                        health_info['rag'] = rag_service.health_check()
+                    else:
+                        health_info['rag'] = {"status": "available", "message": "RAG service active"}
                 except Exception as e:
-                    health_info['rag'] = f"Error: {e}"
+                    health_info['rag'] = {"status": "error", "error": str(e)}
                     
                 return json.dumps(health_info, indent=2)
             
             else:
-                return json.dumps({"error": f"Unknown resource URI: {uri}"})
+                return json.dumps({"error": f"Unknown resource URI: {uri}"}, indent=2)
                 
         except Exception as e:
             self.logger.log_error(f"Resource read failed for {uri}: {e}")
-            return json.dumps({"error": str(e)})
+            return json.dumps({"error": str(e)}, indent=2)

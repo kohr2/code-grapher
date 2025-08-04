@@ -30,10 +30,27 @@ except ImportError:
     Sentiment = None
 
 # Import AI service for semantic search
+import sys
+import os
+# Add project root to Python path for proper imports
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 try:
     from ai_services.interfaces.ai_services_interface import AIServicesInterface
 except ImportError:
-    from interfaces.ai_services_interface import AIServicesInterface
+    # Fallback interface if ai_services not available
+    from abc import ABC, abstractmethod
+    
+    class AIServicesInterface(ABC):
+        @abstractmethod
+        async def generate_description(self, entity_data: dict, primer_context: str = "") -> str:
+            pass
+        
+        @abstractmethod
+        async def extract_relationships(self, parsed_files: list) -> list:
+            pass
 
 
 class RAGService(RAGServiceInterface):
@@ -63,7 +80,7 @@ class RAGService(RAGServiceInterface):
         # Session logging
         self.session_logger = logger.create_session_logger("RAGService") if hasattr(logger, 'create_session_logger') else logger
         
-    async def initialize(self) -> None:
+    async def initialize(self, config: Dict[str, Any] = None) -> None:
         """Initialize the RAG service components"""
         self.logger.log_info("Initializing RAG service...")
         
@@ -270,17 +287,31 @@ class RAGService(RAGServiceInterface):
             execution_time = time.time() - start_time
             
             # Track with AI evaluation if available
-            if ai_tracker and EvaluationCategory:
-                ai_tracker.track_evaluation(
-                    EvaluationCategory.RAG_QUERY,
-                    {
-                        'query': query.query,
-                        'result_count': len(results),
-                        'execution_time': execution_time,
-                        'hybrid_search': query.use_hybrid
-                    },
-                    Sentiment.POSITIVE if results else Sentiment.NEUTRAL
-                )
+            if ai_tracker:
+                try:
+                    if hasattr(ai_tracker, 'track_evaluation'):
+                        ai_tracker.track_evaluation(
+                            EvaluationCategory.RAG_QUERY if EvaluationCategory else 'RAG_QUERY',
+                            {
+                                'query': query.query,
+                                'result_count': len(results),
+                                'execution_time': execution_time,
+                                'hybrid_search': query.use_hybrid
+                            },
+                            Sentiment.POSITIVE if Sentiment and results else 'POSITIVE'
+                        )
+                    elif hasattr(ai_tracker, 'track_operation'):
+                        ai_tracker.track_operation(
+                            'RAG_QUERY',
+                            {
+                                'query': query.query,
+                                'result_count': len(results),
+                                'execution_time': execution_time,
+                                'hybrid_search': query.use_hybrid
+                            }
+                        )
+                except Exception as e:
+                    self.logger.log_warning(f"AI tracker error: {e}")
             
             self.logger.log_info(f"RAG query completed: {len(results)} results in {execution_time:.2f} seconds")
             
