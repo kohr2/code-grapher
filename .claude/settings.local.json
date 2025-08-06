@@ -18,7 +18,17 @@
       "mcp__code-grapher__create_code_graph",
       "Bash(chmod:*)",
       "Bash(git push:*)",
-      "Bash(cp:*)"
+      "Bash(cp:*)",
+      "Bash(timeout:*)",
+      "Bash(pip show:*)",
+      "Bash(npm init:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(sed:*)",
+      "Bash(./venv310/bin/pip show mcp)",
+      "Bash(./venv310/bin/python:*)",
+      "Bash(flake8:*)",
+      "Bash(black:*)"
     ],
     "deny": []
   }

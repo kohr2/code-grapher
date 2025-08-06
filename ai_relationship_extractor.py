@@ -13,13 +13,15 @@ from enum import Enum
 
 from ollama_client import OllamaClient
 from logger import logger
+
 # Removed ai_evaluation_tracker dependency
 
 
 class RelationshipType(Enum):
     """Types of relationships we want to extract"""
+
     CALLS = "CALLS"
-    INHERITS = "INHERITS"  
+    INHERITS = "INHERITS"
     USES = "USES"
     IMPLEMENTS = "IMPLEMENTS"
     DEPENDS_ON = "DEPENDS_ON"
@@ -32,12 +34,15 @@ class RelationshipType(Enum):
     VALIDATES = "VALIDATES"
     DATA_FLOW = "DATA_FLOW"
     STATE_MUTATION = "STATE_MUTATION"
+    IMPORTS = "IMPORTS"
+    EXPORTS = "EXPORTS"
     EVENT_HANDLING = "EVENT_HANDLING"
 
 
 @dataclass
 class RelationshipExtraction:
     """Result of relationship extraction"""
+
     source_file: str
     target_file: str
     source_entity: str
@@ -51,12 +56,12 @@ class RelationshipExtraction:
 
 class PromptTemplate:
     """Template system for relationship extraction prompts"""
-    
+
     def __init__(self, template_file: Optional[str] = None):
         self.templates = self._load_default_templates()
         if template_file:
             self._load_custom_templates(template_file)
-    
+
     def _load_default_templates(self) -> Dict[str, str]:
         """Load default prompt templates"""
         return {
@@ -113,7 +118,6 @@ If no CALLS relationships exist, return: {{"has_relationship": false, "relations
 
 JSON RESPONSE:
 """,
-            
             "INHERITS": """
 You are a code analysis assistant. Analyze the code and determine if there are class inheritance relationships from the source file to classes defined in the target file.
 
@@ -156,7 +160,6 @@ If no INHERITS relationships exist, return: {{"has_relationship": false, "relati
 
 JSON RESPONSE:
 """,
-
             "USES": """
 You are a code analysis assistant. Analyze the code and determine if there are USES relationships from the source file to classes/types defined in the target file.
 
@@ -210,7 +213,6 @@ If no USES relationships exist, return: {{"has_relationship": false, "relationsh
 
 JSON RESPONSE:
 """,
-
             "INSTANTIATES": """
 You are a code analysis assistant. Analyze the code and determine if there are INSTANTIATES relationships from the source file to classes defined in the target file.
 
@@ -253,7 +255,6 @@ If no INSTANTIATES relationships exist, return: {{"has_relationship": false, "re
 
 JSON RESPONSE:
 """,
-
             "DEPENDS_ON": """
 You are a code analysis assistant. Analyze the code and determine if there are logical DEPENDS_ON relationships from the source file to components defined in the target file.
 
@@ -308,7 +309,6 @@ If no DEPENDS_ON relationships exist, return: {{"has_relationship": false, "rela
 
 JSON RESPONSE:
 """,
-
             "OVERRIDES": """
 You are a code analysis assistant. Analyze the code and determine if there are method OVERRIDES relationships from the source file to methods defined in the target file.
 
@@ -353,7 +353,6 @@ If no OVERRIDES relationships exist, return: {{"has_relationship": false, "relat
 
 JSON RESPONSE:
 """,
-
             "DECORATES": """
 You are a code analysis assistant. Analyze the code and determine if there are DECORATES relationships from the source file to decorators defined in the target file.
 
@@ -397,7 +396,6 @@ If no DECORATES relationships exist, return: {{"has_relationship": false, "relat
 
 JSON RESPONSE:
 """,
-
             "IMPLEMENTS": """
 You are a code analysis assistant. Analyze the code and determine if there are IMPLEMENTS relationships from the source file to interfaces/protocols defined in the target file.
 
@@ -442,7 +440,6 @@ If no IMPLEMENTS relationships exist, return: {{"has_relationship": false, "rela
 
 JSON RESPONSE:
 """,
-
             "DEFINES": """
 You are a code analysis assistant. Analyze the code and determine if there are DEFINES relationships from the source file to definitions/schemas/structures in the target file.
 
@@ -495,7 +492,6 @@ If no DEFINES relationships exist, return: {{"has_relationship": false, "relatio
 
 JSON RESPONSE:
 """,
-
             "CONFIGURES": """
 You are a code analysis assistant. Analyze the code and determine if there are CONFIGURES relationships from the source file to configuration systems in the target file.
 
@@ -548,7 +544,6 @@ If no CONFIGURES relationships exist, return: {{"has_relationship": false, "rela
 
 JSON RESPONSE:
 """,
-
             "TRANSFORMS": """
 You are a code analysis assistant. Analyze the code and determine if there are TRANSFORMS relationships from the source file to data transformation utilities in the target file.
 
@@ -601,7 +596,6 @@ If no TRANSFORMS relationships exist, return: {{"has_relationship": false, "rela
 
 JSON RESPONSE:
 """,
-
             "VALIDATES": """
 You are a code analysis assistant. Analyze the code and determine if there are VALIDATES relationships from the source file to validation systems in the target file.
 
@@ -654,7 +648,6 @@ If no VALIDATES relationships exist, return: {{"has_relationship": false, "relat
 
 JSON RESPONSE:
 """,
-
             "DATA_FLOW": """
 You are a code analysis assistant. Analyze the code and determine if there are DATA_FLOW relationships from the source file to data processing functions in the target file.
 
@@ -709,7 +702,6 @@ If no DATA_FLOW relationships exist, return: {{"has_relationship": false, "relat
 
 JSON RESPONSE:
 """,
-
             "STATE_MUTATION": """
 You are a code analysis assistant. Analyze the code and determine if there are STATE_MUTATION relationships from the source file to state management functions in the target file.
 
@@ -764,7 +756,6 @@ If no STATE_MUTATION relationships exist, return: {{"has_relationship": false, "
 
 JSON RESPONSE:
 """,
-
             "EVENT_HANDLING": """
 You are a code analysis assistant. Analyze the code and determine if there are EVENT_HANDLING relationships from the source file to event processing functions in the target file.
 
@@ -819,39 +810,50 @@ Additional Instructions:
 If no EVENT_HANDLING relationships exist, return: {{"has_relationship": false, "relationships": []}}
 
 JSON RESPONSE:
-"""
+""",
         }
 
 
 class AIRelationshipExtractor:
     """AI-powered relationship extractor using Ollama"""
-    
+
     def __init__(self, template_file: Optional[str] = None):
         self.ollama_client = OllamaClient()
         self.prompt_templates = PromptTemplate(template_file)
         self.session_logger = logger.create_session_logger("AIRelationshipExtractor")
-        
+
         # Log initialization
         logger.logger.info("Initialized AI relationship extractor with Ollama")
-    
-    def extract_relationships(self, 
-                            source_file: str, 
-                            target_file: str,
-                            source_code: str, 
-                            target_code: str,
-                            relationship_types: Optional[List[RelationshipType]] = None) -> List[RelationshipExtraction]:
+
+    def extract_relationships(
+        self,
+        source_file: str,
+        target_file: str,
+        source_code: str,
+        target_code: str,
+        relationship_types: Optional[List[RelationshipType]] = None,
+    ) -> List[RelationshipExtraction]:
         """Extract relationships between two code files"""
-        
+
         if relationship_types is None:
-            relationship_types = [RelationshipType.CALLS, RelationshipType.INHERITS, 
-                                RelationshipType.USES, RelationshipType.INSTANTIATES,
-                                RelationshipType.DEPENDS_ON, RelationshipType.OVERRIDES,
-                                RelationshipType.DECORATES, RelationshipType.IMPLEMENTS,
-                                RelationshipType.DEFINES, RelationshipType.CONFIGURES,
-                                RelationshipType.TRANSFORMS, RelationshipType.VALIDATES,
-                                RelationshipType.DATA_FLOW, RelationshipType.STATE_MUTATION,
-                                RelationshipType.EVENT_HANDLING]
-        
+            relationship_types = [
+                RelationshipType.CALLS,
+                RelationshipType.INHERITS,
+                RelationshipType.USES,
+                RelationshipType.INSTANTIATES,
+                RelationshipType.DEPENDS_ON,
+                RelationshipType.OVERRIDES,
+                RelationshipType.DECORATES,
+                RelationshipType.IMPLEMENTS,
+                RelationshipType.DEFINES,
+                RelationshipType.CONFIGURES,
+                RelationshipType.TRANSFORMS,
+                RelationshipType.VALIDATES,
+                RelationshipType.DATA_FLOW,
+                RelationshipType.STATE_MUTATION,
+                RelationshipType.EVENT_HANDLING,
+            ]
+
         self.session_logger.log_operation_start(
             "extract_relationships",
             {
@@ -859,12 +861,12 @@ class AIRelationshipExtractor:
                 "target_file": Path(target_file).name,
                 "relationship_types": [rt.value for rt in relationship_types],
                 "source_code_length": len(source_code),
-                "target_code_length": len(target_code)
-            }
+                "target_code_length": len(target_code),
+            },
         )
-        
+
         all_relationships = []
-        
+
         # Extract each type of relationship
         for relationship_type in relationship_types:
             try:
@@ -872,64 +874,66 @@ class AIRelationshipExtractor:
                     source_file, target_file, source_code, target_code, relationship_type
                 )
                 all_relationships.extend(relationships)
-                
+
                 # Log successful extraction
                 if relationships:
-                    logger.logger.info(f"Successfully extracted {len(relationships)} {relationship_type.value} relationships")
-                
+                    logger.logger.info(
+                        f"Successfully extracted {len(relationships)} {relationship_type.value} relationships"
+                    )
+
             except Exception as e:
-                self.session_logger.log_error(e, {
-                    "relationship_type": relationship_type.value,
-                    "source_file": source_file,
-                    "target_file": target_file
-                })
-                
+                self.session_logger.log_error(
+                    e,
+                    {
+                        "relationship_type": relationship_type.value,
+                        "source_file": source_file,
+                        "target_file": target_file,
+                    },
+                )
+
                 # Track extraction failure
                 logger.logger.error(f"Failed to extract {relationship_type.value} relationships: {str(e)}")
-        
+
         return all_relationships
-    
-    def _extract_single_relationship_type(self,
-                                        source_file: str,
-                                        target_file: str, 
-                                        source_code: str,
-                                        target_code: str,
-                                        relationship_type: RelationshipType) -> List[RelationshipExtraction]:
+
+    def _extract_single_relationship_type(
+        self,
+        source_file: str,
+        target_file: str,
+        source_code: str,
+        target_code: str,
+        relationship_type: RelationshipType,
+    ) -> List[RelationshipExtraction]:
         """Extract a single type of relationship"""
-        
+
         # Get the appropriate prompt template
         template = self.prompt_templates.templates.get(relationship_type.value)
         if not template:
             raise ValueError(f"No template found for relationship type: {relationship_type.value}")
-        
+
         # Fill in the template
         prompt = template.format(
-            source_file=source_file,
-            target_file=target_file,
-            source_code=source_code,
-            target_code=target_code
+            source_file=source_file, target_file=target_file, source_code=source_code, target_code=target_code
         )
-        
+
         # Generate response using Ollama
         response = self.ollama_client.generate_response(
-            prompt,
-            max_tokens=1000, 
-            temperature=0.1  # Low temperature for consistent binary decisions
+            prompt, max_tokens=1000, temperature=0.1  # Low temperature for consistent binary decisions
         )
-        
+
         if response.get("error"):
             raise Exception(f"Ollama API error: {response['error']}")
-        
+
         # Parse the JSON response
         try:
             result = json.loads(response["response"])
-            
+
             # Validate response format
             if not isinstance(result, dict) or "has_relationship" not in result:
                 raise ValueError("Invalid response format from AI")
-            
+
             relationships = []
-            
+
             if result.get("has_relationship", False):
                 for rel_data in result.get("relationships", []):
                     relationship = RelationshipExtraction(
@@ -941,15 +945,15 @@ class AIRelationshipExtractor:
                         confidence=float(rel_data.get("confidence", 0.8)),  # Default to 0.8 if not provided
                         relationship_strength=rel_data.get("relationship_strength", "medium"),  # Default to medium
                         line_number=rel_data.get("line_number"),
-                        context=rel_data.get("context", "")
+                        context=rel_data.get("context", ""),
                     )
                     relationships.append(relationship)
-            
+
             return relationships
-            
+
         except json.JSONDecodeError as e:
             # Try to extract JSON from response if it's embedded
-            json_match = re.search(r'\{.*\}', response["response"], re.DOTALL)
+            json_match = re.search(r"\{.*\}", response["response"], re.DOTALL)
             if json_match:
                 try:
                     result = json.loads(json_match.group(0))
@@ -964,29 +968,31 @@ class AIRelationshipExtractor:
                                 target_entity=rel_data.get("target_entity", ""),
                                 relationship_type=relationship_type,
                                 confidence=float(rel_data.get("confidence", 0.8)),  # Default to 0.8 if not provided
-                                relationship_strength=rel_data.get("relationship_strength", "medium"),  # Default to medium
+                                relationship_strength=rel_data.get(
+                                    "relationship_strength", "medium"
+                                ),  # Default to medium
                                 line_number=rel_data.get("line_number"),
-                                context=rel_data.get("context", "")
+                                context=rel_data.get("context", ""),
                             )
                             relationships.append(relationship)
                     return relationships
                 except json.JSONDecodeError:
                     pass
-            
+
             # Track JSON parsing failure
             logger.logger.error(f"Failed to parse JSON from AI response: {str(e)}")
-            
+
             raise ValueError(f"Failed to parse JSON response: {response['response'][:200]}...")
-    
+
     def get_supported_relationship_types(self) -> List[RelationshipType]:
         """Get list of supported relationship types"""
         return [rt for rt in RelationshipType if rt.value in self.prompt_templates.templates]
 
 
 # Convenience function for easy usage
-def extract_code_relationships(source_file: str, target_file: str,
-                             source_code: str, target_code: str,
-                             template_file: Optional[str] = None) -> List[RelationshipExtraction]:
+def extract_code_relationships(
+    source_file: str, target_file: str, source_code: str, target_code: str, template_file: Optional[str] = None
+) -> List[RelationshipExtraction]:
     """Extract relationships between two code files"""
     extractor = AIRelationshipExtractor(template_file)
     return extractor.extract_relationships(source_file, target_file, source_code, target_code)
