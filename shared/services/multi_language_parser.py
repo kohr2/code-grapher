@@ -23,16 +23,33 @@ except ImportError as e:
     print(f"Tree-sitter not available: {e}")
     TREE_SITTER_AVAILABLE = False
 
+# Import COBOL parser
+try:
+    from cobol_parser import COBOLParser
+    COBOL_PARSER_AVAILABLE = True
+except ImportError:
+    COBOL_PARSER_AVAILABLE = False
+    print("⚠️  COBOL parser not available")
+
 
 class MultiLanguageParser:
-    """Parser that handles multiple programming languages"""
+    """Parser that handles multiple programming languages including COBOL"""
 
     def __init__(self):
         self.parsers = {}
-        self.languages = {}
+        self.languages = {
+            "python": "Python AST Parser",
+            "typescript": "Tree-sitter TypeScript Parser", 
+            "javascript": "Tree-sitter JavaScript Parser"
+        }
 
         if TREE_SITTER_AVAILABLE:
             self._setup_tree_sitter_parsers()
+
+        # Add COBOL parser if available
+        if COBOL_PARSER_AVAILABLE:
+            self.cobol_parser = COBOLParser()
+            self.languages["cobol"] = "Simple COBOL Parser"
 
     def _setup_tree_sitter_parsers(self):
         """Setup tree-sitter parsers for supported languages"""
@@ -56,57 +73,65 @@ class MultiLanguageParser:
             traceback.print_exc()
 
     def get_language_from_extension(self, file_path: str) -> str:
-        """Determine language from file extension"""
+        """Get language from file extension"""
         ext = Path(file_path).suffix.lower()
-
+        
         extension_map = {
             ".py": "python",
             ".ts": "typescript",
-            ".tsx": "typescript",
             ".js": "javascript",
-            ".jsx": "javascript",
-            ".json": "json",
             ".md": "markdown",
             ".markdown": "markdown",
         }
+        
+        # Add COBOL file extensions if parser is available
+        if COBOL_PARSER_AVAILABLE:
+            extension_map.update({
+                ".cbl": "cobol",
+                ".cob": "cobol", 
+                ".cobol": "cobol"
+            })
 
         return extension_map.get(ext, "unknown")
 
     def parse_file(self, file_path: str) -> Dict[str, Any]:
-        """Parse a single file and extract entities"""
+        """Parse file with appropriate parser"""
+        language = self.get_language_from_extension(file_path)
+        
+        # Handle COBOL files
+        if language == 'cobol' and COBOL_PARSER_AVAILABLE:
+            return self.cobol_parser.parse_file(file_path)
+        
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
-
-            language = self.get_language_from_extension(file_path)
 
             if language == "python":
                 return self._parse_python_ast(file_path, content)
-            elif language in ["typescript", "javascript"]:
-                return self._parse_typescript_javascript(file_path, content, language)
-            elif language == "json":
-                return self._parse_json(file_path, content)
+            elif language == "typescript":
+                return self._parse_typescript(file_path, content)
+            elif language == "javascript":
+                return self._parse_javascript(file_path, content)
             elif language == "markdown":
                 return self._parse_markdown(file_path, content)
             else:
                 # Fallback: basic file info without parsing
                 return {
+                    "parse_success": False,
+                    "language": language,
                     "file_path": file_path,
                     "entities": [],
-                    "language": language,
-                    "lines_of_code": len(content.splitlines()),
-                    "parse_success": False,
-                    "error": f"No parser available for {language}",
+                    "content": content,
+                    "error": f"No parser available for {language}"
                 }
 
         except Exception as e:
             return {
+                "parse_success": False,
+                "language": language,
                 "file_path": file_path,
                 "entities": [],
-                "language": "unknown",
-                "lines_of_code": 0,
-                "parse_success": False,
-                "error": str(e),
+                "error": str(e)
             }
 
     def _parse_python_ast(self, file_path: str, content: str) -> Dict[str, Any]:
@@ -860,6 +885,7 @@ def extract_multi_language_relationships(parsed_files: List[Dict[str, Any]]) -> 
     # Separate files by language for specialized relationship extraction
     python_files = []
     ts_js_files = []
+    cobol_files = []
     other_files = []
 
     for file_data in parsed_files:
@@ -871,6 +897,8 @@ def extract_multi_language_relationships(parsed_files: List[Dict[str, Any]]) -> 
             python_files.append(file_data)
         elif language in ["typescript", "javascript"]:
             ts_js_files.append(file_data)
+        elif language == "cobol":
+            cobol_files.append(file_data)
         else:
             other_files.append(file_data)
 
@@ -945,6 +973,20 @@ def extract_multi_language_relationships(parsed_files: List[Dict[str, Any]]) -> 
             print(f"   ✅ Extracted {len(ts_relationships)} TypeScript/JavaScript relationships")
         except Exception as e:
             print(f"   ❌ Failed to extract TypeScript/JavaScript relationships: {e}")
+
+    # Extract COBOL relationships
+    if cobol_files:
+        print(f"   🟦 Extracting COBOL relationships from {len(cobol_files)} files...")
+        try:
+            from cobol_relationship_extractor import extract_cobol_relationships
+            
+            for cobol_file in cobol_files:
+                cobol_relationships = extract_cobol_relationships(cobol_file)
+                all_relationships.extend(cobol_relationships)
+                
+            print(f"   ✅ Extracted COBOL relationships from {len(cobol_files)} files")
+        except Exception as e:
+            print(f"   ❌ Failed to extract COBOL relationships: {e}")
 
     print(f"🎯 Total relationships extracted: {len(all_relationships)}")
     return all_relationships

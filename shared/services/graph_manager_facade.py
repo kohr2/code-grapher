@@ -87,9 +87,22 @@ class GraphManagerFacade(GraphOperationsInterface, ServiceInterface):
         """Add a relationship between entities"""
         self._ensure_manager()
         try:
-            # Find source and target nodes
-            source_node = self._legacy_manager.find_entity("unknown", source_entity)
-            target_node = self._legacy_manager.find_entity("unknown", target_entity)
+            if self.logger:
+                self.logger.log_info(f"Adding relationship: {source_entity} -{relationship_type}-> {target_entity}")
+            # Find source and target nodes by name across all entity types
+            source_node = self._find_entity_by_name(source_entity)
+            target_node = self._find_entity_by_name(target_entity)
+
+            if self.logger:
+                if source_node:
+                    self.logger.log_info(f"Found source node: {source_entity}")
+                else:
+                    self.logger.log_warning(f"Source node not found: {source_entity}")
+                
+                if target_node:
+                    self.logger.log_info(f"Found target node: {target_entity}")
+                else:
+                    self.logger.log_warning(f"Target node not found: {target_entity}")
 
             # Create missing nodes automatically
             if not source_node:
@@ -320,3 +333,46 @@ class GraphManagerFacade(GraphOperationsInterface, ServiceInterface):
                 if self.logger:
                     self.logger.log_error(f"Error closing connection: {e}")
                 raise
+
+    def _find_entity_by_name(self, entity_name: str) -> Any:
+        """Find an entity by name across all entity types"""
+        try:
+            if self.logger:
+                self.logger.log_debug(f"Searching for entity: {entity_name}")
+            
+            # Use the legacy manager's find_entity method with common entity types
+            if hasattr(self._legacy_manager, 'find_entity'):
+                # Try common entity types that are likely to exist
+                entity_types = ["function", "class", "interface", "variable", "import", "import_from", "file"]
+                
+                for entity_type in entity_types:
+                    try:
+                        if self.logger:
+                            self.logger.log_debug(f"Trying to find {entity_name} as {entity_type}")
+                        found = self._legacy_manager.find_entity(entity_type, entity_name)
+                        if found:
+                            if self.logger:
+                                self.logger.log_debug(f"Found {entity_name} as {entity_type}")
+                            return found
+                    except Exception as e:
+                        if self.logger:
+                            self.logger.log_debug(f"Error finding {entity_name} as {entity_type}: {e}")
+                        # Continue to next entity type if this one fails
+                        continue
+            
+            # Fallback: try direct Cypher query if available
+            if hasattr(self._legacy_manager, 'graph') and hasattr(self._legacy_manager.graph, 'run'):
+                try:
+                    # Query across all node types by name
+                    cypher = "MATCH (n) WHERE n.name = $entity_name RETURN n LIMIT 1"
+                    result = self._legacy_manager.graph.run(cypher, entity_name=entity_name).data()
+                    if result:
+                        return result[0]["n"]
+                except Exception:
+                    pass
+            
+            return None
+        except Exception as e:
+            if self.logger:
+                self.logger.log_warning(f"Error finding entity {entity_name}: {e}")
+            return None

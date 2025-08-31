@@ -79,8 +79,36 @@ class SimpleAIService(AIServicesInterface):
             # Use existing AST relationship extraction
             relationships = self._extract_relationships_func(parsed_files)
             
-            self.logger.log_info(f"Extracted {len(relationships)} relationships using AST approach")
-            return relationships
+            # Convert RelationshipExtraction objects to dictionaries
+            relationship_dicts = []
+            for rel in relationships:
+                if hasattr(rel, 'source_entity'):  # It's a RelationshipExtraction object
+                    relationship_dicts.append(
+                        {
+                            "source": rel.source_entity,
+                            "target": rel.target_entity,
+                            "type": rel.relationship_type.value if hasattr(rel.relationship_type, 'value') else str(rel.relationship_type),
+                            "source_file": rel.source_file,
+                            "target_file": rel.target_file,
+                            "confidence": rel.confidence,
+                            "strength": rel.relationship_strength,
+                            "line_number": rel.line_number,
+                            "context": rel.context,
+                            "properties": {
+                                "relationship_strength": rel.relationship_strength,
+                                "confidence": rel.confidence,
+                            },
+                        }
+                    )
+                elif isinstance(rel, dict):  # It's already a dictionary
+                    relationship_dicts.append(rel)
+                else:
+                    # Skip invalid relationships
+                    self.logger.log_warning(f"Skipping invalid relationship object: {type(rel)}")
+                    continue
+            
+            self.logger.log_info(f"Extracted {len(relationship_dicts)} relationships using AST approach")
+            return relationship_dicts
             
         except Exception as e:
             self.logger.log_error(f"Relationship extraction failed: {e}")

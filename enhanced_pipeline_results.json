@@ -1,0 +1,36 @@
+{
+  "timestamp": "2025-08-31T16:40:05.960104",
+  "duration_seconds": 73.82228708267212,
+  "files_processed": 130,
+  "total_files": 135,
+  "graph_stats": {
+    "total_entities": 2698,
+    "total_relationships": 5256,
+    "database_stats": {
+      "total_nodes": 2902,
+      "total_relationships": 2990,
+      "node_types": {
+        "documentation_section": 256,
+        "code_example": 53,
+        "file": 130,
+        "import": 188,
+        "import_from": 950,
+        "class": 203,
+        "function": 910,
+        "api_reference": 2,
+        "project_documentation": 1,
+        "reference_link": 5,
+        "inferred": 204
+      },
+      "relationship_types": {
+        "CALLS": 2736,
+        "DECORATES": 169,
+        "INHERITS": 85
+      }
+    }
+  },
+  "ai_enabled": true,
+  "relationships_extracted": 5256,
+  "descriptions_generated": 130,
+  "embeddings_created": 2568
+}

@@ -584,7 +584,7 @@ class MCPHandlers:
             for f in files:
                 path = Path(f)
                 if not any(part.startswith(".") for part in path.parts):
-                    if not any(skip in str(path) for skip in ["node_modules", "__pycache__", "venv", "dist", "build"]):
+                    if not any(skip in str(path) for skip in ["node_modules", "__pycache__", "venv", ".venv", "dist", "build"]):
                         filtered.append(f)
 
             files = filtered[:100]  # Reasonable limit

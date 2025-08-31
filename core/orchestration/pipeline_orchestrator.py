@@ -227,7 +227,7 @@ class PipelineOrchestrator(PipelineInterface):
             for root, dirs, files in os.walk(directory):
                 # Skip hidden directories and common non-source directories
                 dirs[:] = [
-                    d for d in dirs if not d.startswith(".") and d not in ["__pycache__", "node_modules", ".git"]
+                    d for d in dirs if not d.startswith(".") and d not in ["__pycache__", "node_modules", ".git", ".venv", "venv"]
                 ]
 
                 for file in files:
@@ -553,23 +553,31 @@ class PipelineOrchestrator(PipelineInterface):
             # Convert RelationshipExtraction objects to dictionaries
             relationship_dicts = []
             for rel in relationships:
-                relationship_dicts.append(
-                    {
-                        "source": rel.source_entity,
-                        "target": rel.target_entity,
-                        "type": rel.relationship_type.value,
-                        "source_file": rel.source_file,
-                        "target_file": rel.target_file,
-                        "confidence": rel.confidence,
-                        "strength": rel.relationship_strength,
-                        "line_number": rel.line_number,
-                        "context": rel.context,
-                        "properties": {
-                            "relationship_strength": rel.relationship_strength,
+                # Handle both RelationshipExtraction objects and dictionaries
+                if hasattr(rel, 'source_entity'):  # It's a RelationshipExtraction object
+                    relationship_dicts.append(
+                        {
+                            "source": rel.source_entity,
+                            "target": rel.target_entity,
+                            "type": rel.relationship_type.value if hasattr(rel.relationship_type, 'value') else str(rel.relationship_type),
+                            "source_file": rel.source_file,
+                            "target_file": rel.target_file,
                             "confidence": rel.confidence,
-                        },
-                    }
-                )
+                            "strength": rel.relationship_strength,
+                            "line_number": rel.line_number,
+                            "context": rel.context,
+                            "properties": {
+                                "relationship_strength": rel.relationship_strength,
+                                "confidence": rel.confidence,
+                            },
+                        }
+                    )
+                elif isinstance(rel, dict):  # It's already a dictionary
+                    relationship_dicts.append(rel)
+                else:
+                    # Skip invalid relationships
+                    self.logger.log_warning(f"Skipping invalid relationship object: {type(rel)}")
+                    continue
 
             self.logger.log_info(f"Extracted {len(relationship_dicts)} multi-language relationships")
             return relationship_dicts
@@ -656,11 +664,16 @@ class PipelineOrchestrator(PipelineInterface):
         # Create relationships
         for rel in relationships:
             try:
+                # Ensure rel is a dictionary
+                if not isinstance(rel, dict):
+                    self.logger.log_warning(f"Skipping non-dictionary relationship: {type(rel)}")
+                    continue
+                    
                 graph_service.add_relationship(rel["source"], rel["target"], rel["type"], rel.get("properties", {}))
                 relationships_created += 1
             except Exception as e:
                 # Skip failed relationships
-                self.logger.log_warning(f"Failed to create relationship {rel['type']}: {e}")
+                self.logger.log_warning(f"Failed to create relationship {rel.get('type', 'unknown')}: {e}")
 
         # Get final stats
         stats = graph_service.get_database_stats()

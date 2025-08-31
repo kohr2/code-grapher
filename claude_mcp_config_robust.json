@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "code-grapher": {
+      "command": "/Users/benoit/Documents/Code/mufasadb-code-grapher/code-grapher/venv/bin/python",
+      "args": [
+        "/Users/benoit/Documents/Code/mufasadb-code-grapher/code-grapher/main.py",
+        "mcp"
+      ],
+      "env": {
+        "NEO4J_URL": "bolt://localhost:7687",
+        "NEO4J_USERNAME": "neo4j",
+        "NEO4J_PASSWORD": "codegrapher",
+        "AI_PROVIDER": "ollama",
+        "OLLAMA_URL": "http://localhost:11434",
+        "PYTHONPATH": "/Users/benoit/Documents/Code/mufasadb-code-grapher/code-grapher",
+        "VIRTUAL_ENV": "/Users/benoit/Documents/Code/mufasadb-code-grapher/code-grapher/venv"
+      },
+      "cwd": "/Users/benoit/Documents/Code/mufasadb-code-grapher/code-grapher"
+    }
+  }
+}
+

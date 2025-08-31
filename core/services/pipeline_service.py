@@ -297,7 +297,7 @@ class PipelineService:
 
         for root, dirs, files in os.walk(directory):
             # Skip hidden directories and common non-source directories
-            dirs[:] = [d for d in dirs if not d.startswith(".") and d not in ["__pycache__", "node_modules", ".git"]]
+            dirs[:] = [d for d in dirs if not d.startswith(".") and d not in ["__pycache__", "node_modules", ".git", ".venv", "venv"]]
 
             for file in files:
                 if not file.startswith("."):
