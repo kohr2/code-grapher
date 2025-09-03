@@ -3,7 +3,7 @@ AI service configuration
 """
 from dataclasses import dataclass
 from typing import Dict, Any, Optional
-from provider_models import AIProviderType
+from models.provider_models import AIProviderType
 
 
 @dataclass
@@ -11,14 +11,14 @@ class AIServiceConfig:
     """Configuration for AI services"""
     default_provider: AIProviderType = AIProviderType.OLLAMA
     ollama_url: str = "http://localhost:11434"
-    ollama_model: str = "gemma3:4b"
+    ollama_model: str = "tinyllama:latest"
     gemini_api_key: Optional[str] = None
     gemini_model: str = "gemini-1.5-flash"
     enable_evaluation_tracking: bool = True
     enable_caching: bool = True
     cache_ttl_seconds: int = 3600
     max_retries: int = 3
-    timeout_seconds: int = 30
+    timeout_seconds: int = 120
     confidence_threshold: float = 0.3
     
     @classmethod
