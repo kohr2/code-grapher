@@ -178,10 +178,15 @@ public class RealProLeapParser {{
             // Program entity
             System.out.println("ENTITY:PROGRAM:UNKNOWN");
             
-            // Compilation units
+            // Compilation units with detailed structure
             for (CompilationUnit unit : compilationUnits) {{
                 String unitName = unit.getName();
                 System.out.println("ENTITY:COMPILATION_UNIT:" + (unitName != null ? unitName : "UNKNOWN"));
+                
+                // For now, just extract basic structure
+                // TODO: Enhance to extract detailed divisions, paragraphs, and statements
+                System.out.println("DIVISION:DATA:" + unitName);
+                System.out.println("DIVISION:PROCEDURE:" + unitName);
             }}
             
             System.out.println("ENTITIES_END");
@@ -299,7 +304,10 @@ public class RealProLeapParser {{
             'success': True,
             'compilation_units': [],
             'entities': [],
-            'ast_data': {}
+            'ast_data': {},
+            'divisions': {},
+            'paragraphs': {},
+            'statements': {}
         }
         
         parsing_entities = False
@@ -334,6 +342,32 @@ public class RealProLeapParser {{
                             'name': entity_name
                         }
                         result['entities'].append(entity)
+                elif key == 'DIVISION':
+                    parts = value.split(':', 1)
+                    if len(parts) == 2:
+                        div_type, unit_name = parts
+                        if unit_name not in result['divisions']:
+                            result['divisions'][unit_name] = {}
+                        result['divisions'][unit_name][div_type.lower()] = True
+                elif key == 'PARAGRAPH':
+                    parts = value.split(':', 1)
+                    if len(parts) == 2:
+                        para_name, unit_name = parts
+                        if unit_name not in result['paragraphs']:
+                            result['paragraphs'][unit_name] = []
+                        result['paragraphs'][unit_name].append({
+                            'name': para_name,
+                            'unit': unit_name
+                        })
+                elif key == 'STATEMENT':
+                    parts = value.split(':', 2)
+                    if len(parts) == 3:
+                        para_name, stmt_text, unit_name = parts
+                        if unit_name not in result['statements']:
+                            result['statements'][unit_name] = {}
+                        if para_name not in result['statements'][unit_name]:
+                            result['statements'][unit_name][para_name] = []
+                        result['statements'][unit_name][para_name].append(stmt_text)
         return result
     
     def _fallback_parse(self, file_path: str) -> Dict[str, Any]:

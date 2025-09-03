@@ -1,24 +1,26 @@
 {
-  "timestamp": "2025-09-03T12:05:57.604962",
-  "duration_seconds": 13.595351219177246,
+  "timestamp": "2025-09-03T12:17:06.641325",
+  "duration_seconds": 11.549285173416138,
   "files_processed": 3,
   "total_files": 3,
   "graph_stats": {
     "total_entities": 9,
-    "total_relationships": 0,
+    "total_relationships": 6,
     "database_stats": {
       "total_nodes": 9,
-      "total_relationships": 0,
+      "total_relationships": 6,
       "node_types": {
         "file": 3,
         "program": 3,
         "compilation_unit": 3
       },
-      "relationship_types": {}
+      "relationship_types": {
+        "CONTAINS": 6
+      }
     }
   },
   "ai_enabled": true,
-  "relationships_extracted": 0,
+  "relationships_extracted": 6,
   "descriptions_generated": 3,
   "embeddings_created": 6
 }

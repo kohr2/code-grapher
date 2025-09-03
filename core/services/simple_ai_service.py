@@ -44,20 +44,20 @@ class SimpleAIService(AIServicesInterface):
     def initialize(self, config: Dict[str, Any] = None) -> bool:
         """Initialize the AI service"""
         try:
-            # Import AST relationship extractor
-            from ast_relationship_extractor import extract_ast_relationships
-            self._extract_relationships_func = extract_ast_relationships
+            # Import multi-language relationship extractor instead of just AST
+            from shared.services.multi_language_parser import extract_multi_language_relationships
+            self._extract_relationships_func = extract_multi_language_relationships
             
-            self.logger.log_info("Simple AI service initialized with AST relationship extraction")
+            self.logger.log_info("Simple AI service initialized with multi-language relationship extraction")
             return True
             
         except ImportError as e:
-            self.logger.log_error(f"Failed to import AST relationship extractor: {e}")
+            self.logger.log_error(f"Failed to import multi-language relationship extractor: {e}")
             return False
     
     async def extract_relationships(self, parsed_files: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
-        Extract relationships using AST-based approach
+        Extract relationships using multi-language approach
         
         Args:
             parsed_files: List of parsed file data with entities
@@ -67,7 +67,7 @@ class SimpleAIService(AIServicesInterface):
         """
         try:
             if not self._extract_relationships_func:
-                self.logger.log_warning("AST relationship extractor not available")
+                self.logger.log_warning("Multi-language relationship extractor not available")
                 return []
             
             # Fix parsed files format for AST extractor compatibility
