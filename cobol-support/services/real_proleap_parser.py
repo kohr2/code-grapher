@@ -38,10 +38,18 @@ class RealProLeapParser:
     
     def _check_proleap(self) -> bool:
         """Check if ProLeap project is available"""
+        # Try relative path from cobol-support directory first
+        proleap_dir = '../proleap-cobol-parser'
+        if os.path.exists(proleap_dir) and os.path.exists(os.path.join(proleap_dir, 'pom.xml')):
+            self.proleap_dir = os.path.abspath(proleap_dir)
+            return True
+        
+        # Try relative path from project root
         proleap_dir = 'proleap-cobol-parser'
         if os.path.exists(proleap_dir) and os.path.exists(os.path.join(proleap_dir, 'pom.xml')):
-            self.proleap_dir = proleap_dir
+            self.proleap_dir = os.path.abspath(proleap_dir)
             return True
+            
         return False
     
     def _setup_parser(self):
@@ -180,6 +188,7 @@ public class RealProLeapParser {{
     
     def _run_proleap_parser(self, java_file: str, cobol_file: str, temp_dir: str) -> Dict[str, Any]:
         """Run the ProLeap parser using Maven"""
+        target_java_file = None
         try:
             # Copy the Java file to the ProLeap project
             proleap_src_dir = os.path.join(self.proleap_dir, 'src', 'main', 'java')
@@ -189,7 +198,6 @@ public class RealProLeapParser {{
             target_java_file = os.path.join(proleap_src_dir, 'RealProLeapParser.java')
             import shutil
             shutil.copy2(java_file, target_java_file)
-            
             # Compile using Maven
             compile_result = subprocess.run([
                 'mvn', 'compile', '-q'
@@ -201,19 +209,46 @@ public class RealProLeapParser {{
                     'error': f'Compilation failed: {compile_result.stderr}'
                 }
             
-            # Run the compiled program
+            # Add a small delay to ensure file system is ready
+            import time
+            time.sleep(0.5)
+            
+            # Run the compiled program directly with java command
+            # First, copy dependencies to target/dependency
+            copy_deps_result = subprocess.run([
+                'mvn', 'dependency:copy-dependencies', '-q'
+            ], capture_output=True, text=True, timeout=60, cwd=self.proleap_dir)
+            
+            if copy_deps_result.returncode != 0:
+                return {
+                    'success': False,
+                    'error': f'Failed to copy dependencies: {copy_deps_result.stderr}'
+                }
+            
+            # Build classpath
+            classpath_parts = [os.path.join(self.proleap_dir, 'target', 'classes')]
+            
+            # Add all JAR files from target/dependency
+            dependency_dir = os.path.join(self.proleap_dir, 'target', 'dependency')
+            if os.path.exists(dependency_dir):
+                jar_files = [os.path.join(dependency_dir, f) for f in os.listdir(dependency_dir) if f.endswith('.jar')]
+                classpath_parts.extend(jar_files)
+            
+            classpath = ':'.join(classpath_parts)
+            
             run_result = subprocess.run([
-                'mvn', 'exec:java', '-Dexec.mainClass="RealProLeapParser"', '-q'
+                'java', '-cp', classpath, 'RealProLeapParser'
             ], capture_output=True, text=True, timeout=120, cwd=self.proleap_dir)
             
-            # Clean up the copied file
-            if os.path.exists(target_java_file):
-                os.remove(target_java_file)
+            # Check if the output contains SUCCESS (check both stdout and stderr)
+            combined_output = run_result.stdout + run_result.stderr
             
-            # Check if the output contains SUCCESS (ignore warnings)
-            if 'SUCCESS' in run_result.stdout:
+            # Check if the output contains SUCCESS (check both stdout and stderr)
+            
+            if 'SUCCESS' in combined_output:
                 # Parse the output
-                return self._parse_proleap_output(run_result.stdout)
+                result = self._parse_proleap_output(combined_output)
+                return result
             else:
                 return {
                     'success': False,
@@ -230,6 +265,9 @@ public class RealProLeapParser {{
                 'success': False,
                 'error': str(e)
             }
+        finally:
+            # Don't clean up here - let the Java file persist for debugging
+            pass
     
     def _parse_proleap_output(self, output: str) -> Dict[str, Any]:
         """Parse the output from the ProLeap program"""
@@ -258,6 +296,14 @@ public class RealProLeapParser {{
         parsing_entities = False
         
         for line in lines[success_line_index + 1:]:
+            # Handle special lines without colons
+            if line.strip() == 'ENTITIES_START':
+                parsing_entities = True
+                continue
+            elif line.strip() == 'ENTITIES_END':
+                parsing_entities = False
+                continue
+            
             if ':' in line:
                 key, value = line.split(':', 1)
                 
@@ -270,19 +316,15 @@ public class RealProLeapParser {{
                         'name': value,
                         'type': 'compilation_unit'
                     })
-                elif key == 'ENTITIES_START':
-                    parsing_entities = True
-                elif key == 'ENTITIES_END':
-                    parsing_entities = False
                 elif parsing_entities and key == 'ENTITY':
                     parts = value.split(':', 1)
                     if len(parts) == 2:
                         entity_type, entity_name = parts
-                        result['entities'].append({
+                        entity = {
                             'type': entity_type.lower(),
                             'name': entity_name
-                        })
-        
+                        }
+                        result['entities'].append(entity)
         return result
     
     def _fallback_parse(self, file_path: str) -> Dict[str, Any]:

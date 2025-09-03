@@ -92,4 +92,5 @@ experiments
 .env.development
 .env.test
 .env.production
-mcp_config.json
+mcp_config.jsoncobol-support/proleap-cobol-parser/
+proleap-cobol-parser/

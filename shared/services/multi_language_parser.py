@@ -25,7 +25,7 @@ except ImportError as e:
 
 # Import COBOL parser
 try:
-    from cobol_parser import COBOLParser
+    from cobol_support.services.cobol_parser import COBOLParser
     COBOL_PARSER_AVAILABLE = True
 except ImportError:
     COBOL_PARSER_AVAILABLE = False
