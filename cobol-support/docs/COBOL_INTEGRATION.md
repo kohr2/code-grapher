@@ -103,22 +103,53 @@ The parser extracts the following COBOL entities:
 - **`PERFORM`** - PERFORM statements to paragraphs/sections
 - **`IMPORTS`** - COPY statements for copybooks
 
-### Data Relationships
-- **`USES`** - Data item usage in procedures
-- **`DEFINES`** - Data item definitions
-- **`DATA_FLOW`** - Data movement between entities
+### Enhanced Data Relationships
+- **`DATA_FLOW`** - Data movement between entities (MOVE statements)
+- **`MODIFIES`** - Data item modifications
+- **`READS`** - Data item reads
+- **`WRITES`** - Data item writes
 
-### Example Relationships
+### Control Flow Relationships
+- **`CONDITIONAL`** - Variables used in IF/EVALUATE conditions
+- **`ARITHMETIC`** - Variables used in arithmetic operations
+
+### File Operations
+- **`FILE_ACCESS`** - File read/write operations
+
+### Enhanced Example Relationships
 
 ```cobol
 0000-MAIN-LOGIC.
     PERFORM 1000-INITIALIZE        # → CALLS relationship
     PERFORM 2000-VALIDATE-INPUT    # → CALLS relationship
 
-3200-PROCESS-WITHDRAWAL.
-    PERFORM 3210-CHECK-SUFFICIENT-FUNDS  # → CALLS relationship
-    SUBTRACT WS-TRANS-AMOUNT FROM WS-ACCOUNT-BALANCE  # → USES relationship
+1000-INITIALIZE.
+    MOVE ZERO TO WS-ACCOUNT-BALANCE     # → DATA_FLOW relationship
+    MOVE 'A' TO WS-ACCOUNT-STATUS       # → DATA_FLOW relationship
+
+2000-PROCESS-ACCOUNTS.
+    ADD WS-TRANS-AMOUNT TO WS-ACCOUNT-BALANCE  # → ARITHMETIC relationship
+    IF WS-ACCOUNT-BALANCE > ZERO               # → CONDITIONAL relationship
+        PERFORM 2100-UPDATE-ACCOUNT
+    END-IF
+    EVALUATE WS-ACCOUNT-TYPE                   # → CONDITIONAL relationship
+        WHEN 'C' PERFORM 2200-CHECKING-LOGIC
+        WHEN 'S' PERFORM 2300-SAVINGS-LOGIC
+    END-EVALUATE
+
+3000-CALCULATE-INTEREST.
+    COMPUTE WS-INTEREST = WS-ACCOUNT-BALANCE * WS-INTEREST-RATE  # → ARITHMETIC relationship
 ```
+
+### Enhanced Data Structure Analysis
+
+The enhanced parser now extracts:
+
+- **Picture Clauses (PIC)**: Data types, sizes, and formats
+- **Usage Clauses**: Storage formats (COMP, COMP-3, etc.)
+- **88-Level Conditions**: Condition names and their values
+- **Level Numbers**: Hierarchical data structure relationships
+- **Value Clauses**: Default values for data items
 
 ## 🧪 Testing
 
