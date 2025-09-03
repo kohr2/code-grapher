@@ -134,13 +134,13 @@ class PipelineOrchestrator(PipelineInterface):
 
             # Step 2: File discovery and parsing
             self.logger.log_info(
-                "Discovering and parsing source files (Python, TypeScript, JavaScript, JSON, Markdown)..."
+                "Discovering and parsing source files (Python, TypeScript, JavaScript, JSON, Markdown, COBOL)..."
             )
             parsed_files = await self._parse_codebase(target_directory)
 
             if not parsed_files:
                 return PipelineResult.failure(
-                    ["No source files found or parsed successfully (Python, TypeScript, JavaScript, JSON, Markdown)"],
+                    ["No source files found or parsed successfully (Python, TypeScript, JavaScript, JSON, Markdown, COBOL)"],
                     "Pipeline failed - no files to process",
                 )
 
@@ -220,9 +220,9 @@ class PipelineOrchestrator(PipelineInterface):
         Parse codebase files to extract entities using multi-language parsing
         """
         try:
-            # Find source files (Python, TypeScript, JavaScript, JSON, Markdown)
+            # Find source files (Python, TypeScript, JavaScript, JSON, Markdown, COBOL)
             source_files = []
-            supported_extensions = [".py", ".ts", ".tsx", ".js", ".jsx", ".json", ".md", ".markdown"]
+            supported_extensions = [".py", ".ts", ".tsx", ".js", ".jsx", ".json", ".md", ".markdown", ".cbl", ".cob", ".cobol"]
 
             for root, dirs, files in os.walk(directory):
                 # Skip hidden directories and common non-source directories

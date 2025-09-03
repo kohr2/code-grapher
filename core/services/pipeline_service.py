@@ -102,7 +102,7 @@ class PipelineService:
             if not source_files:
                 return {
                     "success": False,
-                    "error": "No source files found (Python, TypeScript, JavaScript, JSON, Markdown)",
+                    "error": "No source files found (Python, TypeScript, JavaScript, JSON, Markdown, COBOL)",
                     "files": [],
                     "entities": [],
                     "execution_time": time.time() - start_time,
@@ -291,7 +291,7 @@ class PipelineService:
     def _find_source_files(self, directory: str, extensions: List[str] = None) -> List[str]:
         """Find source files with specified extensions in directory"""
         if extensions is None:
-            extensions = [".py", ".ts", ".tsx", ".js", ".jsx", ".json", ".md", ".markdown"]
+            extensions = [".py", ".ts", ".tsx", ".js", ".jsx", ".json", ".md", ".markdown", ".cbl", ".cob", ".cobol"]
 
         source_files = []
 

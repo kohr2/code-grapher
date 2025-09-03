@@ -38,8 +38,17 @@ class RealProLeapParser:
     
     def _check_proleap(self) -> bool:
         """Check if ProLeap project is available"""
+        # Get the directory where this file is located
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        
         # Try relative path from cobol-support directory first
-        proleap_dir = '../proleap-cobol-parser'
+        proleap_dir = os.path.join(current_dir, '..', '..', 'proleap-cobol-parser')
+        if os.path.exists(proleap_dir) and os.path.exists(os.path.join(proleap_dir, 'pom.xml')):
+            self.proleap_dir = os.path.abspath(proleap_dir)
+            return True
+        
+        # Try relative path from cobol-support directory
+        proleap_dir = os.path.join(current_dir, '..', 'proleap-cobol-parser')
         if os.path.exists(proleap_dir) and os.path.exists(os.path.join(proleap_dir, 'pom.xml')):
             self.proleap_dir = os.path.abspath(proleap_dir)
             return True

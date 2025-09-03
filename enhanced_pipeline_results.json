@@ -1,36 +1,24 @@
 {
-  "timestamp": "2025-08-31T16:40:05.960104",
-  "duration_seconds": 73.82228708267212,
-  "files_processed": 130,
-  "total_files": 135,
+  "timestamp": "2025-09-03T12:05:57.604962",
+  "duration_seconds": 13.595351219177246,
+  "files_processed": 3,
+  "total_files": 3,
   "graph_stats": {
-    "total_entities": 2698,
-    "total_relationships": 5256,
+    "total_entities": 9,
+    "total_relationships": 0,
     "database_stats": {
-      "total_nodes": 2902,
-      "total_relationships": 2990,
+      "total_nodes": 9,
+      "total_relationships": 0,
       "node_types": {
-        "documentation_section": 256,
-        "code_example": 53,
-        "file": 130,
-        "import": 188,
-        "import_from": 950,
-        "class": 203,
-        "function": 910,
-        "api_reference": 2,
-        "project_documentation": 1,
-        "reference_link": 5,
-        "inferred": 204
+        "file": 3,
+        "program": 3,
+        "compilation_unit": 3
       },
-      "relationship_types": {
-        "CALLS": 2736,
-        "DECORATES": 169,
-        "INHERITS": 85
-      }
+      "relationship_types": {}
     }
   },
   "ai_enabled": true,
-  "relationships_extracted": 5256,
-  "descriptions_generated": 130,
-  "embeddings_created": 2568
+  "relationships_extracted": 0,
+  "descriptions_generated": 3,
+  "embeddings_created": 6
 }
