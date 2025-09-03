@@ -277,7 +277,8 @@ class PipelineOrchestrator(PipelineInterface):
                 descriptions[file_path] = {}
 
                 for entity in entities:
-                    if entity.get("type") in ["function", "class"]:
+                    # Include COBOL entity types in description generation
+                    if entity.get("type") in ["function", "class", "program", "compilation_unit", "file", "paragraph", "data_item"]:
                         entity_data = {
                             "name": entity["name"],
                             "type": entity.get("type", "unknown"),
