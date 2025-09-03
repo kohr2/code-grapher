@@ -58,7 +58,10 @@ def test_cobol_file_parsing():
     print("🧪 Testing COBOL file parsing...")
     
     try:
-        from cobol_support.services.cobol_parser import COBOLParser
+        import sys
+        import os
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+        from services.cobol_parser import COBOLParser
         
         parser = COBOLParser()
         if not parser.is_available():
@@ -66,7 +69,7 @@ def test_cobol_file_parsing():
             return False
         
         # Test file path
-        test_file = "cobol-support/tests/test_cobol_banking.cbl"
+        test_file = "cobol-support/tests/fixtures/test_cobol_banking.cbl"
         if not os.path.exists(test_file):
             print(f"   ❌ Test file not found: {test_file}")
             return False
@@ -115,14 +118,17 @@ def test_cobol_entity_extraction():
     print("🧪 Testing COBOL entity extraction details...")
     
     try:
-        from cobol_support.services.cobol_parser import COBOLParser
+        import sys
+        import os
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+        from services.cobol_parser import COBOLParser
         
         parser = COBOLParser()
         if not parser.is_available():
             print("   ⚠️  Skipping - COBOL parser not available")
             return False
         
-        test_file = "cobol-support/tests/test_cobol_banking.cbl"
+        test_file = "cobol-support/tests/fixtures/test_cobol_banking.cbl"
         result = parser.parse_file(test_file)
         
         if not result.get("parse_success", False):
@@ -215,7 +221,7 @@ def test_multi_language_parser_integration():
         parser = MultiLanguageParser()
         
         # Test COBOL file detection
-        test_file = "cobol-support/tests/test_cobol_banking.cbl"
+        test_file = "cobol-support/tests/fixtures/test_cobol_banking.cbl"
         if not os.path.exists(test_file):
             print(f"   ❌ Test file not found: {test_file}")
             return False
@@ -258,7 +264,7 @@ def test_cobol_pipeline_integration():
         parser = MultiLanguageParser()
         extractor = ASTRelationshipExtractor()
         
-        test_file = "cobol-support/tests/test_cobol_banking.cbl"
+        test_file = "cobol-support/tests/fixtures/test_cobol_banking.cbl"
         if not os.path.exists(test_file):
             print(f"   ❌ Test file not found: {test_file}")
             return False
