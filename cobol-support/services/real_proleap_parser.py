@@ -115,6 +115,9 @@ class RealProLeapParser:
                     "compilation_units": result.get('compilation_units', []),
                     "entities": result.get('entities', []),
                     "ast_data": result.get('ast_data', {}),
+                    "divisions": result.get('divisions', {}),
+                    "paragraphs": result.get('paragraphs', {}),
+                    "statements": result.get('statements', {}),
                     "success": True,
                     "using_real_parser": True
                 }
@@ -183,10 +186,50 @@ public class RealProLeapParser {{
                 String unitName = unit.getName();
                 System.out.println("ENTITY:COMPILATION_UNIT:" + (unitName != null ? unitName : "UNKNOWN"));
                 
-                // For now, just extract basic structure
-                // TODO: Enhance to extract detailed divisions, paragraphs, and statements
-                System.out.println("DIVISION:DATA:" + unitName);
-                System.out.println("DIVISION:PROCEDURE:" + unitName);
+                // Extract detailed structure using correct ProLeap API
+                var programUnit = unit.getProgramUnit();
+                if (programUnit != null) {{
+                    // Extract data division
+                    var dataDivision = programUnit.getDataDivision();
+                    if (dataDivision != null) {{
+                        System.out.println("DIVISION:DATA:" + unitName);
+                    }}
+                    
+                    // Extract procedure division with paragraphs and statements
+                    var procedureDivision = programUnit.getProcedureDivision();
+                    if (procedureDivision != null) {{
+                        System.out.println("DIVISION:PROCEDURE:" + unitName);
+                        
+                        // Extract paragraphs
+                        var paragraphs = procedureDivision.getParagraphs();
+                        if (paragraphs != null) {{
+                            for (var paragraph : paragraphs) {{
+                                var paraName = paragraph.getName();
+                                if (paraName != null) {{
+                                    System.out.println("PARAGRAPH:" + paraName + ":" + unitName);
+                                    
+                                    // Extract statements from paragraphs
+                                    var statements = paragraph.getStatements();
+                                    if (statements != null) {{
+                                        for (var statement : statements) {{
+                                            var stmtText = statement.toString();
+                                            System.out.println("STATEMENT:" + paraName + ":" + stmtText + ":" + unitName);
+                                        }}
+                                    }}
+                                    
+                                    // Extract procedure calls (PERFORM statements)
+                                    var calls = paragraph.getCalls();
+                                    if (calls != null) {{
+                                        for (var call : calls) {{
+                                            var callText = call.toString();
+                                            System.out.println("CALL:" + paraName + ":" + callText + ":" + unitName);
+                                        }}
+                                    }}
+                                }}
+                            }}
+                        }}
+                    }}
+                }}
             }}
             
             System.out.println("ENTITIES_END");
@@ -368,6 +411,15 @@ public class RealProLeapParser {{
                         if para_name not in result['statements'][unit_name]:
                             result['statements'][unit_name][para_name] = []
                         result['statements'][unit_name][para_name].append(stmt_text)
+                elif key == 'CALL':
+                    parts = value.split(':', 2)
+                    if len(parts) == 3:
+                        para_name, call_text, unit_name = parts
+                        if unit_name not in result['statements']:
+                            result['statements'][unit_name] = {}
+                        if para_name not in result['statements'][unit_name]:
+                            result['statements'][unit_name][para_name] = []
+                        result['statements'][unit_name][para_name].append(call_text)
         return result
     
     def _fallback_parse(self, file_path: str) -> Dict[str, Any]:
