@@ -37,6 +37,14 @@ except ImportError:
     COBOL_PARSER_AVAILABLE = False
     print("⚠️  COBOL parser not available")
 
+# Import Program Analyzer
+try:
+    from .program_analyzer import ProgramAnalyzer
+    PROGRAM_ANALYZER_AVAILABLE = True
+except ImportError:
+    PROGRAM_ANALYZER_AVAILABLE = False
+    print("⚠️  Program analyzer not available")
+
 
 class MultiLanguageParser:
     """Parser that handles multiple programming languages including COBOL"""
@@ -56,6 +64,12 @@ class MultiLanguageParser:
         if COBOL_PARSER_AVAILABLE:
             self.cobol_parser = COBOLParser()
             self.languages["cobol"] = "Simple COBOL Parser"
+        
+        # Add Program Analyzer if available
+        if PROGRAM_ANALYZER_AVAILABLE:
+            self.program_analyzer = ProgramAnalyzer()
+        else:
+            self.program_analyzer = None
 
     def _setup_tree_sitter_parsers(self):
         """Setup tree-sitter parsers for supported languages"""
@@ -871,13 +885,24 @@ def parse_and_extract_entities(file_paths: List[str]) -> List[Dict[str, Any]]:
     for file_path in file_paths:
         print(f"   📄 Reading: {file_path}")
         result = parser.parse_file(file_path)
-        parsed_files.append(result)
 
         if result["parse_success"]:
             entity_count = len(result["entities"])
             print(f"   ✅ Parsed {entity_count} entities from {result['language']} file")
+            
+            # Add program analysis if analyzer is available
+            if parser.program_analyzer:
+                try:
+                    analysis = parser.program_analyzer.analyze_program(file_path, result)
+                    result["program_analysis"] = analysis
+                    print(f"   📊 Generated comprehensive program analysis")
+                except Exception as e:
+                    print(f"   ⚠️  Program analysis failed: {e}")
+                    result["program_analysis"] = {"error": str(e)}
         else:
             print(f"   ❌ Failed to parse {file_path}: {result['error']}")
+
+        parsed_files.append(result)
 
     return parsed_files
 
@@ -887,6 +912,14 @@ def extract_multi_language_relationships(parsed_files: List[Dict[str, Any]]) -> 
     print(f"🔗 Extracting relationships from {len(parsed_files)} parsed files...")
 
     all_relationships = []
+    
+    # Create a mapping of file paths to their analysis for relationship context
+    file_analysis_map = {}
+    for file_data in parsed_files:
+        if file_data.get("parse_success", False):
+            file_path = file_data.get("file_path", "")
+            program_analysis = file_data.get("program_analysis", {})
+            file_analysis_map[file_path] = program_analysis
 
     # Separate files by language for specialized relationship extraction
     python_files = []
@@ -994,6 +1027,27 @@ def extract_multi_language_relationships(parsed_files: List[Dict[str, Any]]) -> 
             
             for cobol_file in cobol_files:
                 cobol_relationships = extract_cobol_relationships(cobol_file)
+                
+                # Enhance relationships with contextual descriptions
+                file_path = cobol_file.get("file_path", "")
+                program_analysis = file_analysis_map.get(file_path, {})
+                
+                for relationship in cobol_relationships:
+                    # Add contextual description to relationship
+                    if hasattr(relationship, 'context') and program_analysis:
+                        # Try to enhance the context with program analysis
+                        source_entity = getattr(relationship, 'source_entity', '')
+                        target_entity = getattr(relationship, 'target_entity', '')
+                        
+                        entity_descriptions = program_analysis.get("entity_descriptions", {})
+                        source_desc = entity_descriptions.get(source_entity, "")
+                        target_desc = entity_descriptions.get(target_entity, "")
+                        
+                        if source_desc and target_desc:
+                            rel_type = getattr(relationship, 'relationship_type', 'UNKNOWN')
+                            enhanced_context = f"{source_desc} {rel_type.lower()} {target_desc}"
+                            relationship.context = enhanced_context
+                
                 all_relationships.extend(cobol_relationships)
                 
             print(f"   ✅ Extracted {len(all_relationships)} COBOL relationships from {len(cobol_files)} files")

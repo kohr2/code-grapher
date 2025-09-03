@@ -111,6 +111,22 @@ def _extract_basic_relationships(file_data: Dict[str, Any], file_path: str) -> L
                         line_number=1,
                         context=f"Program contains compilation unit"
                     ))
+        
+        # Compilation units contain paragraphs
+        if "statements" in file_data:
+            for cu_name, paragraphs in file_data["statements"].items():
+                for para_name in paragraphs.keys():
+                    relationships.append(RelationshipExtraction(
+                        source_file=file_path,
+                        target_file=file_path,
+                        source_entity=cu_name,
+                        target_entity=para_name,
+                        relationship_type=RelationshipType.CONTAINS,
+                        confidence=1.0,
+                        relationship_strength="strong",
+                        line_number=1,
+                        context=f"Compilation unit {cu_name} contains paragraph {para_name}"
+                    ))
                     
     except Exception as e:
         print(f"   ⚠️  Error extracting basic relationships: {e}")
@@ -128,7 +144,8 @@ def _extract_cobol_calls(file_data: Dict[str, Any], cu_name: str, file_path: str
         if cu_name in statements:
             for para_name, stmt_list in statements[cu_name].items():
                 for stmt in stmt_list:
-                    call_match = re.search(r'CALL\s+["\']?([^"\'\s]+)["\']?', stmt, re.IGNORECASE)
+                    # Handle both "CALL program" and "CALLprogram" (no space)
+                    call_match = re.search(r'CALL\s*["\']?([A-Z0-9-]+)["\']?', stmt, re.IGNORECASE)
                     if call_match:
                         target_program = call_match.group(1)
                         relationships.append(RelationshipExtraction(
@@ -158,7 +175,8 @@ def _extract_cobol_performs(file_data: Dict[str, Any], cu_name: str, file_path: 
         if cu_name in statements:
             for para_name, stmt_list in statements[cu_name].items():
                 for stmt in stmt_list:
-                    perform_match = re.search(r'PERFORM\s+([^\s]+)', stmt, re.IGNORECASE)
+                    # Handle both "PERFORM paragraph" and "PERFORMparagraph" (no space)
+                    perform_match = re.search(r'PERFORM\s*([A-Z0-9-]+)', stmt, re.IGNORECASE)
                     if perform_match:
                         target_paragraph = perform_match.group(1)
                         relationships.append(RelationshipExtraction(

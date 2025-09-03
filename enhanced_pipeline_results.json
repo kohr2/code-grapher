@@ -1,26 +1,31 @@
 {
-  "timestamp": "2025-09-03T12:35:03.278844",
-  "duration_seconds": 124.36220407485962,
-  "files_processed": 3,
-  "total_files": 3,
+  "timestamp": "2025-09-03T13:35:19.250299",
+  "duration_seconds": 115.62812995910645,
+  "files_processed": 8,
+  "total_files": 8,
   "graph_stats": {
-    "total_entities": 9,
-    "total_relationships": 6,
+    "total_entities": 220,
+    "total_relationships": 754,
     "database_stats": {
-      "total_nodes": 9,
-      "total_relationships": 6,
+      "total_nodes": 291,
+      "total_relationships": 425,
       "node_types": {
-        "file": 3,
-        "program": 3,
-        "compilation_unit": 3
+        "file": 8,
+        "import_from": 71,
+        "class": 9,
+        "function": 112,
+        "import": 20,
+        "inferred": 71
       },
       "relationship_types": {
-        "CONTAINS": 6
+        "INHERITS": 4,
+        "CALLS": 402,
+        "DECORATES": 19
       }
     }
   },
   "ai_enabled": true,
-  "relationships_extracted": 6,
-  "descriptions_generated": 3,
-  "embeddings_created": 6
+  "relationships_extracted": 754,
+  "descriptions_generated": 8,
+  "embeddings_created": 212
 }
