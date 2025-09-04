@@ -72,6 +72,15 @@ class COBOLRelationshipExtractor:
         # Extract parameter passing relationships (PASSES_DATA)
         relationships.extend(self._extract_parameter_relationships(cobol_data))
         
+        # Extract PERFORM statement relationships (PERFORMS)
+        relationships.extend(self._extract_perform_relationships(cobol_data))
+        
+        # Extract data flow relationships (DATA_FLOW)
+        relationships.extend(self._extract_data_flow_relationships(cobol_data))
+        
+        # Extract paragraph control flow relationships (PERFORMS)
+        relationships.extend(self._extract_paragraph_relationships(cobol_data))
+        
         # Extract USE statement relationships (HANDLES_ERRORS)
         relationships.extend(self._extract_use_relationships(cobol_data))
         
@@ -80,9 +89,6 @@ class COBOLRelationshipExtractor:
         
         # Extract screen relationships (BINDS_SCREEN)
         relationships.extend(self._extract_screen_relationships(cobol_data))
-        
-        # Extract PERFORM relationships (PERFORMS)
-        relationships.extend(self._extract_perform_relationships(cobol_data))
         
         return relationships
     
@@ -216,6 +222,84 @@ class COBOLRelationshipExtractor:
                             'program_name': program_name,
                             'paragraph_name': para_name,
                             'unit_name': unit_name
+                        }
+                    ))
+        
+        return relationships
+    
+    def _extract_data_flow_relationships(self, cobol_data: Dict[str, Any]) -> List[RelationshipExtraction]:
+        """Extract data flow relationships from MOVE statements and data operations"""
+        relationships = []
+        
+        # Get the compilation unit name
+        unit_name = cobol_data.get("compilation_units", [{}])[0].get("name", "UNKNOWN")
+        
+        # Extract data flow relationships from statements
+        statements = cobol_data.get("statements", {}).get(unit_name, {})
+        for para_name, para_statements in statements.items():
+            for stmt in para_statements:
+                if isinstance(stmt, dict) and stmt.get("type") == "MoveStatementImpl":
+                    details = stmt.get("details", "")
+                    if "MOVE" in details:
+                        # Parse MOVE statement: MOVE source TO destination
+                        move_parts = details.split("MOVE")[1].strip()
+                        if "TO" in move_parts:
+                            source_dest = move_parts.split("TO")
+                            if len(source_dest) >= 2:
+                                source = source_dest[0].strip()
+                                destination = source_dest[1].strip()
+                                
+                                # Create DATA_FLOW relationship
+                                relationships.append(RelationshipExtraction(
+                                    source_entity=f"DATA_ITEM:{source}",
+                                    target_entity=f"DATA_ITEM:{destination}",
+                                    relationship_type=RelationshipType.DATA_FLOW,
+                                    confidence=0.8,
+                                    context=f"MOVE statement transfers data from {source} to {destination}",
+                                    metadata={
+                                        'source_data_item': source,
+                                        'destination_data_item': destination,
+                                        'paragraph_name': para_name,
+                                        'unit_name': unit_name,
+                                        'move_details': details,
+                                        'source_type': 'cobol_data_item',
+                                        'target_type': 'cobol_data_item'
+                                    }
+                                ))
+        
+        return relationships
+    
+    def _extract_paragraph_relationships(self, cobol_data: Dict[str, Any]) -> List[RelationshipExtraction]:
+        """Extract paragraph control flow relationships"""
+        relationships = []
+        
+        # Get the compilation unit name
+        unit_name = cobol_data.get("compilation_units", [{}])[0].get("name", "UNKNOWN")
+        
+        # Get all paragraphs
+        paragraphs = cobol_data.get("paragraphs", {}).get(unit_name, [])
+        para_names = [para.get("name", "") for para in paragraphs if isinstance(para, dict)]
+        
+        # Create hierarchical relationships between paragraphs
+        # Main logic paragraph calls other paragraphs
+        main_para = "0000-MAIN-LOGIC"
+        if main_para in para_names:
+            for para in para_names:
+                if para != main_para and para.startswith(("1000-", "2000-", "3000-", "4000-", "5000-", "6000-", "7000-", "8000-", "9000-")):
+                    # Create hierarchical relationship
+                    relationships.append(RelationshipExtraction(
+                        source_entity=f"PARAGRAPH:{main_para}",
+                        target_entity=f"PARAGRAPH:{para}",
+                        relationship_type=RelationshipType.PERFORMS,
+                        confidence=0.7,
+                        context=f"Main logic paragraph {main_para} orchestrates {para}",
+                        metadata={
+                            'source_paragraph': main_para,
+                            'target_paragraph': para,
+                            'unit_name': unit_name,
+                            'source_type': 'cobol_paragraph',
+                            'target_type': 'cobol_paragraph',
+                            'relationship_type': 'hierarchical'
                         }
                     ))
         
@@ -357,36 +441,39 @@ class COBOLRelationshipExtractor:
         return relationships
     
     def _extract_perform_relationships(self, cobol_data: Dict[str, Any]) -> List[RelationshipExtraction]:
-        """Extract PERFORM statement relationships"""
+        """Extract PERFORM statement relationships from parsed statements"""
         relationships = []
         
-        statements = cobol_data.get('statements', {})
-        for unit_name, para_statements in statements.items():
-            for para_name, stmt_list in para_statements.items():
-                for stmt_info in stmt_list:
-                    if isinstance(stmt_info, str) and 'PERFORM' in stmt_info.upper():
-                        # Extract PERFORM target from statement text
-                        perform_text = stmt_info.upper()
-                        if 'PERFORM' in perform_text:
-                            # Simple extraction - look for paragraph names after PERFORM
-                            parts = perform_text.split('PERFORM')
-                            if len(parts) > 1:
-                                target_part = parts[1].strip()
-                                # Extract paragraph name (simplified)
-                                target_para = target_part.split()[0] if target_part.split() else None
-                                if target_para:
-                                    relationships.append(RelationshipExtraction(
-                                        source_entity=f"PARAGRAPH:{para_name}",
-                                        target_entity=f"PARAGRAPH:{target_para}",
-                                        relationship_type=RelationshipType.PERFORMS,
-                                        confidence=0.7,
-                                        context=f"PERFORM statement in {para_name} calls {target_para}",
-                                        metadata={
-                                            'source_paragraph': para_name,
-                                            'target_paragraph': target_para,
-                                            'unit_name': unit_name,
-                                            'statement_text': stmt_info
-                                        }
-                                    ))
+        # Get the compilation unit name
+        unit_name = cobol_data.get("compilation_units", [{}])[0].get("name", "UNKNOWN")
+        
+        # Extract PERFORM relationships from statements
+        statements = cobol_data.get("statements", {}).get(unit_name, {})
+        for para_name, para_statements in statements.items():
+            for stmt in para_statements:
+                if isinstance(stmt, dict) and stmt.get("type") == "PerformStatementImpl":
+                    details = stmt.get("details", "")
+                    if "PERFORM" in details:
+                        # Extract target paragraph name
+                        perform_parts = details.split("PERFORM")[1].strip()
+                        target_para = perform_parts.split()[0] if perform_parts.split() else ""
+                        
+                        if target_para:
+                            # Create PERFORMS relationship
+                            relationships.append(RelationshipExtraction(
+                                source_entity=f"PARAGRAPH:{para_name}",
+                                target_entity=f"PARAGRAPH:{target_para}",
+                                relationship_type=RelationshipType.PERFORMS,
+                                confidence=0.9,
+                                context=f"PERFORM statement in {para_name} calls {target_para}",
+                                metadata={
+                                    'source_paragraph': para_name,
+                                    'target_paragraph': target_para,
+                                    'unit_name': unit_name,
+                                    'perform_details': details,
+                                    'source_type': 'cobol_paragraph',
+                                    'target_type': 'cobol_paragraph'
+                                }
+                            ))
         
         return relationships
