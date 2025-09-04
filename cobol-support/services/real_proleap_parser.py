@@ -184,6 +184,36 @@ public class RealProLeapParser {{
             // Program entity
             System.out.println("ENTITY:PROGRAM:UNKNOWN");
             
+            // Extract COPY statements and create INCLUDES relationships
+            var copyStatements = program.getCopyStatements();
+            if (copyStatements != null) {{
+                for (var copyStmt : copyStatements) {{
+                    var copySource = copyStmt.getCopySource();
+                    if (copySource != null) {{
+                        var copyName = copySource.getName();
+                        var copyLibrary = copySource.getLibrary();
+                        var replacingPhrases = copyStmt.getReplacingPhrases();
+                        
+                        System.out.println("COPY_STATEMENT:" + copyName + ":" + (copyLibrary != null ? copyLibrary : "") + ":" + unitName);
+                        
+                        // Extract replacing phrases
+                        if (replacingPhrases != null) {{
+                            for (var replacing : replacingPhrases) {{
+                                var replaceables = replacing.getReplaceables();
+                                var replacements = replacing.getReplacements();
+                                if (replaceables != null && replacements != null) {{
+                                    for (int i = 0; i < Math.min(replaceables.size(), replacements.size()); i++) {{
+                                        var replaceable = replaceables.get(i);
+                                        var replacement = replacements.get(i);
+                                        System.out.println("REPLACING:" + copyName + ":" + replaceable + ":" + replacement + ":" + unitName);
+                                    }}
+                                }}
+                            }}
+                        }}
+                    }}
+                }}
+            }}
+            
             // Compilation units with basic structure
             for (CompilationUnit unit : compilationUnits) {{
                 String unitName = unit.getName();
@@ -196,12 +226,56 @@ public class RealProLeapParser {{
                     var dataDivision = programUnit.getDataDivision();
                     if (dataDivision != null) {{
                         System.out.println("DIVISION:DATA:" + unitName);
+                        
+                        // Extract communication section
+                        var communicationSection = dataDivision.getCommunicationSection();
+                        if (communicationSection != null) {{
+                            var communicationDescriptions = communicationSection.getCommunicationDescriptions();
+                            if (communicationDescriptions != null) {{
+                                for (var commDesc : communicationDescriptions) {{
+                                    var commName = commDesc.getName();
+                                    var commType = commDesc.getType();
+                                    var symbolicQueue = commDesc.getSymbolicQueue();
+                                    var symbolicDestination = commDesc.getSymbolicDestination();
+                                    
+                                    System.out.println("COMMUNICATION:" + commName + ":" + commType + ":" + (symbolicQueue != null ? symbolicQueue : "") + ":" + (symbolicDestination != null ? symbolicDestination : "") + ":" + unitName);
+                                }}
+                            }}
+                        }}
+                        
+                        // Extract screen section
+                        var screenSection = dataDivision.getScreenSection();
+                        if (screenSection != null) {{
+                            var screenDescriptions = screenSection.getScreenDescriptions();
+                            if (screenDescriptions != null) {{
+                                for (var screenDesc : screenDescriptions) {{
+                                    var screenName = screenDesc.getName();
+                                    var screenValue = screenDesc.getValue();
+                                    var screenFrom = screenDesc.getFrom();
+                                    var screenTo = screenDesc.getTo();
+                                    
+                                    System.out.println("SCREEN:" + screenName + ":" + (screenValue != null ? screenValue : "") + ":" + (screenFrom != null ? screenFrom : "") + ":" + (screenTo != null ? screenTo : "") + ":" + unitName);
+                                }}
+                            }}
+                        }}
                     }}
                     
                     // Extract procedure division with paragraphs and statements
                     var procedureDivision = programUnit.getProcedureDivision();
                     if (procedureDivision != null) {{
                         System.out.println("DIVISION:PROCEDURE:" + unitName);
+                        
+                        // Extract USE statements for error handling
+                        var useStatements = procedureDivision.getUseStatements();
+                        if (useStatements != null) {{
+                            for (var useStmt : useStatements) {{
+                                var useType = useStmt.getUseType();
+                                var fileName = useStmt.getFileName();
+                                var procedureName = useStmt.getProcedureName();
+                                
+                                System.out.println("USE_STATEMENT:" + useType + ":" + (fileName != null ? fileName : "") + ":" + (procedureName != null ? procedureName : "") + ":" + unitName);
+                            }}
+                        }}
                         
                         // Extract paragraphs
                         var paragraphs = procedureDivision.getParagraphs();
@@ -232,6 +306,38 @@ public class RealProLeapParser {{
                                             var ctx = call.getCtx();
                                             var callText = ctx != null ? ctx.getText() : call.toString();
                                             System.out.println("CALL:" + paraName + ":" + callText + ":" + unitName);
+                                        }}
+                                    }}
+                                    
+                                    // Extract CALL statements (subprogram calls)
+                                    var callStatements = paragraph.getCallStatements();
+                                    if (callStatements != null) {{
+                                        for (var callStmt : callStatements) {{
+                                            var programName = callStmt.getProgramName();
+                                            var usingPhrase = callStmt.getUsingPhrase();
+                                            var givingPhrase = callStmt.getGivingPhrase();
+                                            
+                                            System.out.println("CALL_STATEMENT:" + paraName + ":" + programName + ":" + unitName);
+                                            
+                                            // Extract USING parameters
+                                            if (usingPhrase != null) {{
+                                                var usingParams = usingPhrase.getUsingParameters();
+                                                if (usingParams != null) {{
+                                                    for (var param : usingParams) {{
+                                                        var paramType = param.getParameterType();
+                                                        var paramName = param.getName();
+                                                        System.out.println("CALL_PARAM:" + paraName + ":" + programName + ":" + paramType + ":" + paramName + ":" + unitName);
+                                                    }}
+                                                }}
+                                            }}
+                                            
+                                            // Extract GIVING parameter
+                                            if (givingPhrase != null) {{
+                                                var givingParam = givingPhrase.getGivingParameter();
+                                                if (givingParam != null) {{
+                                                    System.out.println("CALL_GIVING:" + paraName + ":" + programName + ":" + givingParam + ":" + unitName);
+                                                }}
+                                            }}
                                         }}
                                     }}
                                 }}
@@ -508,6 +614,120 @@ public class RealProLeapParser {{
                         if para_name not in result['statements'][unit_name]:
                             result['statements'][unit_name][para_name] = []
                         result['statements'][unit_name][para_name].append(call_text)
+                elif key == 'COPY_STATEMENT':
+                    parts = value.split(':', 3)
+                    if len(parts) >= 3:
+                        copy_name, copy_library, unit_name = parts[0], parts[1], parts[2]
+                        if 'copy_statements' not in result:
+                            result['copy_statements'] = {}
+                        if unit_name not in result['copy_statements']:
+                            result['copy_statements'][unit_name] = []
+                        result['copy_statements'][unit_name].append({
+                            'name': copy_name,
+                            'library': copy_library,
+                            'unit': unit_name
+                        })
+                elif key == 'REPLACING':
+                    parts = value.split(':', 4)
+                    if len(parts) >= 4:
+                        copy_name, replaceable, replacement, unit_name = parts[0], parts[1], parts[2], parts[3]
+                        if 'replacing_phrases' not in result:
+                            result['replacing_phrases'] = {}
+                        if unit_name not in result['replacing_phrases']:
+                            result['replacing_phrases'][unit_name] = {}
+                        if copy_name not in result['replacing_phrases'][unit_name]:
+                            result['replacing_phrases'][unit_name][copy_name] = []
+                        result['replacing_phrases'][unit_name][copy_name].append({
+                            'replaceable': replaceable,
+                            'replacement': replacement
+                        })
+                elif key == 'CALL_STATEMENT':
+                    parts = value.split(':', 3)
+                    if len(parts) >= 3:
+                        para_name, program_name, unit_name = parts[0], parts[1], parts[2]
+                        if 'call_statements' not in result:
+                            result['call_statements'] = {}
+                        if unit_name not in result['call_statements']:
+                            result['call_statements'][unit_name] = {}
+                        if para_name not in result['call_statements'][unit_name]:
+                            result['call_statements'][unit_name][para_name] = []
+                        result['call_statements'][unit_name][para_name].append({
+                            'program_name': program_name,
+                            'unit': unit_name
+                        })
+                elif key == 'CALL_PARAM':
+                    parts = value.split(':', 5)
+                    if len(parts) >= 5:
+                        para_name, program_name, param_type, param_name, unit_name = parts[0], parts[1], parts[2], parts[3], parts[4]
+                        if 'call_parameters' not in result:
+                            result['call_parameters'] = {}
+                        if unit_name not in result['call_parameters']:
+                            result['call_parameters'][unit_name] = {}
+                        if para_name not in result['call_parameters'][unit_name]:
+                            result['call_parameters'][unit_name][para_name] = []
+                        result['call_parameters'][unit_name][para_name].append({
+                            'program_name': program_name,
+                            'param_type': param_type,
+                            'param_name': param_name
+                        })
+                elif key == 'CALL_GIVING':
+                    parts = value.split(':', 4)
+                    if len(parts) >= 4:
+                        para_name, program_name, giving_param, unit_name = parts[0], parts[1], parts[2], parts[3]
+                        if 'call_giving' not in result:
+                            result['call_giving'] = {}
+                        if unit_name not in result['call_giving']:
+                            result['call_giving'][unit_name] = {}
+                        if para_name not in result['call_giving'][unit_name]:
+                            result['call_giving'][unit_name][para_name] = []
+                        result['call_giving'][unit_name][para_name].append({
+                            'program_name': program_name,
+                            'giving_param': giving_param
+                        })
+                elif key == 'USE_STATEMENT':
+                    parts = value.split(':', 4)
+                    if len(parts) >= 4:
+                        use_type, file_name, procedure_name, unit_name = parts[0], parts[1], parts[2], parts[3]
+                        if 'use_statements' not in result:
+                            result['use_statements'] = {}
+                        if unit_name not in result['use_statements']:
+                            result['use_statements'][unit_name] = []
+                        result['use_statements'][unit_name].append({
+                            'use_type': use_type,
+                            'file_name': file_name,
+                            'procedure_name': procedure_name,
+                            'unit': unit_name
+                        })
+                elif key == 'COMMUNICATION':
+                    parts = value.split(':', 5)
+                    if len(parts) >= 5:
+                        comm_name, comm_type, symbolic_queue, symbolic_destination, unit_name = parts[0], parts[1], parts[2], parts[3], parts[4]
+                        if 'communication' not in result:
+                            result['communication'] = {}
+                        if unit_name not in result['communication']:
+                            result['communication'][unit_name] = []
+                        result['communication'][unit_name].append({
+                            'name': comm_name,
+                            'type': comm_type,
+                            'symbolic_queue': symbolic_queue,
+                            'symbolic_destination': symbolic_destination,
+                            'unit': unit_name
+                        })
+                elif key == 'SCREEN':
+                    parts = value.split(':', 5)
+                    if len(parts) >= 5:
+                        screen_name, screen_value, screen_from, screen_to, unit_name = parts[0], parts[1], parts[2], parts[3], parts[4]
+                        if 'screens' not in result:
+                            result['screens'] = {}
+                        if unit_name not in result['screens']:
+                            result['screens'][unit_name] = []
+                        result['screens'][unit_name].append({
+                            'name': screen_name,
+                            'value': screen_value,
+                            'from': screen_from,
+                            'to': screen_to,
+                            'unit': unit_name
+                        })
         return result
     
     def _fallback_parse(self, file_path: str) -> Dict[str, Any]:
