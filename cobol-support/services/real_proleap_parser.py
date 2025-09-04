@@ -184,8 +184,105 @@ public class RealProLeapParser {{
             // Program entity
             System.out.println("ENTITY:PROGRAM:UNKNOWN");
             
-            // Note: COPY statements are handled by the preprocessor, not the ASG
-            // We'll extract them from the preprocessed source if needed
+            // Use visitor pattern to extract COBOL constructs
+            System.out.println("DEBUG: Creating visitor...");
+            var visitor = new io.proleap.cobol.asg.visitor.impl.CobolProcedureStatementVisitorImpl(program) {{
+                @Override
+                public Boolean visitCallStatement(io.proleap.cobol.CobolParser.CallStatementContext ctx) {{
+                    System.out.println("DEBUG: visitCallStatement called");
+                    var scope = findScope(ctx);
+                    var compilationUnit = findCompilationUnit(ctx);
+                    var programUnit = findProgramUnit(ctx);
+                    
+                    // Extract program name from identifier or literal
+                    String programName = "UNKNOWN";
+                    if (ctx.identifier() != null) {{
+                        programName = ctx.identifier().getText();
+                    }} else if (ctx.literal() != null) {{
+                        programName = ctx.literal().getText();
+                    }}
+                    
+                    var unitName = compilationUnit != null ? compilationUnit.getName() : "UNKNOWN";
+                    System.out.println("CALL_STATEMENT:" + programName + ":" + unitName);
+                    
+                    // Extract USING parameters
+                    if (ctx.callUsingPhrase() != null) {{
+                        var usingCtx = ctx.callUsingPhrase();
+                        if (usingCtx.callUsingParameter() != null) {{
+                            for (var param : usingCtx.callUsingParameter()) {{
+                                String paramName = param.getText();
+                                String paramType = "UNKNOWN";
+                                if (param.callByReferencePhrase() != null) {{
+                                    paramType = "REFERENCE";
+                                }} else if (param.callByValuePhrase() != null) {{
+                                    paramType = "VALUE";
+                                }} else if (param.callByContentPhrase() != null) {{
+                                    paramType = "CONTENT";
+                                }}
+                                System.out.println("CALL_PARAM:" + programName + ":" + paramType + ":" + paramName + ":" + unitName);
+                            }}
+                        }}
+                    }}
+                    
+                    // Extract GIVING parameter
+                    if (ctx.callGivingPhrase() != null) {{
+                        var givingCtx = ctx.callGivingPhrase();
+                        if (givingCtx.identifier() != null) {{
+                            String givingParam = givingCtx.identifier().getText();
+                            System.out.println("CALL_GIVING:" + programName + ":" + givingParam + ":" + unitName);
+                        }}
+                    }}
+                    
+                    return visitChildren(ctx);
+                }}
+                
+                @Override
+                public Boolean visitCopyStatement(io.proleap.cobol.CobolParser.CopyStatementContext ctx) {{
+                    var compilationUnit = findCompilationUnit(ctx);
+                    var unitName = compilationUnit != null ? compilationUnit.getName() : "UNKNOWN";
+                    
+                    if (ctx.copySource() != null) {{
+                        var copyName = ctx.copySource().getText();
+                        var copyLibrary = ctx.libraryName() != null ? ctx.libraryName().getText() : "";
+                        System.out.println("COPY_STATEMENT:" + copyName + ":" + copyLibrary + ":" + unitName);
+                        
+                        // Extract replacing phrases
+                        if (ctx.replacingPhrase() != null) {{
+                            var replacingCtx = ctx.replacingPhrase();
+                            if (replacingCtx.replaceable() != null && replacingCtx.replacement() != null) {{
+                                for (int i = 0; i < Math.min(replacingCtx.replaceable().size(), replacingCtx.replacement().size()); i++) {{
+                                    var replaceable = replacingCtx.replaceable(i).getText();
+                                    var replacement = replacingCtx.replacement(i).getText();
+                                    System.out.println("REPLACING:" + copyName + ":" + replaceable + ":" + replacement + ":" + unitName);
+                                }}
+                            }}
+                        }}
+                    }}
+                    
+                    return visitChildren(ctx);
+                }}
+                
+                @Override
+                public Boolean visitUseStatement(io.proleap.cobol.CobolParser.UseStatementContext ctx) {{
+                    var compilationUnit = findCompilationUnit(ctx);
+                    var unitName = compilationUnit != null ? compilationUnit.getName() : "UNKNOWN";
+                    
+                    var useType = ctx.USE() != null ? ctx.USE().getText() : "UNKNOWN";
+                    var fileName = ctx.fileName() != null ? ctx.fileName().getText() : "";
+                    var procedureName = ctx.procedureName() != null ? ctx.procedureName().getText() : "";
+                    
+                    System.out.println("USE_STATEMENT:" + useType + ":" + fileName + ":" + procedureName + ":" + unitName);
+                    
+                    return visitChildren(ctx);
+                }}
+            }};
+            
+            // Visit all compilation units
+            System.out.println("DEBUG: Visiting compilation units...");
+            for (CompilationUnit unit : compilationUnits) {{
+                System.out.println("DEBUG: Visiting unit: " + unit.getName());
+                visitor.visit(unit.getCtx());
+            }}
             
             // Compilation units with basic structure
             for (CompilationUnit unit : compilationUnits) {{
@@ -209,8 +306,7 @@ public class RealProLeapParser {{
                     if (procedureDivision != null) {{
                         System.out.println("DIVISION:PROCEDURE:" + unitName);
                         
-                        // Note: USE statements require more complex ASG traversal
-                        // For now, we'll focus on basic program structure
+                        // USE statements are now handled by the visitor pattern above
                         
                         // Extract paragraphs
                         var paragraphs = procedureDivision.getParagraphs();
@@ -244,8 +340,7 @@ public class RealProLeapParser {{
                                         }}
                                     }}
                                     
-                                    // Note: CALL statements require more complex ASG traversal
-                                    // For now, we'll focus on basic program structure
+                                    // CALL statements are now handled by the visitor pattern above
                                 }}
                             }}
                         }}
@@ -548,17 +643,42 @@ public class RealProLeapParser {{
                             'replacement': replacement
                         })
                 elif key == 'CALL_STATEMENT':
-                    parts = value.split(':', 3)
-                    if len(parts) >= 3:
-                        para_name, program_name, unit_name = parts[0], parts[1], parts[2]
+                    parts = value.split(':', 2)
+                    if len(parts) >= 2:
+                        program_name, unit_name = parts[0], parts[1]
                         if 'call_statements' not in result:
                             result['call_statements'] = {}
                         if unit_name not in result['call_statements']:
-                            result['call_statements'][unit_name] = {}
-                        if para_name not in result['call_statements'][unit_name]:
-                            result['call_statements'][unit_name][para_name] = []
-                        result['call_statements'][unit_name][para_name].append({
+                            result['call_statements'][unit_name] = []
+                        result['call_statements'][unit_name].append({
                             'program_name': program_name,
+                            'unit': unit_name
+                        })
+                elif key == 'CALL_PARAM':
+                    parts = value.split(':', 4)
+                    if len(parts) >= 4:
+                        program_name, param_type, param_name, unit_name = parts[0], parts[1], parts[2], parts[3]
+                        if 'call_parameters' not in result:
+                            result['call_parameters'] = {}
+                        if unit_name not in result['call_parameters']:
+                            result['call_parameters'][unit_name] = []
+                        result['call_parameters'][unit_name].append({
+                            'program_name': program_name,
+                            'param_type': param_type,
+                            'param_name': param_name,
+                            'unit': unit_name
+                        })
+                elif key == 'CALL_GIVING':
+                    parts = value.split(':', 3)
+                    if len(parts) >= 3:
+                        program_name, giving_param, unit_name = parts[0], parts[1], parts[2]
+                        if 'call_giving' not in result:
+                            result['call_giving'] = {}
+                        if unit_name not in result['call_giving']:
+                            result['call_giving'][unit_name] = []
+                        result['call_giving'][unit_name].append({
+                            'program_name': program_name,
+                            'giving_param': giving_param,
                             'unit': unit_name
                         })
                 elif key == 'CALL_PARAM':
