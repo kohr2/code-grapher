@@ -133,29 +133,39 @@ class COBOLRelationshipExtractor:
         return relationships
     
     def _extract_call_relationships(self, cobol_data: Dict[str, Any]) -> List[RelationshipExtraction]:
-        """Extract CALL statement relationships"""
+        """Extract CALL statement relationships from parsed statements"""
         relationships = []
         
-        call_statements = cobol_data.get('call_statements', {})
-        for unit_name, para_calls in call_statements.items():
-            for para_name, calls in para_calls.items():
-                for call_info in calls:
-                    program_name = call_info['program_name']
-                    
-                    # Create CALLS relationship
-                    relationships.append(RelationshipExtraction(
-                        source_entity=f"PROGRAM:{unit_name}",
-                        target_entity=f"PROGRAM:{program_name}",
-                        relationship_type=RelationshipType.CALLS,
-                        confidence=0.9,
-                        context=f"CALL statement in paragraph {para_name} calls {program_name}",
-                        metadata={
-                            'paragraph_name': para_name,
-                            'unit_name': unit_name,
-                            'source_type': 'cobol_program',
-                            'target_type': 'cobol_program'
-                        }
-                    ))
+        # Get the compilation unit name
+        unit_name = cobol_data.get("compilation_units", [{}])[0].get("name", "UNKNOWN")
+        
+        # Extract CALL relationships from statements
+        statements = cobol_data.get("statements", {}).get(unit_name, {})
+        for para_name, para_statements in statements.items():
+            for stmt in para_statements:
+                if isinstance(stmt, dict) and stmt.get("type") == "CallStatementImpl":
+                    # Extract program name from the details
+                    details = stmt.get("details", "")
+                    if "CALL" in details:
+                        # Parse the CALL statement details
+                        call_parts = details.split("CALL")[1].split("USING")[0].strip()
+                        program_name = call_parts.strip("'\"")
+                        
+                        # Create CALLS relationship
+                        relationships.append(RelationshipExtraction(
+                            source_entity=f"PROGRAM:{unit_name}",
+                            target_entity=f"PROGRAM:{program_name}",
+                            relationship_type=RelationshipType.CALLS,
+                            confidence=0.9,
+                            context=f"CALL statement in paragraph {para_name} calls {program_name}",
+                            metadata={
+                                'paragraph_name': para_name,
+                                'unit_name': unit_name,
+                                'source_type': 'cobol_program',
+                                'target_type': 'cobol_program',
+                                'call_details': details
+                            }
+                        ))
         
         return relationships
     

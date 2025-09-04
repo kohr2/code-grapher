@@ -238,6 +238,7 @@ public class RealProLeapParser {{
                 
                 @Override
                 public Boolean visitCopyStatement(io.proleap.cobol.CobolParser.CopyStatementContext ctx) {{
+                    System.out.println("DEBUG: visitCopyStatement called");
                     var compilationUnit = findCompilationUnit(ctx);
                     var unitName = compilationUnit != null ? compilationUnit.getName() : "UNKNOWN";
                     
@@ -264,6 +265,7 @@ public class RealProLeapParser {{
                 
                 @Override
                 public Boolean visitUseStatement(io.proleap.cobol.CobolParser.UseStatementContext ctx) {{
+                    System.out.println("DEBUG: visitUseStatement called");
                     var compilationUnit = findCompilationUnit(ctx);
                     var unitName = compilationUnit != null ? compilationUnit.getName() : "UNKNOWN";
                     
