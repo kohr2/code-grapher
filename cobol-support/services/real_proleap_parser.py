@@ -184,35 +184,8 @@ public class RealProLeapParser {{
             // Program entity
             System.out.println("ENTITY:PROGRAM:UNKNOWN");
             
-            // Extract COPY statements and create INCLUDES relationships
-            var copyStatements = program.getCopyStatements();
-            if (copyStatements != null) {{
-                for (var copyStmt : copyStatements) {{
-                    var copySource = copyStmt.getCopySource();
-                    if (copySource != null) {{
-                        var copyName = copySource.getName();
-                        var copyLibrary = copySource.getLibrary();
-                        var replacingPhrases = copyStmt.getReplacingPhrases();
-                        
-                        System.out.println("COPY_STATEMENT:" + copyName + ":" + (copyLibrary != null ? copyLibrary : "") + ":" + unitName);
-                        
-                        // Extract replacing phrases
-                        if (replacingPhrases != null) {{
-                            for (var replacing : replacingPhrases) {{
-                                var replaceables = replacing.getReplaceables();
-                                var replacements = replacing.getReplacements();
-                                if (replaceables != null && replacements != null) {{
-                                    for (int i = 0; i < Math.min(replaceables.size(), replacements.size()); i++) {{
-                                        var replaceable = replaceables.get(i);
-                                        var replacement = replacements.get(i);
-                                        System.out.println("REPLACING:" + copyName + ":" + replaceable + ":" + replacement + ":" + unitName);
-                                    }}
-                                }}
-                            }}
-                        }}
-                    }}
-                }}
-            }}
+            // Note: COPY statements are handled by the preprocessor, not the ASG
+            // We'll extract them from the preprocessed source if needed
             
             // Compilation units with basic structure
             for (CompilationUnit unit : compilationUnits) {{
@@ -227,37 +200,8 @@ public class RealProLeapParser {{
                     if (dataDivision != null) {{
                         System.out.println("DIVISION:DATA:" + unitName);
                         
-                        // Extract communication section
-                        var communicationSection = dataDivision.getCommunicationSection();
-                        if (communicationSection != null) {{
-                            var communicationDescriptions = communicationSection.getCommunicationDescriptions();
-                            if (communicationDescriptions != null) {{
-                                for (var commDesc : communicationDescriptions) {{
-                                    var commName = commDesc.getName();
-                                    var commType = commDesc.getType();
-                                    var symbolicQueue = commDesc.getSymbolicQueue();
-                                    var symbolicDestination = commDesc.getSymbolicDestination();
-                                    
-                                    System.out.println("COMMUNICATION:" + commName + ":" + commType + ":" + (symbolicQueue != null ? symbolicQueue : "") + ":" + (symbolicDestination != null ? symbolicDestination : "") + ":" + unitName);
-                                }}
-                            }}
-                        }}
-                        
-                        // Extract screen section
-                        var screenSection = dataDivision.getScreenSection();
-                        if (screenSection != null) {{
-                            var screenDescriptions = screenSection.getScreenDescriptions();
-                            if (screenDescriptions != null) {{
-                                for (var screenDesc : screenDescriptions) {{
-                                    var screenName = screenDesc.getName();
-                                    var screenValue = screenDesc.getValue();
-                                    var screenFrom = screenDesc.getFrom();
-                                    var screenTo = screenDesc.getTo();
-                                    
-                                    System.out.println("SCREEN:" + screenName + ":" + (screenValue != null ? screenValue : "") + ":" + (screenFrom != null ? screenFrom : "") + ":" + (screenTo != null ? screenTo : "") + ":" + unitName);
-                                }}
-                            }}
-                        }}
+                        // Note: Communication and Screen sections require more complex ASG traversal
+                        // For now, we'll focus on basic program structure
                     }}
                     
                     // Extract procedure division with paragraphs and statements
@@ -265,17 +209,8 @@ public class RealProLeapParser {{
                     if (procedureDivision != null) {{
                         System.out.println("DIVISION:PROCEDURE:" + unitName);
                         
-                        // Extract USE statements for error handling
-                        var useStatements = procedureDivision.getUseStatements();
-                        if (useStatements != null) {{
-                            for (var useStmt : useStatements) {{
-                                var useType = useStmt.getUseType();
-                                var fileName = useStmt.getFileName();
-                                var procedureName = useStmt.getProcedureName();
-                                
-                                System.out.println("USE_STATEMENT:" + useType + ":" + (fileName != null ? fileName : "") + ":" + (procedureName != null ? procedureName : "") + ":" + unitName);
-                            }}
-                        }}
+                        // Note: USE statements require more complex ASG traversal
+                        // For now, we'll focus on basic program structure
                         
                         // Extract paragraphs
                         var paragraphs = procedureDivision.getParagraphs();
@@ -309,37 +244,8 @@ public class RealProLeapParser {{
                                         }}
                                     }}
                                     
-                                    // Extract CALL statements (subprogram calls)
-                                    var callStatements = paragraph.getCallStatements();
-                                    if (callStatements != null) {{
-                                        for (var callStmt : callStatements) {{
-                                            var programName = callStmt.getProgramName();
-                                            var usingPhrase = callStmt.getUsingPhrase();
-                                            var givingPhrase = callStmt.getGivingPhrase();
-                                            
-                                            System.out.println("CALL_STATEMENT:" + paraName + ":" + programName + ":" + unitName);
-                                            
-                                            // Extract USING parameters
-                                            if (usingPhrase != null) {{
-                                                var usingParams = usingPhrase.getUsingParameters();
-                                                if (usingParams != null) {{
-                                                    for (var param : usingParams) {{
-                                                        var paramType = param.getParameterType();
-                                                        var paramName = param.getName();
-                                                        System.out.println("CALL_PARAM:" + paraName + ":" + programName + ":" + paramType + ":" + paramName + ":" + unitName);
-                                                    }}
-                                                }}
-                                            }}
-                                            
-                                            // Extract GIVING parameter
-                                            if (givingPhrase != null) {{
-                                                var givingParam = givingPhrase.getGivingParameter();
-                                                if (givingParam != null) {{
-                                                    System.out.println("CALL_GIVING:" + paraName + ":" + programName + ":" + givingParam + ":" + unitName);
-                                                }}
-                                            }}
-                                        }}
-                                    }}
+                                    // Note: CALL statements require more complex ASG traversal
+                                    // For now, we'll focus on basic program structure
                                 }}
                             }}
                         }}

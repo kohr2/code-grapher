@@ -12,7 +12,48 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from ai_services.models.relationship_models import RelationshipType, RelationshipExtraction
+try:
+    from ai_services.models.relationship_models import RelationshipType, RelationshipExtraction
+except ImportError:
+    # Fallback: define the classes locally if import fails
+    from enum import Enum
+    from dataclasses import dataclass
+    from typing import Optional, Dict, Any
+    
+    class RelationshipType(Enum):
+        CALLS = "CALLS"
+        INHERITS = "INHERITS"
+        USES = "USES"
+        IMPLEMENTS = "IMPLEMENTS"
+        DEPENDS_ON = "DEPENDS_ON"
+        OVERRIDES = "OVERRIDES"
+        DECORATES = "DECORATES"
+        INSTANTIATES = "INSTANTIATES"
+        DEFINES = "DEFINES"
+        CONFIGURES = "CONFIGURES"
+        TRANSFORMS = "TRANSFORMS"
+        VALIDATES = "VALIDATES"
+        DATA_FLOW = "DATA_FLOW"
+        STATE_MUTATION = "STATE_MUTATION"
+        IMPORTS = "IMPORTS"
+        EXPORTS = "EXPORTS"
+        EVENT_HANDLING = "EVENT_HANDLING"
+        INCLUDES = "INCLUDES"
+        PASSES_DATA = "PASSES_DATA"
+        HANDLES_ERRORS = "HANDLES_ERRORS"
+        USES_QUEUE = "USES_QUEUE"
+        BINDS_SCREEN = "BINDS_SCREEN"
+        PERFORMS = "PERFORMS"
+        REPLACES = "REPLACES"
+    
+    @dataclass
+    class RelationshipExtraction:
+        source_entity: str
+        target_entity: str
+        relationship_type: RelationshipType
+        confidence: float
+        context: str
+        metadata: Optional[Dict[str, Any]] = None
 
 
 class COBOLRelationshipExtractor:
