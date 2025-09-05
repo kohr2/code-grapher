@@ -42,6 +42,9 @@ class ASTRelationshipExtractor:
         relationships.extend(self._extract_decorates_relationships(successful_files))
         relationships.extend(self._extract_basic_calls_relationships(successful_files))
         
+        # Extract COBOL relationships
+        relationships.extend(self._extract_cobol_relationships(successful_files))
+        
         print(f"   ✅ Extracted {len(relationships)} AST relationships")
         return relationships
     
@@ -256,6 +259,35 @@ class ASTRelationshipExtractor:
             decorator = decorator.split('.')[-1]
         
         return decorator.strip()
+    
+    def _extract_cobol_relationships(self, files: List[Dict[str, Any]]) -> List[RelationshipExtraction]:
+        """Extract COBOL relationships from parsed COBOL files"""
+        relationships = []
+        
+        for file_data in files:
+            if file_data.get("language") == "cobol" and file_data.get("relationships"):
+                # Convert COBOL RelationshipExtraction objects to the format expected by the pipeline
+                cobol_relationships = file_data.get("relationships", [])
+                
+                for rel in cobol_relationships:
+                    # Convert COBOL relationship to pipeline format
+                    pipeline_rel = RelationshipExtraction(
+                        source_file=file_data.get("file_path", ""),
+                        target_file=file_data.get("file_path", ""),  # COBOL relationships are within the same file
+                        source_entity=rel.source_entity,
+                        target_entity=rel.target_entity,
+                        relationship_type=rel.relationship_type,
+                        confidence=rel.confidence,
+                        context=rel.context,
+                        line_number=0,  # COBOL doesn't have line numbers in our current extraction
+                        confidence_level=rel.confidence  # Convert float to enum if needed
+                    )
+                    relationships.append(pipeline_rel)
+        
+        if relationships:
+            print(f"   📊 Extracted {len(relationships)} COBOL relationships")
+        
+        return relationships
 
 
 def extract_ast_relationships(parsed_files: List[Dict[str, Any]]) -> List[RelationshipExtraction]:

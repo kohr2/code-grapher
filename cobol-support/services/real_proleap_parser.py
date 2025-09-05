@@ -373,9 +373,14 @@ public class RealProLeapParser {{
             target_java_file = os.path.join(proleap_src_dir, 'RealProLeapParser.java')
             import shutil
             shutil.copy2(java_file, target_java_file)
-            # Compile using Maven
+            # Compile using Maven with warning suppression
             compile_result = subprocess.run([
-                'mvn', 'compile', '-q'
+                'mvn', 'compile', '-q', 
+                '-Dmaven.compiler.showWarnings=false', 
+                '-Dmaven.compiler.showDeprecation=false',
+                '-Dmaven.compiler.fork=true',
+                '-Dmaven.compiler.executable=java',
+                '-Dmaven.compiler.compilerArgs=-J--add-opens=java.base/sun.misc=ALL-UNNAMED'
             ], capture_output=True, text=True, timeout=60, cwd=self.proleap_dir)
             
             if compile_result.returncode != 0:
@@ -412,7 +417,7 @@ public class RealProLeapParser {{
             classpath = ':'.join(classpath_parts)
             
             run_result = subprocess.run([
-                'java', '-cp', classpath, 'RealProLeapParser'
+                'java', '--add-opens=java.base/sun.misc=ALL-UNNAMED', '-cp', classpath, 'RealProLeapParser'
             ], capture_output=True, text=True, timeout=120, cwd=self.proleap_dir)
             
             # Check if the output contains SUCCESS (check both stdout and stderr)
