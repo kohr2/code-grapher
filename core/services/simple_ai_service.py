@@ -43,7 +43,7 @@ class SimpleAIService(AIServicesInterface):
         self.logger = logger
         self._ast_extractor = None
         self._description_cache = {}  # Cache for generated descriptions
-        self._max_descriptions = 100  # Limit AI descriptions to prevent infinite loops
+        self._max_descriptions = 1000  # Reasonable limit to prevent runaway AI calls
         self._description_count = 0
         
     def initialize(self, config: Dict[str, Any] = None) -> bool:
@@ -143,13 +143,17 @@ class SimpleAIService(AIServicesInterface):
             if cache_key in self._description_cache:
                 return self._description_cache[cache_key]
             
-            # Temporarily disable AI descriptions to prevent infinite loops
-            fallback_desc = f"A {entity_type} named {entity_name} in {file_path}"
-            self._description_cache[cache_key] = fallback_desc
-            return fallback_desc
+            # Limit AI descriptions to prevent runaway AI calls
+            if self._description_count >= self._max_descriptions:
+                fallback_desc = f"A {entity_type} named {entity_name} in {file_path}"
+                self._description_cache[cache_key] = fallback_desc
+                self.logger.log_warning(f"AI description limit reached ({self._description_count}/{self._max_descriptions}), using fallback for {entity_name}")
+                return fallback_desc
             
-            # Generate AI description (disabled temporarily)
-            # description = await self._generate_ai_description(entity_data, primer_context)
+            # Generate AI description
+            self.logger.log_info(f"Generating AI description {self._description_count + 1}/{self._max_descriptions} for {entity_name} ({entity_type})")
+            description = await self._generate_ai_description(entity_data, primer_context)
+            self.logger.log_info(f"AI description generated for {entity_name}: {description[:100]}...")
             
             # Cache the result
             self._description_cache[cache_key] = description
@@ -174,6 +178,7 @@ class SimpleAIService(AIServicesInterface):
             AI-generated description string
         """
         try:
+            self.logger.log_info("Starting AI description generation...")
             entity_name = entity_data.get('name', 'Unknown')
             entity_type = entity_data.get('type', 'unknown')
             file_path = entity_data.get('file_path', 'Unknown file')
@@ -202,15 +207,13 @@ class SimpleAIService(AIServicesInterface):
             else:
                 line_context = ""
             
-            # Create optimized prompt
-            prompt = f"""Describe this {entity_type} {line_context} in one sentence:
+            # Create very concise prompt
+            prompt = f"""What does this {entity_type} do? One sentence:
 
-Code:
-{code_content}
-
-Focus on what it does, be concise."""
+{code_content}"""
 
             # Call Ollama API
+            self.logger.log_info("Calling Ollama API...")
             ollama_url = "http://localhost:11434/api/generate"
             payload = {
                 "model": "tinyllama:latest",
@@ -222,7 +225,10 @@ Focus on what it does, be concise."""
                 }
             }
             
-            response = requests.post(ollama_url, json=payload, timeout=30)
+            self.logger.log_info(f"Sending request to Ollama with prompt length: {len(prompt)}")
+            self.logger.log_info(f"Prompt preview: {prompt[:200]}...")
+            response = requests.post(ollama_url, json=payload, timeout=15)
+            self.logger.log_info(f"Received response from Ollama with status: {response.status_code}")
             response.raise_for_status()
             
             result = response.json()
@@ -272,8 +278,22 @@ Focus on what it does, be concise."""
         return {
             'status': 'healthy' if self._extract_relationships_func else 'degraded',
             'service_type': 'simple_ai_service',
-            'ast_extractor_available': self._extract_relationships_func is not None
+            'ast_extractor_available': self._extract_relationships_func is not None,
+            'description_count': self._description_count,
+            'max_descriptions': self._max_descriptions,
+            'cache_size': len(self._description_cache)
         }
+    
+    def reset_description_count(self):
+        """Reset the description count (useful for testing or if limit is reached)"""
+        self._description_count = 0
+        self.logger.log_info("AI description count reset to 0")
+    
+    def clear_description_cache(self):
+        """Clear the description cache (useful for testing or memory management)"""
+        cache_size = len(self._description_cache)
+        self._description_cache.clear()
+        self.logger.log_info(f"Description cache cleared ({cache_size} entries removed)")
     
     def shutdown(self):
         """Shutdown the service"""
