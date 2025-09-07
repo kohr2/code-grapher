@@ -55,15 +55,16 @@ class COBOLParser:
         """Parse a COBOL file and return AST/ASG data"""
         result = self.parser.parse_file(file_path)
         
-        # Extract advanced COBOL relationships
+        # Extract entities and relationships
         if result.get("parse_success", False):
+            # Extract entities from parsed data first
+            entities = self._extract_entities(result)
+            result["entities"] = entities
+            
+            # Extract advanced COBOL relationships (now that entities are available)
             relationships = self.relationship_extractor.extract_relationships(result)
             result["relationships"] = relationships
             result["relationship_count"] = len(relationships)
-            
-            # Extract entities from parsed data
-            entities = self._extract_entities(result)
-            result["entities"] = entities
         
         return result
     
@@ -91,7 +92,25 @@ class COBOLParser:
                             }
                         })
         
-        # Extract data item entities (if available)
+        # Extract data item entities from source code (since ProLeap parser doesn't extract them yet)
+        file_path = cobol_data.get("file_path", "")
+        if file_path and os.path.exists(file_path):
+            data_items = self._extract_data_items_from_source(file_path)
+            for item in data_items:
+                entities.append({
+                    "type": "data_item",
+                    "name": item["name"],
+                    "properties": {
+                        "unit": cobol_data.get("compilation_units", [{}])[0].get("name", "UNKNOWN"),
+                        "level": item["level"],
+                        "data_type": item["data_type"],
+                        "picture": item["picture"],
+                        "context": f"Data item in {item['unit']}",
+                        "line": item["line_number"]
+                    }
+                })
+        
+        # Extract data item entities from parsed data (if available)
         data_items = cobol_data.get("data_items", {})
         for unit_name, item_list in data_items.items():
             for item_data in item_list:
@@ -112,6 +131,78 @@ class COBOLParser:
                         })
         
         return entities
+    
+    def _extract_data_items_from_source(self, file_path: str) -> List[Dict[str, Any]]:
+        """Extract data items from COBOL source code"""
+        data_items = []
+        
+        try:
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                lines = f.readlines()
+            
+            in_data_division = False
+            current_unit = "UNKNOWN"
+            
+            for line_num, line in enumerate(lines, 1):
+                line = line.strip()
+                
+                # Check if we're in DATA DIVISION
+                if line.upper().startswith('DATA DIVISION'):
+                    in_data_division = True
+                    continue
+                elif line.upper().startswith('PROCEDURE DIVISION'):
+                    in_data_division = False
+                    continue
+                
+                if not in_data_division:
+                    continue
+                
+                # Skip empty lines and comments
+                if not line or line.startswith('*') or line.startswith('.'):
+                    continue
+                
+                # Extract data items (lines starting with level numbers)
+                if line and line[0].isdigit():
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        level = int(parts[0])
+                        name = parts[1]
+                        
+                        # Skip special level numbers
+                        if level in [66, 77, 88]:
+                            continue
+                        
+                        # Extract PIC clause
+                        picture = ""
+                        data_type = "unknown"
+                        for i, part in enumerate(parts):
+                            if part.upper() == 'PIC':
+                                if i + 1 < len(parts):
+                                    picture = parts[i + 1]
+                                    # Determine data type from picture
+                                    if 'X' in picture:
+                                        data_type = "alphanumeric"
+                                    elif '9' in picture:
+                                        data_type = "numeric"
+                                    elif 'A' in picture:
+                                        data_type = "alphabetic"
+                                    elif 'S' in picture:
+                                        data_type = "signed_numeric"
+                                    break
+                        
+                        data_items.append({
+                            "name": name,
+                            "level": level,
+                            "data_type": data_type,
+                            "picture": picture,
+                            "line_number": line_num,
+                            "unit": current_unit
+                        })
+        
+        except Exception as e:
+            print(f"Error extracting data items from {file_path}: {e}")
+        
+        return data_items
     
     def is_available(self) -> bool:
         """Check if COBOL parser is available"""

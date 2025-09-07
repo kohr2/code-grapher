@@ -263,6 +263,14 @@ class COBOLRelationshipExtractor:
         # Get the compilation unit name
         unit_name = cobol_data.get("compilation_units", [{}])[0].get("name", "UNKNOWN")
         
+        # Get list of actual data items from entities
+        actual_data_items = set()
+        entities = cobol_data.get("entities", [])
+        for entity in entities:
+            if entity.get("type") == "data_item":
+                actual_data_items.add(entity.get("name", ""))
+        
+        
         # Extract data flow relationships from statements
         statements = cobol_data.get("statements", {}).get(unit_name, {})
         for para_name, para_statements in statements.items():
@@ -278,26 +286,122 @@ class COBOLRelationshipExtractor:
                                 source = source_dest[0].strip()
                                 destination = source_dest[1].strip()
                                 
-                                # Create DATA_FLOW relationship
-                                relationships.append(self._create_relationship(
-                        cobol_data,
-                        source_entity=f"DATA_ITEM:{source}",
-                                    target_entity=f"DATA_ITEM:{destination}",
-                                    relationship_type=RelationshipType.DATA_FLOW,
-                                    confidence=0.8,
-                                    context=f"MOVE statement transfers data from {source} to {destination}",
-                                    metadata={
-                                        'source_data_item': source,
-                                        'destination_data_item': destination,
-                                        'paragraph_name': para_name,
-                                        'unit_name': unit_name,
-                                        'move_details': details,
-                                        'source_type': 'cobol_data_item',
-                                        'target_type': 'cobol_data_item'
-                                    }
-                                ))
+                                # Only create relationships for actual data items (not literals)
+                                if self._is_actual_data_item(source, actual_data_items) and self._is_actual_data_item(destination, actual_data_items):
+                                    # Create DATA_FLOW relationship between data items
+                                    relationships.append(self._create_relationship(
+                                        cobol_data,
+                                        source_entity=f"DATA_ITEM:{source}",
+                                        target_entity=f"DATA_ITEM:{destination}",
+                                        relationship_type=RelationshipType.DATA_FLOW,
+                                        confidence=0.8,
+                                        context=f"MOVE statement transfers data from {source} to {destination}",
+                                        metadata={
+                                            'source_data_item': source,
+                                            'destination_data_item': destination,
+                                            'paragraph_name': para_name,
+                                            'unit_name': unit_name,
+                                            'move_details': details,
+                                            'source_type': 'cobol_data_item',
+                                            'target_type': 'cobol_data_item'
+                                        }
+                                    ))
+                                    
+                                    # Create USES relationship from paragraph to source data item
+                                    relationships.append(self._create_relationship(
+                                        cobol_data,
+                                        source_entity=f"PARAGRAPH:{para_name}",
+                                        target_entity=f"DATA_ITEM:{source}",
+                                        relationship_type=RelationshipType.USES,
+                                        confidence=0.7,
+                                        context=f"Paragraph {para_name} reads from data item {source}",
+                                        metadata={
+                                            'paragraph_name': para_name,
+                                            'data_item': source,
+                                            'unit_name': unit_name,
+                                            'operation': 'read',
+                                            'source_type': 'cobol_paragraph',
+                                            'target_type': 'cobol_data_item'
+                                        }
+                                    ))
+                                    
+                                    # Create USES relationship from paragraph to destination data item
+                                    relationships.append(self._create_relationship(
+                                        cobol_data,
+                                        source_entity=f"PARAGRAPH:{para_name}",
+                                        target_entity=f"DATA_ITEM:{destination}",
+                                        relationship_type=RelationshipType.USES,
+                                        confidence=0.7,
+                                        context=f"Paragraph {para_name} writes to data item {destination}",
+                                        metadata={
+                                            'paragraph_name': para_name,
+                                            'data_item': destination,
+                                            'unit_name': unit_name,
+                                            'operation': 'write',
+                                            'source_type': 'cobol_paragraph',
+                                            'target_type': 'cobol_data_item'
+                                        }
+                                    ))
+                                    
+                                    # Create USES relationship from program to data items
+                                    relationships.append(self._create_relationship(
+                                        cobol_data,
+                                        source_entity=f"PROGRAM:{unit_name}",
+                                        target_entity=f"DATA_ITEM:{source}",
+                                        relationship_type=RelationshipType.USES,
+                                        confidence=0.6,
+                                        context=f"Program {unit_name} uses data item {source}",
+                                        metadata={
+                                            'program_name': unit_name,
+                                            'data_item': source,
+                                            'paragraph_name': para_name,
+                                            'operation': 'read',
+                                            'source_type': 'cobol_program',
+                                            'target_type': 'cobol_data_item'
+                                        }
+                                    ))
+                                    
+                                    relationships.append(self._create_relationship(
+                                        cobol_data,
+                                        source_entity=f"PROGRAM:{unit_name}",
+                                        target_entity=f"DATA_ITEM:{destination}",
+                                        relationship_type=RelationshipType.USES,
+                                        confidence=0.6,
+                                        context=f"Program {unit_name} uses data item {destination}",
+                                        metadata={
+                                            'program_name': unit_name,
+                                            'data_item': destination,
+                                            'paragraph_name': para_name,
+                                            'operation': 'write',
+                                            'source_type': 'cobol_program',
+                                            'target_type': 'cobol_data_item'
+                                        }
+                                    ))
         
         return relationships
+    
+    def _is_actual_data_item(self, name: str, actual_data_items: set) -> bool:
+        """Check if a name is an actual data item (not a literal value)"""
+        # Remove quotes and check if it's in the actual data items set
+        clean_name = name.strip("'\"")
+        
+        # Skip obvious literal values (quoted strings, numbers, special values)
+        if (clean_name.startswith("'") and clean_name.endswith("'")) or \
+           (clean_name.startswith('"') and clean_name.endswith('"')) or \
+           clean_name.upper() in ['SPACES', 'ZERO', 'ZEROS', 'HIGH-VALUES', 'LOW-VALUES', 'NULL', 'NULLS'] or \
+           clean_name.isdigit():
+            return False
+        
+        # Skip single character literals that are clearly not data items
+        if len(clean_name) == 1 and clean_name in ['A', 'B', 'C', 'D', 'W', 'T']:
+            return False
+        
+        # Skip short literal strings that are clearly not data items
+        if clean_name in ['INIT', 'DEP', 'WTH', 'TRF', 'CASH', 'ATM', 'ONLINE', 'TELLER', 'OPENING']:
+            return False
+        
+        # Check if it's in the actual data items set
+        return clean_name in actual_data_items
     
     def _extract_paragraph_relationships(self, cobol_data: Dict[str, Any]) -> List[RelationshipExtraction]:
         """Extract paragraph control flow relationships"""
