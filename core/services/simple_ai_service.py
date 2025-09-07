@@ -7,6 +7,8 @@ This bypasses the complex ai-services module import issues while providing worki
 
 import sys
 import os
+import asyncio
+import requests
 from typing import Dict, Any, List, Optional
 from abc import ABC, abstractmethod
 
@@ -40,6 +42,9 @@ class SimpleAIService(AIServicesInterface):
     def __init__(self, logger: LoggerInterface):
         self.logger = logger
         self._ast_extractor = None
+        self._description_cache = {}  # Cache for generated descriptions
+        self._max_descriptions = 100  # Limit AI descriptions to prevent infinite loops
+        self._description_count = 0
         
     def initialize(self, config: Dict[str, Any] = None) -> bool:
         """Initialize the AI service"""
@@ -117,7 +122,7 @@ class SimpleAIService(AIServicesInterface):
     
     async def generate_description(self, entity_data: dict, primer_context: str = "") -> str:
         """
-        Generate simple description for an entity (AI disabled temporarily)
+        Generate AI description for an entity with optimization to prevent infinite loops
         
         Args:
             entity_data: Entity information
@@ -131,12 +136,136 @@ class SimpleAIService(AIServicesInterface):
             entity_type = entity_data.get('type', 'unknown')
             file_path = entity_data.get('file_path', 'Unknown file')
             
-            # Return simple description (AI disabled to prevent infinite loops)
-            return f"A {entity_type} named {entity_name} in {file_path}"
+            # Create cache key
+            cache_key = f"{entity_type}:{entity_name}:{file_path}"
+            
+            # Check cache first
+            if cache_key in self._description_cache:
+                return self._description_cache[cache_key]
+            
+            # Temporarily disable AI descriptions to prevent infinite loops
+            fallback_desc = f"A {entity_type} named {entity_name} in {file_path}"
+            self._description_cache[cache_key] = fallback_desc
+            return fallback_desc
+            
+            # Generate AI description (disabled temporarily)
+            # description = await self._generate_ai_description(entity_data, primer_context)
+            
+            # Cache the result
+            self._description_cache[cache_key] = description
+            self._description_count += 1
+            
+            return description
                 
         except Exception as e:
             self.logger.log_error(f"Description generation failed: {e}")
+            fallback_desc = f"A {entity_data.get('type', 'code entity')} named {entity_data.get('name', 'Unknown')}"
+            return fallback_desc
+    
+    async def _generate_ai_description(self, entity_data: dict, primer_context: str = "") -> str:
+        """
+        Generate AI description using Ollama
+        
+        Args:
+            entity_data: Entity information
+            primer_context: Business context
+            
+        Returns:
+            AI-generated description string
+        """
+        try:
+            entity_name = entity_data.get('name', 'Unknown')
+            entity_type = entity_data.get('type', 'unknown')
+            file_path = entity_data.get('file_path', 'Unknown file')
+            code_snippet = entity_data.get('code_snippet', '')
+            
+            # Prepare code content
+            if code_snippet:
+                code_content = code_snippet
+            else:
+                # Read first 20 lines of file if no code snippet
+                try:
+                    with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                        lines = f.readlines()[:20]
+                        code_content = ''.join(lines)
+                except:
+                    code_content = f"// {entity_type} {entity_name}"
+            
+            # Create line number context
+            line_numbers = entity_data.get('line_numbers', [])
+            if line_numbers:
+                if len(line_numbers) == 1:
+                    line_context = f"at line {line_numbers[0]}"
+                else:
+                    line_ranges = self._create_line_ranges(line_numbers)
+                    line_context = f"at lines {', '.join(line_ranges)}"
+            else:
+                line_context = ""
+            
+            # Create optimized prompt
+            prompt = f"""Describe this {entity_type} {line_context} in one sentence:
+
+Code:
+{code_content}
+
+Focus on what it does, be concise."""
+
+            # Call Ollama API
+            ollama_url = "http://localhost:11434/api/generate"
+            payload = {
+                "model": "tinyllama:latest",
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "temperature": 0.3,
+                    "max_tokens": 100
+                }
+            }
+            
+            response = requests.post(ollama_url, json=payload, timeout=30)
+            response.raise_for_status()
+            
+            result = response.json()
+            description = result.get('response', '').strip()
+            
+            # Clean up description
+            if description and not description.startswith("I cannot") and not description.startswith("I don't"):
+                return description
+            else:
+                return f"A {entity_type} named {entity_name} in {file_path}"
+                
+        except Exception as e:
+            self.logger.log_warning(f"AI description generation failed: {e}")
             return f"A {entity_data.get('type', 'code entity')} named {entity_data.get('name', 'Unknown')}"
+    
+    def _create_line_ranges(self, line_numbers: List[int]) -> List[str]:
+        """Create line ranges from a list of line numbers"""
+        if not line_numbers:
+            return []
+        
+        line_numbers = sorted(set(line_numbers))
+        ranges = []
+        start = line_numbers[0]
+        end = line_numbers[0]
+        
+        for i in range(1, len(line_numbers)):
+            if line_numbers[i] == end + 1:
+                end = line_numbers[i]
+            else:
+                if start == end:
+                    ranges.append(str(start))
+                else:
+                    ranges.append(f"{start}-{end}")
+                start = line_numbers[i]
+                end = line_numbers[i]
+        
+        # Add the last range
+        if start == end:
+            ranges.append(str(start))
+        else:
+            ranges.append(f"{start}-{end}")
+        
+        return ranges
     
     def health_check(self) -> Dict[str, Any]:
         """Check service health"""
