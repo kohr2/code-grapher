@@ -717,4 +717,43 @@ class COBOLRelationshipExtractor:
                         }
                     ))
         
+        # Connect file to programs and compilation units
+        if file_path:
+            # Create file -> program relationships
+            compilation_units = cobol_data.get('compilation_units', [])
+            for unit in compilation_units:
+                unit_name = unit.get('name', '') if isinstance(unit, dict) else str(unit)
+                if unit_name:
+                    # File -> Program relationship
+                    relationships.append(self._create_relationship(
+                        cobol_data,
+                        source_entity=f"FILE:{file_path}",
+                        target_entity=f"PROGRAM:{unit_name}",
+                        relationship_type=RelationshipType.CONTAINS,
+                        confidence=1.0,
+                        context=f"File {file_path} contains program {unit_name}",
+                        metadata={
+                            'file_path': file_path,
+                            'program_name': unit_name,
+                            'source_type': 'cobol_file',
+                            'target_type': 'cobol_program'
+                        }
+                    ))
+                    
+                    # File -> Compilation Unit relationship
+                    relationships.append(self._create_relationship(
+                        cobol_data,
+                        source_entity=f"FILE:{file_path}",
+                        target_entity=f"COMPILATION_UNIT:{unit_name}",
+                        relationship_type=RelationshipType.CONTAINS,
+                        confidence=1.0,
+                        context=f"File {file_path} contains compilation unit {unit_name}",
+                        metadata={
+                            'file_path': file_path,
+                            'compilation_unit_name': unit_name,
+                            'source_type': 'cobol_file',
+                            'target_type': 'cobol_compilation_unit'
+                        }
+                    ))
+        
         return relationships

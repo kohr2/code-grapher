@@ -89,6 +89,7 @@ class GraphManagerFacade(GraphOperationsInterface, ServiceInterface):
         try:
             if self.logger:
                 self.logger.log_info(f"Adding relationship: {source_entity} -{relationship_type}-> {target_entity}")
+            
             # Find source and target nodes by name across all entity types
             source_node = self._find_entity_by_name(source_entity)
             target_node = self._find_entity_by_name(target_entity)
@@ -108,18 +109,38 @@ class GraphManagerFacade(GraphOperationsInterface, ServiceInterface):
             if not source_node:
                 if self.logger:
                     self.logger.log_info(f"Creating missing source node: {source_entity}")
+                
+                # Extract actual name and type from prefixed names
+                source_name = source_entity
+                source_type = "inferred"
+                if ":" in source_entity:
+                    parts = source_entity.split(":", 1)
+                    if len(parts) == 2:
+                        source_type = parts[0].lower()
+                        source_name = parts[1]
+                
                 source_node = self._legacy_manager.create_code_entity(
-                    entity_type="inferred",
-                    name=source_entity,
+                    entity_type=source_type,
+                    name=source_name,
                     properties={"inferred": True, "created_for_relationship": True, "file_path": "unknown"},
                 )
 
             if not target_node:
                 if self.logger:
                     self.logger.log_info(f"Creating missing target node: {target_entity}")
+                
+                # Extract actual name and type from prefixed names
+                target_name = target_entity
+                target_type = "inferred"
+                if ":" in target_entity:
+                    parts = target_entity.split(":", 1)
+                    if len(parts) == 2:
+                        target_type = parts[0].lower()
+                        target_name = parts[1]
+                
                 target_node = self._legacy_manager.create_code_entity(
-                    entity_type="inferred",
-                    name=target_entity,
+                    entity_type=target_type,
+                    name=target_name,
                     properties={"inferred": True, "created_for_relationship": True, "file_path": "unknown"},
                 )
 
@@ -336,6 +357,7 @@ class GraphManagerFacade(GraphOperationsInterface, ServiceInterface):
 
     def _find_entity_by_name(self, entity_name: str) -> Any:
         """Find an entity by name across all entity types"""
+        self._ensure_manager()
         try:
             if self.logger:
                 self.logger.log_debug(f"Searching for entity: {entity_name}")
