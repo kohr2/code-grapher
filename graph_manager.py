@@ -64,7 +64,7 @@ class CodeGraphManager:
         start_time = time.time()
         try:
             # Add metadata
-            properties.update({"name": name, "created_at": datetime.now().isoformat(), "entity_type": entity_type})
+            properties.update({"name": name, "created_at": datetime.now().isoformat(), "type": entity_type})
 
             # Create node
             node = Node(entity_type, **properties)

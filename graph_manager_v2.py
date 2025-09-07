@@ -121,7 +121,7 @@ class CodeGraphManagerV2:
             properties.update({
                 "name": name,
                 "created_at": datetime.now().isoformat(),
-                "entity_type": entity_type
+                "type": entity_type
             })
             
             # Use new service but return legacy py2neo Node

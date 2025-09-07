@@ -43,7 +43,10 @@ class ASTRelationshipExtractor:
         relationships.extend(self._extract_basic_calls_relationships(successful_files))
         
         # Extract COBOL relationships
-        relationships.extend(self._extract_cobol_relationships(successful_files))
+        print(f"   🔍 About to extract COBOL relationships from {len(successful_files)} files...")
+        cobol_relationships = self._extract_cobol_relationships(successful_files)
+        print(f"   📊 COBOL relationships returned: {len(cobol_relationships)}")
+        relationships.extend(cobol_relationships)
         
         print(f"   ✅ Extracted {len(relationships)} AST relationships")
         return relationships
@@ -264,10 +267,17 @@ class ASTRelationshipExtractor:
         """Extract COBOL relationships from parsed COBOL files"""
         relationships = []
         
+        print(f"   🔍 Checking {len(files)} files for COBOL relationships...")
+        
         for file_data in files:
+            language = file_data.get("language", "unknown")
+            has_relationships = "relationships" in file_data
+            print(f"   📄 File: {file_data.get('file_path', 'unknown')} - Language: {language}, Has relationships: {has_relationships}")
+            
             if file_data.get("language") == "cobol" and file_data.get("relationships"):
                 # Convert COBOL RelationshipExtraction objects to the format expected by the pipeline
                 cobol_relationships = file_data.get("relationships", [])
+                print(f"   ✅ Found {len(cobol_relationships)} COBOL relationships in {file_data.get('file_path', 'unknown')}")
                 
                 for rel in cobol_relationships:
                     # Convert COBOL relationship to pipeline format
@@ -283,9 +293,12 @@ class ASTRelationshipExtractor:
                         confidence_level=rel.confidence  # Convert float to enum if needed
                     )
                     relationships.append(pipeline_rel)
+                    print(f"   🔗 Added {rel.relationship_type.value}: {rel.source_entity} -> {rel.target_entity}")
         
         if relationships:
             print(f"   📊 Extracted {len(relationships)} COBOL relationships")
+        else:
+            print("   ⚠️  No COBOL relationships found")
         
         return relationships
 

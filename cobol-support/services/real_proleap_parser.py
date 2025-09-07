@@ -168,7 +168,20 @@ public class RealProLeapParser {{
             List<CompilationUnit> compilationUnits = program.getCompilationUnits();
             
             System.out.println("SUCCESS");
-            System.out.println("PROGRAM_NAME:UNKNOWN");
+            
+            // Extract program name from compilation units
+            String programName = "UNKNOWN";
+            if (!compilationUnits.isEmpty()) {{
+                CompilationUnit firstUnit = compilationUnits.get(0);
+                if (firstUnit != null) {{
+                    programName = firstUnit.getName();
+                    if (programName == null || programName.isEmpty()) {{
+                        programName = "UNKNOWN";
+                    }}
+                }}
+            }}
+            
+            System.out.println("PROGRAM_NAME:" + programName);
             System.out.println("COMPILATION_UNITS:" + compilationUnits.size());
             
             // Print compilation unit details
@@ -182,7 +195,7 @@ public class RealProLeapParser {{
             System.out.println("ENTITIES_START");
             
             // Program entity
-            System.out.println("ENTITY:PROGRAM:UNKNOWN");
+            System.out.println("ENTITY:PROGRAM:" + programName);
             
             // Use visitor pattern to extract COBOL constructs
             System.out.println("DEBUG: Creating visitor...");

@@ -550,17 +550,20 @@ class PipelineOrchestrator(PipelineInterface):
             from shared.services.multi_language_parser import extract_multi_language_relationships
 
             relationships = extract_multi_language_relationships(parsed_files)
+            print(f"   🔍 DEBUG: Multi-language parser returned {len(relationships)} relationships")
 
             # Convert RelationshipExtraction objects to dictionaries
             relationship_dicts = []
-            for rel in relationships:
+            for i, rel in enumerate(relationships):
                 # Handle both RelationshipExtraction objects and dictionaries
                 if hasattr(rel, 'source_entity'):  # It's a RelationshipExtraction object
+                    rel_type = rel.relationship_type.value if hasattr(rel.relationship_type, 'value') else str(rel.relationship_type)
+                    print(f"   🔍 DEBUG: Converting relationship {i+1}: {rel.source_entity} -{rel_type}-> {rel.target_entity}")
                     relationship_dicts.append(
                         {
                             "source": rel.source_entity,
                             "target": rel.target_entity,
-                            "type": rel.relationship_type.value if hasattr(rel.relationship_type, 'value') else str(rel.relationship_type),
+                            "type": rel_type,
                             "source_file": rel.source_file,
                             "target_file": rel.target_file,
                             "confidence": rel.confidence,
@@ -580,6 +583,15 @@ class PipelineOrchestrator(PipelineInterface):
                     self.logger.log_warning(f"Skipping invalid relationship object: {type(rel)}")
                     continue
 
+            print(f"   🔍 DEBUG: Converted {len(relationship_dicts)} relationships to dictionaries")
+            
+            # Debug: Show relationship types
+            rel_types = {}
+            for rel_dict in relationship_dicts:
+                rel_type = rel_dict.get("type", "UNKNOWN")
+                rel_types[rel_type] = rel_types.get(rel_type, 0) + 1
+            print(f"   🔍 DEBUG: Final relationship types: {rel_types}")
+            
             self.logger.log_info(f"Extracted {len(relationship_dicts)} multi-language relationships")
             return relationship_dicts
 
@@ -633,6 +645,9 @@ class PipelineOrchestrator(PipelineInterface):
                 continue
 
             file_path = file_data["file_path"]
+            entities = file_data.get("entities", [])
+            
+            print(f"   🔍 DEBUG: Processing file {file_path} with {len(entities)} entities")
 
             # Create file entity
             graph_service.create_entity_node(
@@ -640,16 +655,18 @@ class PipelineOrchestrator(PipelineInterface):
                 file_path,
                 {
                     "path": file_path,
-                    "entity_count": len(file_data.get("entities", [])),
+                    "entity_count": len(entities),
                     "success": file_data.get("success", False),
                 },
             )
             entities_created += 1
 
             # Create entity nodes
-            for entity in file_data.get("entities", []):
+            for entity in entities:
                 entity_name = entity["name"]
                 entity_type = entity["type"]
+                
+                print(f"   🔍 DEBUG: Creating entity {entity_type}:{entity_name} from file {file_path}")
 
                 # Get description if available
                 description = descriptions.get(file_path, {}).get(entity_name, "")
@@ -663,17 +680,25 @@ class PipelineOrchestrator(PipelineInterface):
                 entities_created += 1
 
         # Create relationships
-        for rel in relationships:
+        print(f"   🔍 DEBUG: Processing {len(relationships)} relationships for graph creation")
+        for i, rel in enumerate(relationships):
             try:
                 # Ensure rel is a dictionary
                 if not isinstance(rel, dict):
                     self.logger.log_warning(f"Skipping non-dictionary relationship: {type(rel)}")
                     continue
+                
+                rel_type = rel.get("type", "UNKNOWN")
+                source = rel.get("source", "UNKNOWN")
+                target = rel.get("target", "UNKNOWN")
+                print(f"   🔍 DEBUG: Creating relationship {i+1}: {source} -{rel_type}-> {target}")
                     
-                graph_service.add_relationship(rel["source"], rel["target"], rel["type"], rel.get("properties", {}))
+                graph_service.add_relationship(source, target, rel_type, rel.get("properties", {}))
                 relationships_created += 1
+                print(f"   ✅ DEBUG: Successfully created {rel_type} relationship")
             except Exception as e:
                 # Skip failed relationships
+                print(f"   ❌ DEBUG: Failed to create relationship {rel.get('type', 'unknown')}: {e}")
                 self.logger.log_warning(f"Failed to create relationship {rel.get('type', 'unknown')}: {e}")
 
         # Get final stats

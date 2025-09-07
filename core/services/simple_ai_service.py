@@ -78,16 +78,22 @@ class SimpleAIService(AIServicesInterface):
             
             # Use existing AST relationship extraction
             relationships = self._extract_relationships_func(parsed_files)
+            print(f"   🔍 DEBUG: AI service received {len(relationships)} relationships from multi-language parser")
             
             # Convert RelationshipExtraction objects to dictionaries
             relationship_dicts = []
-            for rel in relationships:
+            print(f"   🔍 DEBUG: Starting conversion of {len(relationships)} relationships")
+            for i, rel in enumerate(relationships):
+                if i < 10 or i % 20 == 0:  # Show first 10 and every 20th
+                    print(f"   🔍 DEBUG: Processing relationship {i+1}/{len(relationships)}")
                 if hasattr(rel, 'source_entity'):  # It's a RelationshipExtraction object
+                    rel_type = rel.relationship_type.value if hasattr(rel.relationship_type, 'value') else str(rel.relationship_type)
+                    print(f"   🔍 DEBUG: Converting relationship {i+1}: {rel.source_entity} -{rel_type}-> {rel.target_entity}")
                     relationship_dicts.append(
                         {
                             "source": rel.source_entity,
                             "target": rel.target_entity,
-                            "type": rel.relationship_type.value if hasattr(rel.relationship_type, 'value') else str(rel.relationship_type),
+                            "type": rel_type,
                             "source_file": rel.source_file,
                             "target_file": rel.target_file,
                             "confidence": rel.confidence,
@@ -106,6 +112,13 @@ class SimpleAIService(AIServicesInterface):
                     # Skip invalid relationships
                     self.logger.log_warning(f"Skipping invalid relationship object: {type(rel)}")
                     continue
+            
+            # Debug: Show final relationship types
+            rel_types = {}
+            for rel_dict in relationship_dicts:
+                rel_type = rel_dict.get("type", "UNKNOWN")
+                rel_types[rel_type] = rel_types.get(rel_type, 0) + 1
+            print(f"   🔍 DEBUG: AI service final relationship types: {rel_types}")
             
             self.logger.log_info(f"Extracted {len(relationship_dicts)} relationships using AST approach")
             return relationship_dicts

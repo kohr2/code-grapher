@@ -5,10 +5,19 @@ Simple COBOL relationship extraction for the Code Grapher pipeline
 """
 
 import re
+import sys
+import os
 from typing import Dict, List, Any
+from enum import Enum
+from dataclasses import dataclass
+
+# Add the project root to the path
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 # Enhanced relationship types for COBOL
-class RelationshipType:
+class RelationshipType(Enum):
     CALLS = "CALLS"
     IMPORTS = "IMPORTS"
     USES = "USES"
@@ -20,21 +29,31 @@ class RelationshipType:
     CONDITIONAL = "CONDITIONAL"
     ARITHMETIC = "ARITHMETIC"
     FILE_ACCESS = "FILE_ACCESS"
+    PERFORMS = "PERFORMS"
+    INCLUDES = "INCLUDES"
+    PASSES_DATA = "PASSES_DATA"
+    HANDLES_ERRORS = "HANDLES_ERRORS"
+    USES_QUEUE = "USES_QUEUE"
+    BINDS_SCREEN = "BINDS_SCREEN"
+    REPLACES = "REPLACES"
 
-# Simple relationship class
+# Simple relationship class - using dataclass for compatibility
+
+@dataclass
 class RelationshipExtraction:
-    def __init__(self, source_file, target_file, source_entity, target_entity, 
-                 relationship_type, confidence=0.8, relationship_strength="medium", 
-                 line_number=1, context=""):
-        self.source_file = source_file
-        self.target_file = target_file
-        self.source_entity = source_entity
-        self.target_entity = target_entity
-        self.relationship_type = relationship_type
-        self.confidence = confidence
-        self.relationship_strength = relationship_strength
-        self.line_number = line_number
-        self.context = context
+    source_file: str
+    target_file: str
+    source_entity: str
+    target_entity: str
+    relationship_type: RelationshipType
+    confidence: float = 0.8
+    relationship_strength: str = "medium"
+    line_number: int = 1
+    context: str = ""
+    
+    def __post_init__(self):
+        # Debug: Track RelationshipExtraction creation
+        print(f"   🔍 DEBUG: RelationshipExtraction created: {self.source_entity} -{self.relationship_type.value}-> {self.target_entity}")
 
 
 def extract_cobol_relationships(file_data: Dict[str, Any]) -> List[RelationshipExtraction]:
@@ -47,7 +66,9 @@ def extract_cobol_relationships(file_data: Dict[str, Any]) -> List[RelationshipE
     Returns:
         List of RelationshipExtraction objects
     """
+    print(f"   🔍 DEBUG: extract_cobol_relationships called for {file_data.get('file_path', 'unknown')}")
     if file_data.get("language") != "cobol":
+        print(f"   🔍 DEBUG: Not a COBOL file, returning empty list")
         return []
         
     relationships = []
@@ -94,6 +115,7 @@ def _extract_basic_relationships(file_data: Dict[str, Any], file_path: str) -> L
         if "compilation_units" in file_data:
             for cu in file_data["compilation_units"]:
                 cu_name = cu.get("name", "UNKNOWN")
+                print(f"   🔍 DEBUG: Creating CONTAINS relationship: {file_path} -> {cu_name}")
                 relationships.append(RelationshipExtraction(
                     source_file=file_path,
                     target_file=file_path,

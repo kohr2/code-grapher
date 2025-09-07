@@ -967,7 +967,13 @@ def extract_multi_language_relationships(parsed_files: List[Dict[str, Any]]) -> 
             ts_relationships = extractor.extract_relationships(file_paths, project_root)
 
             # Convert JS relationships to compatible format
-            from ai_relationship_extractor import RelationshipExtraction, RelationshipType
+            # Import RelationshipExtraction from the same place as COBOL relationships
+            import sys
+            import os
+            cobol_support_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'cobol-support')
+            if cobol_support_path not in sys.path:
+                sys.path.insert(0, cobol_support_path)
+            from cobol_relationship_extractor import RelationshipExtraction, RelationshipType
 
             # Map JS relationship types to our enum
             type_mapping = {
@@ -1026,7 +1032,31 @@ def extract_multi_language_relationships(parsed_files: List[Dict[str, Any]]) -> 
             from cobol_relationship_extractor import extract_cobol_relationships
             
             for cobol_file in cobol_files:
-                cobol_relationships = extract_cobol_relationships(cobol_file)
+                # Use relationships already extracted by COBOL parser if available
+                cobol_relationships = cobol_file.get("relationships", [])
+                print(f"   🔍 DEBUG: COBOL file {cobol_file.get('file_path', 'unknown')} has {len(cobol_relationships)} stored relationships")
+                
+                # Debug: Show relationship types in stored relationships
+                if cobol_relationships:
+                    rel_types = {}
+                    for rel in cobol_relationships:
+                        rel_type = rel.relationship_type.value if hasattr(rel.relationship_type, 'value') else str(rel.relationship_type)
+                        rel_types[rel_type] = rel_types.get(rel_type, 0) + 1
+                    print(f"   🔍 DEBUG: Stored relationship types: {rel_types}")
+                
+                if not cobol_relationships:
+                    # Fallback to direct extraction if no relationships stored
+                    print(f"   🔍 DEBUG: No stored relationships, extracting directly")
+                    cobol_relationships = extract_cobol_relationships(cobol_file)
+                    print(f"   🔍 DEBUG: Direct extraction returned {len(cobol_relationships)} relationships")
+                    
+                    # Debug: Show relationship types in direct extraction
+                    if cobol_relationships:
+                        rel_types = {}
+                        for rel in cobol_relationships:
+                            rel_type = rel.relationship_type.value if hasattr(rel.relationship_type, 'value') else str(rel.relationship_type)
+                            rel_types[rel_type] = rel_types.get(rel_type, 0) + 1
+                        print(f"   🔍 DEBUG: Direct extraction relationship types: {rel_types}")
                 
                 # Enhance relationships with contextual descriptions
                 file_path = cobol_file.get("file_path", "")
@@ -1045,12 +1075,21 @@ def extract_multi_language_relationships(parsed_files: List[Dict[str, Any]]) -> 
                         
                         if source_desc and target_desc:
                             rel_type = getattr(relationship, 'relationship_type', 'UNKNOWN')
-                            enhanced_context = f"{source_desc} {rel_type.lower()} {target_desc}"
+                            # Get the string value from the enum
+                            rel_type_str = rel_type.value if hasattr(rel_type, 'value') else str(rel_type)
+                            enhanced_context = f"{source_desc} {rel_type_str.lower()} {target_desc}"
                             relationship.context = enhanced_context
                 
                 all_relationships.extend(cobol_relationships)
                 
             print(f"   ✅ Extracted {len(all_relationships)} COBOL relationships from {len(cobol_files)} files")
+            
+            # Debug: Show final relationship types
+            rel_types = {}
+            for rel in all_relationships:
+                rel_type = rel.relationship_type.value if hasattr(rel.relationship_type, 'value') else str(rel.relationship_type)
+                rel_types[rel_type] = rel_types.get(rel_type, 0) + 1
+            print(f"   🔍 DEBUG: Final COBOL relationship types: {rel_types}")
         except Exception as e:
             print(f"   ❌ Failed to extract COBOL relationships: {e}")
             import traceback

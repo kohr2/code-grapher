@@ -617,7 +617,7 @@ def create_enhanced_graph_with_entities(parsed_files: List[Dict[str, Any]],
         
         # Create file nodes and entities
         for file_data in parsed_files:
-            if not file_data["success"]:
+            if not (file_data.get("success", False) or file_data.get("parse_success", False)):
                 continue
                 
             file_path = file_data["file_path"]
@@ -754,8 +754,12 @@ def create_enhanced_graph_with_entities(parsed_files: List[Dict[str, Any]],
                     )
         
         # Create AI-discovered relationships
-        for relationship in ai_relationships:
+        print(f"   🔍 DEBUG: Processing {len(ai_relationships)} relationships for graph creation")
+        for i, relationship in enumerate(ai_relationships):
             try:
+                rel_type = relationship.relationship_type.value if hasattr(relationship.relationship_type, 'value') else str(relationship.relationship_type)
+                print(f"   🔍 DEBUG: Processing relationship {i+1}/{len(ai_relationships)}: {relationship.source_entity} -{rel_type}-> {relationship.target_entity}")
+                
                 # Find source and target nodes using general query (any node type with matching name)
                 source_query = "MATCH (n {name: $name}) WHERE n.file_path = $file_path RETURN n LIMIT 1"
                 source_result = graph_manager.graph.run(
@@ -775,12 +779,18 @@ def create_enhanced_graph_with_entities(parsed_files: List[Dict[str, Any]],
                     source_node = source_result[0]["n"]
                     target_node = target_result[0]["n"]
                     
-                    rel_type = relationship.relationship_type.value
                     relationship_type_counts[rel_type] = relationship_type_counts.get(rel_type, 0) + 1
                     
+                    print(f"   ✅ DEBUG: Creating {rel_type} relationship: {relationship.source_entity} -> {relationship.target_entity}")
                     graph_manager.create_relationship(
                         source_node, target_node, rel_type
                     )
+                else:
+                    print(f"   ❌ DEBUG: Could not find nodes for {relationship.source_entity} -> {relationship.target_entity}")
+                    if not source_result:
+                        print(f"      Source not found: {relationship.source_entity} in {relationship.source_file}")
+                    if not target_result:
+                        print(f"      Target not found: {relationship.target_entity} in {relationship.target_file}")
             except Exception as e:
                 print(f"         ⚠️  Could not create relationship {relationship.source_entity} -> {relationship.target_entity}: {e}")
         
@@ -810,12 +820,20 @@ def extract_enhanced_relationships(parsed_files: List[Dict[str, Any]], use_ai: b
     Returns:
         List of RelationshipExtraction objects
     """
+    print("🔍 DEBUG: extract_enhanced_relationships called with {} files".format(len(parsed_files)))
     print("🔍 Extracting code relationships...")
     
     # AST-based relationship extraction (fast and deterministic)
     print("   📊 AST-based relationship extraction")
     ast_relationships = extract_ast_relationships(parsed_files)
     print(f"   ✅ Extracted {len(ast_relationships)} relationships")
+    
+    # Debug: Show relationship types
+    rel_types = {}
+    for rel in ast_relationships:
+        rel_type = rel.relationship_type.value if hasattr(rel.relationship_type, 'value') else str(rel.relationship_type)
+        rel_types[rel_type] = rel_types.get(rel_type, 0) + 1
+    print(f"   🔍 DEBUG: AST relationship types: {rel_types}")
     
     return ast_relationships
 
@@ -879,6 +897,14 @@ def run_enhanced_pipeline(directory: str = ".", use_ai: bool = True):
     
     # Extract enhanced relationships
     ai_relationships = extract_enhanced_relationships(parsed_files, use_ai)
+    print(f"   🔍 DEBUG: Received {len(ai_relationships)} relationships from extract_enhanced_relationships")
+    
+    # Debug: Show relationship types
+    rel_types = {}
+    for rel in ai_relationships:
+        rel_type = rel.relationship_type.value if hasattr(rel.relationship_type, 'value') else str(rel.relationship_type)
+        rel_types[rel_type] = rel_types.get(rel_type, 0) + 1
+    print(f"   🔍 DEBUG: Relationship types: {rel_types}")
     
     # Create enhanced graph
     graph_stats = create_enhanced_graph_with_entities(parsed_files, ai_relationships, code_descriptions)

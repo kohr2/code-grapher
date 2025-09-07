@@ -45,19 +45,39 @@ except ImportError:
         BINDS_SCREEN = "BINDS_SCREEN"
         PERFORMS = "PERFORMS"
         REPLACES = "REPLACES"
+        CONTAINS = "CONTAINS"
     
     @dataclass
     class RelationshipExtraction:
+        source_file: str
+        target_file: str
         source_entity: str
         target_entity: str
         relationship_type: RelationshipType
         confidence: float
-        context: str
+        relationship_strength: str = "medium"
+        line_number: int = 0
+        context: str = ""
         metadata: Optional[Dict[str, Any]] = None
 
 
 class COBOLRelationshipExtractor:
     """Extracts COBOL-specific relationships from parsed data"""
+    
+    def _create_relationship(self, cobol_data: Dict[str, Any], source_entity: str, target_entity: str, 
+                           relationship_type: RelationshipType, confidence: float = 0.8, 
+                           context: str = "", metadata: Optional[Dict[str, Any]] = None) -> RelationshipExtraction:
+        """Helper method to create RelationshipExtraction objects with consistent parameters"""
+        return RelationshipExtraction(
+            source_file=cobol_data.get("file_path", ""),
+            target_file=cobol_data.get("file_path", ""),
+            source_entity=source_entity,
+            target_entity=target_entity,
+            relationship_type=relationship_type,
+            confidence=confidence,
+            context=context,
+            metadata=metadata or {}
+        )
     
     def extract_relationships(self, cobol_data: Dict[str, Any]) -> List[RelationshipExtraction]:
         """Extract COBOL relationships from parsed data"""
@@ -90,6 +110,9 @@ class COBOLRelationshipExtractor:
         # Extract screen relationships (BINDS_SCREEN)
         relationships.extend(self._extract_screen_relationships(cobol_data))
         
+        # Extract containment relationships (CONTAINS) - connect fine-grained entities to their parents
+        relationships.extend(self._extract_containment_relationships(cobol_data))
+        
         return relationships
     
     def _extract_copy_relationships(self, cobol_data: Dict[str, Any]) -> List[RelationshipExtraction]:
@@ -104,6 +127,8 @@ class COBOLRelationshipExtractor:
                 
                 # Create INCLUDES relationship from program to copybook
                 relationships.append(RelationshipExtraction(
+                    source_file=cobol_data.get("file_path", ""),
+                    target_file=cobol_data.get("file_path", ""),
                     source_entity=f"PROGRAM:{unit_name}",
                     target_entity=f"COPYBOOK:{copy_name}",
                     relationship_type=RelationshipType.INCLUDES,
@@ -122,7 +147,8 @@ class COBOLRelationshipExtractor:
         for unit_name, copy_replacements in replacing_phrases.items():
             for copy_name, replacements in copy_replacements.items():
                 for replacement in replacements:
-                    relationships.append(RelationshipExtraction(
+                    relationships.append(self._create_relationship(
+                        cobol_data,
                         source_entity=f"COPYBOOK:{copy_name}",
                         target_entity=f"REPLACEMENT:{replacement['replacement']}",
                         relationship_type=RelationshipType.REPLACES,
@@ -158,7 +184,8 @@ class COBOLRelationshipExtractor:
                         program_name = call_parts.strip("'\"")
                         
                         # Create CALLS relationship
-                        relationships.append(RelationshipExtraction(
+                        relationships.append(self._create_relationship(
+                            cobol_data,
                             source_entity=f"PROGRAM:{unit_name}",
                             target_entity=f"PROGRAM:{program_name}",
                             relationship_type=RelationshipType.CALLS,
@@ -188,7 +215,8 @@ class COBOLRelationshipExtractor:
                     param_name = param_info['param_name']
                     
                     # Create PASSES_DATA relationship
-                    relationships.append(RelationshipExtraction(
+                    relationships.append(self._create_relationship(
+                        cobol_data,
                         source_entity=f"DATA_ITEM:{param_name}",
                         target_entity=f"PROGRAM:{program_name}",
                         relationship_type=RelationshipType.PASSES_DATA,
@@ -211,7 +239,8 @@ class COBOLRelationshipExtractor:
                     program_name = giving_info['program_name']
                     giving_param = giving_info['giving_param']
                     
-                    relationships.append(RelationshipExtraction(
+                    relationships.append(self._create_relationship(
+                        cobol_data,
                         source_entity=f"PROGRAM:{program_name}",
                         target_entity=f"DATA_ITEM:{giving_param}",
                         relationship_type=RelationshipType.PASSES_DATA,
@@ -250,8 +279,9 @@ class COBOLRelationshipExtractor:
                                 destination = source_dest[1].strip()
                                 
                                 # Create DATA_FLOW relationship
-                                relationships.append(RelationshipExtraction(
-                                    source_entity=f"DATA_ITEM:{source}",
+                                relationships.append(self._create_relationship(
+                        cobol_data,
+                        source_entity=f"DATA_ITEM:{source}",
                                     target_entity=f"DATA_ITEM:{destination}",
                                     relationship_type=RelationshipType.DATA_FLOW,
                                     confidence=0.8,
@@ -287,7 +317,8 @@ class COBOLRelationshipExtractor:
             for para in para_names:
                 if para != main_para and para.startswith(("1000-", "2000-", "3000-", "4000-", "5000-", "6000-", "7000-", "8000-", "9000-")):
                     # Create hierarchical relationship
-                    relationships.append(RelationshipExtraction(
+                    relationships.append(self._create_relationship(
+                        cobol_data,
                         source_entity=f"PARAGRAPH:{main_para}",
                         target_entity=f"PARAGRAPH:{para}",
                         relationship_type=RelationshipType.PERFORMS,
@@ -318,7 +349,8 @@ class COBOLRelationshipExtractor:
                 
                 if file_name:
                     # Create HANDLES_ERRORS relationship for file
-                    relationships.append(RelationshipExtraction(
+                    relationships.append(self._create_relationship(
+                        cobol_data,
                         source_entity=f"PROGRAM:{unit_name}",
                         target_entity=f"FILE:{file_name}",
                         relationship_type=RelationshipType.HANDLES_ERRORS,
@@ -333,7 +365,8 @@ class COBOLRelationshipExtractor:
                 
                 if procedure_name:
                     # Create HANDLES_ERRORS relationship for procedure
-                    relationships.append(RelationshipExtraction(
+                    relationships.append(self._create_relationship(
+                        cobol_data,
                         source_entity=f"PROGRAM:{unit_name}",
                         target_entity=f"PROCEDURE:{procedure_name}",
                         relationship_type=RelationshipType.HANDLES_ERRORS,
@@ -362,7 +395,8 @@ class COBOLRelationshipExtractor:
                 
                 if symbolic_queue:
                     # Create USES_QUEUE relationship
-                    relationships.append(RelationshipExtraction(
+                    relationships.append(self._create_relationship(
+                        cobol_data,
                         source_entity=f"PROGRAM:{unit_name}",
                         target_entity=f"QUEUE:{symbolic_queue}",
                         relationship_type=RelationshipType.USES_QUEUE,
@@ -378,7 +412,8 @@ class COBOLRelationshipExtractor:
                 
                 if symbolic_destination:
                     # Create USES_QUEUE relationship for destination
-                    relationships.append(RelationshipExtraction(
+                    relationships.append(self._create_relationship(
+                        cobol_data,
                         source_entity=f"PROGRAM:{unit_name}",
                         target_entity=f"DESTINATION:{symbolic_destination}",
                         relationship_type=RelationshipType.USES_QUEUE,
@@ -408,7 +443,8 @@ class COBOLRelationshipExtractor:
                 
                 if screen_from:
                     # Create BINDS_SCREEN relationship for FROM field
-                    relationships.append(RelationshipExtraction(
+                    relationships.append(self._create_relationship(
+                        cobol_data,
                         source_entity=f"SCREEN:{screen_name}",
                         target_entity=f"DATA_ITEM:{screen_from}",
                         relationship_type=RelationshipType.BINDS_SCREEN,
@@ -424,7 +460,8 @@ class COBOLRelationshipExtractor:
                 
                 if screen_to:
                     # Create BINDS_SCREEN relationship for TO field
-                    relationships.append(RelationshipExtraction(
+                    relationships.append(self._create_relationship(
+                        cobol_data,
                         source_entity=f"SCREEN:{screen_name}",
                         target_entity=f"DATA_ITEM:{screen_to}",
                         relationship_type=RelationshipType.BINDS_SCREEN,
@@ -460,8 +497,9 @@ class COBOLRelationshipExtractor:
                         
                         if target_para:
                             # Create PERFORMS relationship
-                            relationships.append(RelationshipExtraction(
-                                source_entity=f"PARAGRAPH:{para_name}",
+                            relationships.append(self._create_relationship(
+                        cobol_data,
+                        source_entity=f"PARAGRAPH:{para_name}",
                                 target_entity=f"PARAGRAPH:{target_para}",
                                 relationship_type=RelationshipType.PERFORMS,
                                 confidence=0.9,
@@ -475,5 +513,104 @@ class COBOLRelationshipExtractor:
                                     'target_type': 'cobol_paragraph'
                                 }
                             ))
+        
+        return relationships
+    
+    def _extract_containment_relationships(self, cobol_data: Dict[str, Any]) -> List[RelationshipExtraction]:
+        """Extract containment relationships to connect fine-grained entities to their parent nodes"""
+        relationships = []
+        
+        # Get the file path and program name
+        file_path = cobol_data.get("file_path", "")
+        program_name = cobol_data.get("program_name", "UNKNOWN")
+        
+        # Connect paragraphs to their program
+        paragraphs = cobol_data.get('paragraphs', {})
+        for unit_name, para_list in paragraphs.items():
+            for para_data in para_list:
+                # Handle both string and dict paragraph data
+                if isinstance(para_data, dict):
+                    para_name = para_data.get('name', '')
+                else:
+                    para_name = str(para_data)
+                
+                if para_name:
+                    relationships.append(self._create_relationship(
+                        cobol_data,
+                        source_entity=f"PROGRAM:{unit_name}",
+                        target_entity=f"PARAGRAPH:{para_name}",
+                        relationship_type=RelationshipType.CONTAINS,
+                        confidence=1.0,
+                        context=f"Program {unit_name} contains paragraph {para_name}",
+                        metadata={
+                            'unit_name': unit_name,
+                            'paragraph_name': para_name,
+                            'source_type': 'cobol_program',
+                            'target_type': 'cobol_paragraph'
+                        }
+                    ))
+        
+        # Connect data items to their program
+        data_items = cobol_data.get('data_items', {})
+        for unit_name, items in data_items.items():
+            for item in items:
+                item_name = item.get('name', '')
+                if item_name:
+                    relationships.append(self._create_relationship(
+                        cobol_data,
+                        source_entity=f"PROGRAM:{unit_name}",
+                        target_entity=f"DATA_ITEM:{item_name}",
+                        relationship_type=RelationshipType.CONTAINS,
+                        confidence=1.0,
+                        context=f"Program {unit_name} contains data item {item_name}",
+                        metadata={
+                            'unit_name': unit_name,
+                            'data_item_name': item_name,
+                            'source_type': 'cobol_program',
+                            'target_type': 'cobol_data_item'
+                        }
+                    ))
+        
+        # Connect screens to their program
+        screens = cobol_data.get('screens', {})
+        for unit_name, screen_list in screens.items():
+            for screen in screen_list:
+                screen_name = screen.get('name', '')
+                if screen_name:
+                    relationships.append(self._create_relationship(
+                        cobol_data,
+                        source_entity=f"PROGRAM:{unit_name}",
+                        target_entity=f"SCREEN:{screen_name}",
+                        relationship_type=RelationshipType.CONTAINS,
+                        confidence=1.0,
+                        context=f"Program {unit_name} contains screen {screen_name}",
+                        metadata={
+                            'unit_name': unit_name,
+                            'screen_name': screen_name,
+                            'source_type': 'cobol_program',
+                            'target_type': 'cobol_screen'
+                        }
+                    ))
+        
+        # Connect queues to their program
+        queues = cobol_data.get('queues', {})
+        for unit_name, queue_list in queues.items():
+            for queue in queue_list:
+                queue_name = queue.get('name', '')
+                if queue_name:
+                    relationships.append(self._create_relationship(
+                        cobol_data,
+                        source_entity=f"PROGRAM:{unit_name}",
+                        target_entity=f"QUEUE:{queue_name}",
+                        relationship_type=RelationshipType.CONTAINS,
+                        confidence=1.0,
+                        context=f"Program {unit_name} contains queue {queue_name}",
+                        metadata={
+                            'unit_name': unit_name,
+                            'queue_name': queue_name,
+                            'source_type': 'cobol_program',
+                            'target_type': 'cobol_queue'
+                        }
+                    ))
         
         return relationships

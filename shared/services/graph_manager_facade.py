@@ -340,23 +340,39 @@ class GraphManagerFacade(GraphOperationsInterface, ServiceInterface):
             if self.logger:
                 self.logger.log_debug(f"Searching for entity: {entity_name}")
             
+            # Handle prefixed entity names (e.g., "PROGRAM:ERROR-HANDLING" -> "ERROR-HANDLING")
+            actual_name = entity_name
+            suggested_type = None
+            if ":" in entity_name:
+                parts = entity_name.split(":", 1)
+                if len(parts) == 2:
+                    suggested_type = parts[0].lower()
+                    actual_name = parts[1]
+                    if self.logger:
+                        self.logger.log_debug(f"Extracted type '{suggested_type}' and name '{actual_name}' from '{entity_name}'")
+            
             # Use the legacy manager's find_entity method with common entity types
             if hasattr(self._legacy_manager, 'find_entity'):
                 # Try common entity types that are likely to exist
-                entity_types = ["function", "class", "interface", "variable", "import", "import_from", "file"]
+                entity_types = ["function", "class", "interface", "variable", "import", "import_from", "file", 
+                              "program", "compilation_unit", "paragraph", "data_item", "screen", "queue", "inferred"]
+                
+                # If we extracted a type from the name, try that first
+                if suggested_type and suggested_type in entity_types:
+                    entity_types = [suggested_type] + [t for t in entity_types if t != suggested_type]
                 
                 for entity_type in entity_types:
                     try:
                         if self.logger:
-                            self.logger.log_debug(f"Trying to find {entity_name} as {entity_type}")
-                        found = self._legacy_manager.find_entity(entity_type, entity_name)
+                            self.logger.log_debug(f"Trying to find '{actual_name}' as {entity_type}")
+                        found = self._legacy_manager.find_entity(entity_type, actual_name)
                         if found:
                             if self.logger:
-                                self.logger.log_debug(f"Found {entity_name} as {entity_type}")
+                                self.logger.log_debug(f"Found '{actual_name}' as {entity_type}")
                             return found
                     except Exception as e:
                         if self.logger:
-                            self.logger.log_debug(f"Error finding {entity_name} as {entity_type}: {e}")
+                            self.logger.log_debug(f"Error finding '{actual_name}' as {entity_type}: {e}")
                         # Continue to next entity type if this one fails
                         continue
             
