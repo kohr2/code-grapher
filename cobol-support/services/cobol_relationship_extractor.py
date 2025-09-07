@@ -628,7 +628,7 @@ class COBOLRelationshipExtractor:
         file_path = cobol_data.get("file_path", "")
         program_name = cobol_data.get("program_name", "UNKNOWN")
         
-        # Connect paragraphs to their program
+        # Connect paragraphs to their program (3rd level: Program -> Executables)
         paragraphs = cobol_data.get('paragraphs', {})
         for unit_name, para_list in paragraphs.items():
             for para_data in para_list:
@@ -654,7 +654,7 @@ class COBOLRelationshipExtractor:
                         }
                     ))
         
-        # Connect data items to their program
+        # Connect data items to their program (3rd level: Program -> Executables)
         data_items = cobol_data.get('data_items', {})
         for unit_name, items in data_items.items():
             for item in items:
@@ -717,30 +717,13 @@ class COBOLRelationshipExtractor:
                         }
                     ))
         
-        # Connect file to programs and compilation units
+        # Create proper COBOL hierarchy: File → Compilation Unit → Program → Executables
         if file_path:
-            # Create file -> program relationships
             compilation_units = cobol_data.get('compilation_units', [])
             for unit in compilation_units:
                 unit_name = unit.get('name', '') if isinstance(unit, dict) else str(unit)
                 if unit_name:
-                    # File -> Program relationship
-                    relationships.append(self._create_relationship(
-                        cobol_data,
-                        source_entity=f"FILE:{file_path}",
-                        target_entity=f"PROGRAM:{unit_name}",
-                        relationship_type=RelationshipType.CONTAINS,
-                        confidence=1.0,
-                        context=f"File {file_path} contains program {unit_name}",
-                        metadata={
-                            'file_path': file_path,
-                            'program_name': unit_name,
-                            'source_type': 'cobol_file',
-                            'target_type': 'cobol_program'
-                        }
-                    ))
-                    
-                    # File -> Compilation Unit relationship
+                    # 1. File -> Compilation Unit
                     relationships.append(self._create_relationship(
                         cobol_data,
                         source_entity=f"FILE:{file_path}",
@@ -753,6 +736,22 @@ class COBOLRelationshipExtractor:
                             'compilation_unit_name': unit_name,
                             'source_type': 'cobol_file',
                             'target_type': 'cobol_compilation_unit'
+                        }
+                    ))
+                    
+                    # 2. Compilation Unit -> Program
+                    relationships.append(self._create_relationship(
+                        cobol_data,
+                        source_entity=f"COMPILATION_UNIT:{unit_name}",
+                        target_entity=f"PROGRAM:{unit_name}",
+                        relationship_type=RelationshipType.CONTAINS,
+                        confidence=1.0,
+                        context=f"Compilation unit {unit_name} contains program {unit_name}",
+                        metadata={
+                            'compilation_unit_name': unit_name,
+                            'program_name': unit_name,
+                            'source_type': 'cobol_compilation_unit',
+                            'target_type': 'cobol_program'
                         }
                     ))
         
