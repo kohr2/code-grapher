@@ -78,17 +78,12 @@ class SimpleAIService(AIServicesInterface):
             
             # Use existing AST relationship extraction
             relationships = self._extract_relationships_func(parsed_files)
-            print(f"   🔍 DEBUG: AI service received {len(relationships)} relationships from multi-language parser")
             
             # Convert RelationshipExtraction objects to dictionaries
             relationship_dicts = []
-            print(f"   🔍 DEBUG: Starting conversion of {len(relationships)} relationships")
-            for i, rel in enumerate(relationships):
-                if i < 10 or i % 20 == 0:  # Show first 10 and every 20th
-                    print(f"   🔍 DEBUG: Processing relationship {i+1}/{len(relationships)}")
+            for rel in relationships:
                 if hasattr(rel, 'source_entity'):  # It's a RelationshipExtraction object
                     rel_type = rel.relationship_type.value if hasattr(rel.relationship_type, 'value') else str(rel.relationship_type)
-                    print(f"   🔍 DEBUG: Converting relationship {i+1}: {rel.source_entity} -{rel_type}-> {rel.target_entity}")
                     relationship_dicts.append(
                         {
                             "source": rel.source_entity,
@@ -113,13 +108,6 @@ class SimpleAIService(AIServicesInterface):
                     self.logger.log_warning(f"Skipping invalid relationship object: {type(rel)}")
                     continue
             
-            # Debug: Show final relationship types
-            rel_types = {}
-            for rel_dict in relationship_dicts:
-                rel_type = rel_dict.get("type", "UNKNOWN")
-                rel_types[rel_type] = rel_types.get(rel_type, 0) + 1
-            print(f"   🔍 DEBUG: AI service final relationship types: {rel_types}")
-            
             self.logger.log_info(f"Extracted {len(relationship_dicts)} relationships using AST approach")
             return relationship_dicts
             
@@ -129,11 +117,11 @@ class SimpleAIService(AIServicesInterface):
     
     async def generate_description(self, entity_data: dict, primer_context: str = "") -> str:
         """
-        Generate simple description for an entity
+        Generate simple description for an entity (AI disabled temporarily)
         
         Args:
             entity_data: Entity information
-            primer_context: Business context (not used in simple implementation)
+            primer_context: Business context
             
         Returns:
             Generated description string
@@ -143,17 +131,8 @@ class SimpleAIService(AIServicesInterface):
             entity_type = entity_data.get('type', 'unknown')
             file_path = entity_data.get('file_path', 'Unknown file')
             
-            # Generate simple description based on entity type
-            if entity_type == 'function':
-                return f"A function named {entity_name} defined in {file_path}"
-            elif entity_type == 'class':
-                return f"A class named {entity_name} defined in {file_path}"
-            elif entity_type == 'interface':
-                return f"An interface named {entity_name} defined in {file_path}"
-            elif entity_type == 'import':
-                return f"An import statement for {entity_name} in {file_path}"
-            else:
-                return f"A {entity_type} named {entity_name} in {file_path}"
+            # Return simple description (AI disabled to prevent infinite loops)
+            return f"A {entity_type} named {entity_name} in {file_path}"
                 
         except Exception as e:
             self.logger.log_error(f"Description generation failed: {e}")
