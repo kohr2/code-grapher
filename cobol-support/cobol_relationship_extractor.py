@@ -36,6 +36,7 @@ class RelationshipType(Enum):
     USES_QUEUE = "USES_QUEUE"
     BINDS_SCREEN = "BINDS_SCREEN"
     REPLACES = "REPLACES"
+    WRITTEN_BY = "WRITTEN_BY"
 
 # Simple relationship class - using dataclass for compatibility
 
@@ -97,6 +98,7 @@ def extract_cobol_relationships(file_data: Dict[str, Any]) -> List[RelationshipE
                 relationships.extend(_extract_arithmetic_relationships(file_data, cu_name, file_path))
                 relationships.extend(_extract_conditional_relationships(file_data, cu_name, file_path))
                 relationships.extend(_extract_data_item_relationships(file_data, cu_name, file_path))
+                relationships.extend(_extract_author_relationships(file_data, cu_name, file_path))
                 
         print(f"   🟦 Extracted {len(relationships)} COBOL relationships from {file_path}")
         
@@ -548,6 +550,77 @@ def _extract_data_item_relationships(file_data: Dict[str, Any], cu_name: str, fi
                 
     except Exception as e:
         print(f"   ⚠️  Error extracting data item relationships: {e}")
+    
+    return relationships
+
+
+def _extract_author_relationships(file_data: Dict[str, Any], cu_name: str, file_path: str) -> List[RelationshipExtraction]:
+    """Extract author and date relationships from identification division"""
+    relationships = []
+    
+    try:
+        # Check if identification data is available
+        if "identification_data" not in file_data:
+            return relationships
+            
+        identification_data = file_data["identification_data"]
+        
+        # Extract author relationships for this compilation unit
+        if cu_name in identification_data:
+            id_data = identification_data[cu_name]
+            
+            # Create author node and relationship
+            if "author" in id_data:
+                author = id_data["author"]
+                print(f"   🔍 DEBUG: Creating WRITTEN_BY relationship: {cu_name} -> {author}")
+                relationships.append(RelationshipExtraction(
+                    source_file=file_path,
+                    target_file=file_path,
+                    source_entity=cu_name,
+                    target_entity=author,
+                    relationship_type=RelationshipType.WRITTEN_BY,
+                    confidence=1.0,
+                    relationship_strength="strong",
+                    line_number=1,
+                    context=f"Program written by {author}"
+                ))
+                
+                # Add author as an entity
+                if "entities" in file_data:
+                    author_entity = {
+                        "type": "author",
+                        "name": author,
+                        "file_path": file_path,
+                        "line_number": 1,
+                        "context": f"Author of {cu_name}",
+                        "language": "cobol"
+                    }
+                    file_data["entities"].append(author_entity)
+            
+            # Add date as property to paragraphs
+            if "date_written" in id_data:
+                date_written = id_data["date_written"]
+                
+                # Add date property to all paragraphs in this compilation unit
+                if "statements" in file_data and cu_name in file_data["statements"]:
+                    for para_name, statements in file_data["statements"][cu_name].items():
+                        # Add date property to the paragraph
+                        if isinstance(statements, list) and len(statements) > 0:
+                            # Add date property to the first statement as a paragraph property
+                            if isinstance(statements[0], dict):
+                                statements[0]["date_written"] = date_written
+                                statements[0]["paragraph_date"] = date_written
+                                print(f"   🔍 DEBUG: Added date_written property to paragraph {para_name}: {date_written}")
+                
+                # Also add to paragraphs data if it exists
+                if "paragraphs" in file_data and cu_name in file_data["paragraphs"]:
+                    for para in file_data["paragraphs"][cu_name]:
+                        if isinstance(para, dict):
+                            para["date_written"] = date_written
+                            para["paragraph_date"] = date_written
+                
+    except Exception as e:
+        print(f"   ⚠️  Error extracting author relationships: {e}")
     
     return relationships
 
