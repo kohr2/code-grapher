@@ -71,6 +71,10 @@ class COBOLParser:
         """Extract entities from parsed COBOL data"""
         entities = []
         
+        # Extract comments from source file for comment-enhanced descriptions
+        file_path = cobol_data.get("file_path", "")
+        comments = self._extract_comments_from_source(file_path) if file_path else {}
+        
         # Add existing entities (program, compilation_unit) with line information
         for entity in cobol_data.get("entities", []):
             if isinstance(entity, dict):
@@ -86,6 +90,13 @@ class COBOLParser:
                     'start_line': start_line,
                     'end_line': end_line
                 })
+                
+                # Add comments if available for this entity
+                entity_name = entity.get('name', '')
+                entity_type = entity.get('type', '')
+                if entity_name in comments:
+                    entity_props['comment'] = comments[entity_name]
+                
                 entity['properties'] = entity_props
                 
             entities.append(entity)
@@ -101,17 +112,23 @@ class COBOLParser:
                         end_line = para_data.get('end_line', start_line)
                         line_count = para_data.get('line_count', end_line - start_line + 1)
                         
+                        # Add comment if available for this paragraph
+                        para_props = {
+                            "unit": unit_name,
+                            "context": f"Paragraph in {unit_name}",
+                            "line": f"{start_line}-{end_line}",
+                            "line_count": line_count,
+                            "start_line": start_line,
+                            "end_line": end_line
+                        }
+                        
+                        if para_name in comments:
+                            para_props['comment'] = comments[para_name]
+                        
                         entities.append({
                             "type": "paragraph",
                             "name": para_name,
-                            "properties": {
-                                "unit": unit_name,
-                                "context": f"Paragraph in {unit_name}",
-                                "line": f"{start_line}-{end_line}",
-                                "line_count": line_count,
-                                "start_line": start_line,
-                                "end_line": end_line
-                            }
+                            "properties": para_props
                         })
         
         # Extract data item entities from source code (since ProLeap parser doesn't extract them yet)
@@ -144,23 +161,101 @@ class COBOLParser:
                     item_name = item_data.get('name', '')
                     if item_name:
                         line_number = item_data.get('line_number', 0)
+                        
+                        # Add comment if available for this data item
+                        item_props = {
+                            "unit": unit_name,
+                            "level": item_data.get('level', 0),
+                            "data_type": item_data.get('data_type', 'unknown'),
+                            "picture": item_data.get('picture', ''),
+                            "context": f"Data item in {unit_name}",
+                            "line": f"{line_number}-{line_number}",
+                            "line_count": 1,
+                            "start_line": line_number,
+                            "end_line": line_number
+                        }
+                        
+                        if item_name in comments:
+                            item_props['comment'] = comments[item_name]
+                        
                         entities.append({
                             "type": "data_item",
                             "name": item_name,
-                            "properties": {
-                                "unit": unit_name,
-                                "level": item_data.get('level', 0),
-                                "data_type": item_data.get('data_type', 'unknown'),
-                                "picture": item_data.get('picture', ''),
-                                "context": f"Data item in {unit_name}",
-                                "line": f"{line_number}-{line_number}",
-                                "line_count": 1,
-                                "start_line": line_number,
-                                "end_line": line_number
-                            }
+                            "properties": item_props
                         })
         
         return entities
+    
+    def _extract_comments_from_source(self, file_path: str) -> Dict[str, str]:
+        """Extract comments from COBOL source code and associate them with entities"""
+        comments = {}
+        
+        try:
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                lines = f.readlines()
+            
+            current_comment_lines = []
+            last_entity = None
+            
+            for line_num, line in enumerate(lines, 1):
+                # Remove line numbers (first 6 characters) and clean the line
+                # Handle lines that might not have proper line numbers
+                try:
+                    clean_line = line[6:].strip() if len(line) > 6 else line.strip()
+                except:
+                    clean_line = line.strip()
+                
+                # Check for comment lines (starting with *)
+                if clean_line.startswith('*') and len(clean_line) > 1:
+                    comment_text = clean_line[1:].strip()
+                    current_comment_lines.append(comment_text)
+                    continue
+                
+                # Check for division/section headers
+                if clean_line.upper().startswith('DIVISION'):
+                    division_name = clean_line.upper().replace(' DIVISION', '')
+                    if current_comment_lines:
+                        comments[division_name] = ' '.join(current_comment_lines)
+                        current_comment_lines = []
+                    continue
+                
+                # Check for working storage section
+                if clean_line.upper().startswith('WORKING-STORAGE SECTION'):
+                    if current_comment_lines:
+                        comments['WORKING-STORAGE'] = ' '.join(current_comment_lines)
+                        current_comment_lines = []
+                    continue
+                
+                # Check for paragraph names
+                if (clean_line and clean_line[0].isalpha() and 
+                    clean_line.endswith('.') and 
+                    not clean_line.upper().startswith('PROGRAM-ID')):
+                    para_name = clean_line.replace('.', '')
+                    if current_comment_lines:
+                        comments[para_name] = ' '.join(current_comment_lines)
+                        current_comment_lines = []
+                    continue
+                
+                # Check for data items (lines starting with level numbers)
+                if clean_line and clean_line[0].isdigit():
+                    parts = clean_line.split()
+                    if len(parts) >= 2:
+                        level = int(parts[0])
+                        if level in [1, 77, 88]:  # Group level items
+                            item_name = parts[1]
+                            if current_comment_lines:
+                                comments[item_name] = ' '.join(current_comment_lines)
+                                current_comment_lines = []
+                    continue
+                
+                # Clear comment buffer if we hit non-comment, non-empty line
+                if clean_line:
+                    current_comment_lines = []
+        
+        except Exception as e:
+            print(f"Error extracting comments from {file_path}: {e}")
+        
+        return comments
     
     def _extract_data_items_from_source(self, file_path: str) -> List[Dict[str, Any]]:
         """Extract data items from COBOL source code"""
