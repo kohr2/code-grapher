@@ -22,7 +22,7 @@ Code Grapher now supports comprehensive COBOL code analysis, enabling you to:
    - Handles COBOL-specific concepts (divisions, paragraphs, data descriptions)
    - **NEW**: Provides accurate line information for all entities
 
-2. **Real ProLeap Parser** (`cobol-support/services/real_proleap_parser.py`)
+2. **Raw ProLeap Parser** (`cobol-support/services/raw_proleap_parser.py`)
    - Direct integration with ProLeap ANTLR4 parser
    - Extracts line information from AST context
    - Generates Java code for detailed COBOL analysis
@@ -77,7 +77,7 @@ code-grapher/
 ├── cobol-support/
 │   ├── services/
 │   │   ├── cobol_parser.py                    # Main COBOL parser service
-│   │   ├── real_proleap_parser.py             # ProLeap integration
+│   │   ├── raw_proleap_parser.py              # ProLeap integration
 │   │   ├── cobol_section_extractor.py         # Section extraction with line info
 │   │   ├── cobol_relationship_extractor.py    # Relationship extraction
 │   │   └── reformat_cobol_for_proleap.py      # COBOL file reformatter

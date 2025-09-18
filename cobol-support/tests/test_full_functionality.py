@@ -36,9 +36,9 @@ ENTITIES_END"""
         
         # Import the parser
         sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-        from cobol_support.services.real_proleap_parser import RealProLeapParser
+        from cobol_support.services.raw_proleap_parser import RawProLeapParser
         
-        parser = RealProLeapParser()
+        parser = RawProLeapParser()
         result = parser._parse_proleap_output(mock_output)
         
         print(f"   ✅ Parsed output successfully")

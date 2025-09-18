@@ -1,5 +1,5 @@
 """
-Real ProLeap COBOL Parser using Maven to run the parser directly
+Raw ProLeap COBOL Parser using Maven to run the parser directly
 """
 
 import os
@@ -9,8 +9,8 @@ import json
 from typing import Dict, List, Any, Optional
 
 
-class RealProLeapParser:
-    """Real COBOL parser using ProLeap through Maven"""
+class RawProLeapParser:
+    """Raw COBOL parser using ProLeap through Maven"""
     
     def __init__(self):
         self.java_available = self._check_java()
@@ -65,25 +65,25 @@ class RealProLeapParser:
         """Setup the parser"""
         if not self.java_available:
             print("❌ Java not available")
-            self.using_real_parser = False
+            self.using_raw_parser = False
             return
         
         if not self.maven_available:
             print("❌ Maven not available")
-            self.using_real_parser = False
+            self.using_raw_parser = False
             return
         
         if not self.proleap_available:
             print("❌ ProLeap project not found")
-            self.using_real_parser = False
+            self.using_raw_parser = False
             return
         
-        self.using_real_parser = True
-        print(f"✅ Real ProLeap parser ready with: {self.proleap_dir}")
+        self.using_raw_parser = True
+        print(f"✅ Raw ProLeap parser ready with: {self.proleap_dir}")
     
     def parse_file(self, file_path: str) -> Dict[str, Any]:
-        """Parse a COBOL file using real ProLeap"""
-        if not self.using_real_parser:
+        """Parse a COBOL file using raw ProLeap"""
+        if not self.using_raw_parser:
             return self._fallback_parse(file_path)
         
         try:
@@ -122,7 +122,7 @@ class RealProLeapParser:
                     "file_descriptions": result.get('file_descriptions', {}),
                     "linkage_items": result.get('linkage_items', {}),
                     "success": True,
-                    "using_real_parser": True
+                    "using_raw_parser": True
                 }
             else:
                 print(f"⚠️  ProLeap parsing failed: {result.get('error', 'Unknown error')}")
@@ -772,10 +772,10 @@ public class RealProLeapParser {{
             "file_path": file_path,
             "language": "cobol",
             "entities": [],
-            "using_real_parser": False
+            "using_raw_parser": False
         }
     
     def is_available(self) -> bool:
-        """Check if real ProLeap parser is available"""
-        return self.using_real_parser
+        """Check if raw ProLeap parser is available"""
+        return self.using_raw_parser
 

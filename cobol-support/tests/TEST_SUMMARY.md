@@ -57,7 +57,7 @@ The COBOL entity line information functionality has been successfully implemente
 ## 🔧 Implementation Details
 
 ### Files Modified
-- `services/real_proleap_parser.py` - Enhanced to extract line information from AST
+- `services/raw_proleap_parser.py` - Enhanced to extract line information from AST
 - `services/cobol_parser.py` - Updated entity extraction with line data
 - `cobol_section_extractor.py` - Added line range properties
 

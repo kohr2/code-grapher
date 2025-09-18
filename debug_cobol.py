@@ -8,14 +8,14 @@ sys.path.append('.')
 # Add the cobol-support directory to the path
 sys.path.append('cobol-support')
 
-from services.real_proleap_parser import RealProLeapParser
+from services.raw_proleap_parser import RawProLeapParser
 from cobol_support.services.cobol_relationship_extractor import extract_cobol_relationships
 
 def main():
     print("=== Testing COBOL Parser ===")
     
     # Test ProLeap parser
-    parser = RealProLeapParser()
+    parser = RawProLeapParser()
     result = parser.parse_file('cobol-support/tests/fixtures/simple_test.cbl')
     
     print(f"Parse success: {result.get('parse_success', False)}")

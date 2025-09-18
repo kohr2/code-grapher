@@ -8,7 +8,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.real_proleap_parser import RealProLeapParser
+from services.raw_proleap_parser import RawProLeapParser
 from services.cobol_relationship_extractor import extract_cobol_relationships
 
 def test_enhanced_ast_structures():
@@ -26,7 +26,7 @@ def test_enhanced_ast_structures():
     print(f"📁 Testing with file: {test_file}")
     
     # Initialize parser
-    parser = RealProLeapParser()
+        parser = RawProLeapParser()
     
     if not parser.is_available():
         print("❌ ProLeap parser not available")

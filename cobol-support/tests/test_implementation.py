@@ -48,7 +48,7 @@ def test_parser_enhancement():
     
     try:
         # Check if the enhanced parser file exists
-        parser_file = os.path.join(os.path.dirname(__file__), '..', 'services', 'real_proleap_parser.py')
+        parser_file = os.path.join(os.path.dirname(__file__), '..', 'services', 'raw_proleap_parser.py')
         
         if not os.path.exists(parser_file):
             print("   ❌ Enhanced parser file not found")

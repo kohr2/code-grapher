@@ -9,8 +9,8 @@ from typing import Dict, List, Any, Optional, Tuple
 from pathlib import Path
 from dataclasses import dataclass
 
-# Import real ProLeap parser
-from .real_proleap_parser import RealProLeapParser
+# Import raw ProLeap parser
+from .raw_proleap_parser import RawProLeapParser
 from cobol_relationship_extractor import extract_cobol_relationships
 
 
@@ -45,10 +45,10 @@ class COBOLDivision:
 
 
 class COBOLParser:
-    """COBOL parser using real ProLeap parser"""
+    """COBOL parser using raw ProLeap parser"""
     
     def __init__(self):
-        self.parser = RealProLeapParser()
+        self.parser = RawProLeapParser()
     
     def parse_file(self, file_path: str) -> Dict[str, Any]:
         """Parse a COBOL file and return AST/ASG data"""

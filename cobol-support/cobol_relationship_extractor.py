@@ -123,8 +123,15 @@ def extract_cobol_relationships(file_data: Dict[str, Any]) -> List[RelationshipE
             relationships.extend(_extract_data_flow_relationships(file_data, unit_name, file_path))
             relationships.extend(_extract_arithmetic_relationships(file_data, unit_name, file_path))
             relationships.extend(_extract_conditional_relationships(file_data, unit_name, file_path))
+            relationships.extend(_extract_data_item_relationships(file_data, unit_name, file_path))
+            relationships.extend(_extract_author_relationships(file_data, unit_name, file_path))
             relationships.extend(_extract_file_operations(file_data, unit_name, file_path))
             relationships.extend(_extract_variable_usage(file_data, unit_name, file_path))
+            relationships.extend(_extract_include_statements(file_data, unit_name, file_path))
+            relationships.extend(_extract_error_handling(file_data, unit_name, file_path))
+            relationships.extend(_extract_screen_operations(file_data, unit_name, file_path))
+            relationships.extend(_extract_queue_operations(file_data, unit_name, file_path))
+            relationships.extend(_extract_replace_statements(file_data, unit_name, file_path))
                 
         print(f"   🟦 Extracted {len(relationships)} COBOL relationships from {file_path}")
         
