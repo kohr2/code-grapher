@@ -135,6 +135,11 @@ def extract_cobol_relationships(file_data: Dict[str, Any]) -> List[RelationshipE
                 relationships.extend(_extract_screen_operations(file_data, unit_name, file_path))
                 relationships.extend(_extract_queue_operations(file_data, unit_name, file_path))
                 relationships.extend(_extract_replace_statements(file_data, unit_name, file_path))
+        
+        # Fallback: Extract file operations from raw source code if ProLeap failed
+        if not file_data.get("parse_success", False) and file_path and os.path.exists(file_path):
+            print(f"   🔍 DEBUG: ProLeap failed, extracting file operations from raw source code")
+            relationships.extend(_extract_file_operations_from_source(file_path))
                 
         print(f"   🟦 Extracted {len(relationships)} COBOL relationships from {file_path}")
         
@@ -832,7 +837,7 @@ def _extract_file_operations(file_data: Dict[str, Any], cu_name: str, file_path:
                                 ))
                             else:
                                 # Parse raw READ statement text
-                                read_match = re.search(r'READ\s+([A-Z0-9-]+)', stmt_details, re.IGNORECASE)
+                                read_match = re.search(r'READ\s*([A-Z0-9-]+)', stmt_details, re.IGNORECASE)
                                 if read_match:
                                     file_name = read_match.group(1)
                                     relationships.append(RelationshipExtraction(
@@ -880,7 +885,7 @@ def _extract_file_operations(file_data: Dict[str, Any], cu_name: str, file_path:
                                 ))
                             else:
                                 # Parse raw WRITE statement text
-                                write_match = re.search(r'WRITE\s+([A-Z0-9-]+)', stmt_details, re.IGNORECASE)
+                                write_match = re.search(r'WRITE\s*([A-Z0-9-]+)', stmt_details, re.IGNORECASE)
                                 if write_match:
                                     file_name = write_match.group(1)
                                     relationships.append(RelationshipExtraction(
@@ -912,21 +917,41 @@ def _extract_file_operations(file_data: Dict[str, Any], cu_name: str, file_path:
                                 ))
                         
                         # Extract OPEN statement relationships
-                        if stmt_type in ["OpenStatementImpl"] and "OPEN_FILES:" in stmt_details:
-                            files = stmt_details.split("OPEN_FILES:")[1].split(",")
-                            for file_name in files:
-                                file_name = file_name.strip()
-                                relationships.append(RelationshipExtraction(
-                                    source_file=file_path,
-                                    target_file=file_path,
-                                    source_entity=para_name,
-                                    target_entity=file_name,
-                                    relationship_type=RelationshipType.FILE_ACCESS,
-                                    confidence=0.95,
-                                    relationship_strength="strong",
-                                    line_number=1,
-                                    context=f"OPEN statement in {para_name} for {file_name}"
-                                ))
+                        if stmt_type in ["OpenStatementImpl"]:
+                            if "OPEN_FILES:" in stmt_details:
+                                files = stmt_details.split("OPEN_FILES:")[1].split(",")
+                                for file_name in files:
+                                    file_name = file_name.strip()
+                                    relationships.append(RelationshipExtraction(
+                                        source_file=file_path,
+                                        target_file=file_path,
+                                        source_entity=para_name,
+                                        target_entity=file_name,
+                                        relationship_type=RelationshipType.FILE_ACCESS,
+                                        confidence=0.95,
+                                        relationship_strength="strong",
+                                        line_number=1,
+                                        context=f"OPEN statement in {para_name} for {file_name}"
+                                    ))
+                            else:
+                                # Parse raw OPEN statement text
+                                open_text = stmt_details if stmt_details else stmt_text
+                                if open_text and 'OPEN' in open_text.upper():
+                                    # Look for OPEN file-name pattern (handle both with and without space)
+                                    open_match = re.search(r'OPEN\s*[A-Z-]*\s*([A-Z0-9-]+)', open_text, re.IGNORECASE)
+                                    if open_match:
+                                        file_name = open_match.group(1)
+                                        relationships.append(RelationshipExtraction(
+                                            source_file=file_path,
+                                            target_file=file_path,
+                                            source_entity=para_name,
+                                            target_entity=file_name,
+                                            relationship_type=RelationshipType.FILE_ACCESS,
+                                            confidence=0.9,
+                                            relationship_strength="strong",
+                                            line_number=1,
+                                            context=f"OPEN statement in {para_name} for {file_name}"
+                                        ))
                         elif "OPEN" in stmt_text.upper() and "FILE" in stmt_text.upper():
                             # Fallback for old format
                             open_match = re.search(r'OPEN\s+([A-Z0-9-]+)', stmt_text, re.IGNORECASE)
@@ -976,6 +1001,27 @@ def _extract_file_operations(file_data: Dict[str, Any], cu_name: str, file_path:
                                     line_number=1,
                                     context=f"CLOSE statement in {para_name} for {file_name}"
                                 ))
+                        
+                        # Extract REWRITE statement relationships
+                        if stmt_type in ["RewriteStatementImpl"]:
+                            # Parse raw REWRITE statement text
+                            rewrite_text = stmt_details if stmt_details else stmt_text
+                            if rewrite_text and 'REWRITE' in rewrite_text.upper():
+                                # Look for REWRITE file-name pattern (handle both with and without space)
+                                rewrite_match = re.search(r'REWRITE\s*([A-Z0-9-]+)', rewrite_text, re.IGNORECASE)
+                                if rewrite_match:
+                                    file_name = rewrite_match.group(1)
+                                    relationships.append(RelationshipExtraction(
+                                        source_file=file_path,
+                                        target_file=file_path,
+                                        source_entity=para_name,
+                                        target_entity=file_name,
+                                        relationship_type=RelationshipType.WRITES,
+                                        confidence=0.9,
+                                        relationship_strength="strong",
+                                        line_number=1,
+                                        context=f"REWRITE statement in {para_name} for {file_name}"
+                                    ))
     except Exception as e:
         print(f"   ⚠️  Error extracting file operations: {e}")
     
@@ -1282,6 +1328,117 @@ def _extract_replace_statements(file_data: Dict[str, Any], cu_name: str, file_pa
                         ))
     except Exception as e:
         print(f"   ⚠️  Error extracting REPLACE statements: {e}")
+    
+    return relationships
+
+
+def _extract_file_operations_from_source(file_path: str) -> List[RelationshipExtraction]:
+    """Extract file operations from raw COBOL source code when ProLeap fails"""
+    relationships = []
+    
+    try:
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            content = f.read()
+        
+        lines = content.split('\n')
+        
+        for line_num, line in enumerate(lines, 1):
+            line_upper = line.upper().strip()
+            
+            # Extract READ statements
+            if line_upper.startswith('READ '):
+                # Look for READ file-name pattern
+                read_match = re.search(r'READ\s+([A-Z0-9-]+)', line_upper)
+                if read_match:
+                    file_name = read_match.group(1)
+                    relationships.append(RelationshipExtraction(
+                        source_file=file_path,
+                        target_file=file_path,
+                        source_entity="MAIN-PARAGRAPH",  # Default paragraph name
+                        target_entity=file_name,
+                        relationship_type=RelationshipType.READS,
+                        confidence=0.9,
+                        relationship_strength="strong",
+                        line_number=line_num,
+                        context=f"READ statement at line {line_num}: reads from {file_name}"
+                    ))
+            
+            # Extract WRITE statements
+            elif line_upper.startswith('WRITE '):
+                # Look for WRITE file-name pattern
+                write_match = re.search(r'WRITE\s+([A-Z0-9-]+)', line_upper)
+                if write_match:
+                    file_name = write_match.group(1)
+                    relationships.append(RelationshipExtraction(
+                        source_file=file_path,
+                        target_file=file_path,
+                        source_entity="MAIN-PARAGRAPH",  # Default paragraph name
+                        target_entity=file_name,
+                        relationship_type=RelationshipType.WRITES,
+                        confidence=0.9,
+                        relationship_strength="strong",
+                        line_number=line_num,
+                        context=f"WRITE statement at line {line_num}: writes to {file_name}"
+                    ))
+            
+            # Extract OPEN statements
+            elif line_upper.startswith('OPEN '):
+                # Look for OPEN file-name pattern
+                open_match = re.search(r'OPEN\s+([A-Z0-9-]+)', line_upper)
+                if open_match:
+                    file_name = open_match.group(1)
+                    relationships.append(RelationshipExtraction(
+                        source_file=file_path,
+                        target_file=file_path,
+                        source_entity="MAIN-PARAGRAPH",  # Default paragraph name
+                        target_entity=file_name,
+                        relationship_type=RelationshipType.FILE_ACCESS,
+                        confidence=0.9,
+                        relationship_strength="strong",
+                        line_number=line_num,
+                        context=f"OPEN statement at line {line_num}: opens {file_name}"
+                    ))
+            
+            # Extract CLOSE statements
+            elif line_upper.startswith('CLOSE '):
+                # Look for CLOSE file-name pattern
+                close_match = re.search(r'CLOSE\s+([A-Z0-9-]+)', line_upper)
+                if close_match:
+                    file_name = close_match.group(1)
+                    relationships.append(RelationshipExtraction(
+                        source_file=file_path,
+                        target_file=file_path,
+                        source_entity="MAIN-PARAGRAPH",  # Default paragraph name
+                        target_entity=file_name,
+                        relationship_type=RelationshipType.FILE_ACCESS,
+                        confidence=0.9,
+                        relationship_strength="strong",
+                        line_number=line_num,
+                        context=f"CLOSE statement at line {line_num}: closes {file_name}"
+                    ))
+            
+            # Extract REWRITE statements
+            elif line_upper.startswith('REWRITE '):
+                # Look for REWRITE file-name pattern
+                rewrite_match = re.search(r'REWRITE\s+([A-Z0-9-]+)', line_upper)
+                if rewrite_match:
+                    file_name = rewrite_match.group(1)
+                    relationships.append(RelationshipExtraction(
+                        source_file=file_path,
+                        target_file=file_path,
+                        source_entity="MAIN-PARAGRAPH",  # Default paragraph name
+                        target_entity=file_name,
+                        relationship_type=RelationshipType.WRITES,
+                        confidence=0.9,
+                        relationship_strength="strong",
+                        line_number=line_num,
+                        context=f"REWRITE statement at line {line_num}: rewrites {file_name}"
+                    ))
+        
+        print(f"   🔍 DEBUG: Extracted {len(relationships)} file operation relationships from raw source")
+        
+    except Exception as e:
+        print(f"   ⚠️  Error extracting file operations from source: {e}")
     
     return relationships
 
