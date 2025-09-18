@@ -209,7 +209,7 @@ public class RealProLeapParser {{
             System.out.println("ENTITIES_START");
             
             // Program entity
-            System.out.println("ENTITY:PROGRAM:" + programName);
+            System.out.println("ENTITY:PROGRAM:" + programName + ":1:1");
             
             // Simplified extraction - just output basic information
             System.out.println("DEBUG: Skipping complex visitor pattern for now");
@@ -217,7 +217,7 @@ public class RealProLeapParser {{
             // Compilation units with basic structure
             for (CompilationUnit unit : compilationUnits) {{
                 String unitName = unit.getName();
-                System.out.println("ENTITY:COMPILATION_UNIT:" + (unitName != null ? unitName : "UNKNOWN"));
+                System.out.println("ENTITY:COMPILATION_UNIT:" + (unitName != null ? unitName : "UNKNOWN") + ":1:1");
                 
                 // Extract basic structure using correct ProLeap API
                 var programUnit = unit.getProgramUnit();
@@ -244,7 +244,12 @@ public class RealProLeapParser {{
                             for (var paragraph : paragraphs) {{
                                 var paraName = paragraph.getName();
                                 if (paraName != null) {{
-                                    System.out.println("PARAGRAPH:" + paraName + ":" + unitName);
+                                    // Extract paragraph line information
+                                    var paraCtx = paragraph.getCtx();
+                                    var paraStartLine = paraCtx != null ? paraCtx.getStart().getLine() : 0;
+                                    var paraStopLine = paraCtx != null ? paraCtx.getStop().getLine() : paraStartLine;
+                                    
+                                    System.out.println("PARAGRAPH:" + paraName + ":" + unitName + ":" + paraStartLine + ":" + paraStopLine);
                                     
                                     // Extract statements from paragraphs
                                     var statements = paragraph.getStatements();
@@ -255,7 +260,11 @@ public class RealProLeapParser {{
                                             var stmtText = ctx != null ? ctx.getText() : statement.toString();
                                             var stmtType = statement.getClass().getSimpleName();
                                             
-                                            System.out.println("STATEMENT:" + paraName + ":" + stmtType + ":" + stmtText + ":" + unitName);
+                                            // Extract line information
+                                            var startLine = ctx != null ? ctx.getStart().getLine() : 0;
+                                            var stopLine = ctx != null ? ctx.getStop().getLine() : startLine;
+                                            
+                                            System.out.println("STATEMENT:" + paraName + ":" + stmtType + ":" + stmtText + ":" + unitName + ":" + startLine + ":" + stopLine);
                                         }}
                                     }}
                                     
@@ -472,12 +481,19 @@ public class RealProLeapParser {{
                             result['identification_data'][unit_name] = {}
                         result['identification_data'][unit_name]['security'] = security
                 elif parsing_entities and key == 'ENTITY':
-                    parts = value.split(':', 1)
-                    if len(parts) == 2:
-                        entity_type, entity_name = parts
+                    parts = value.split(':', 4)
+                    if len(parts) >= 2:
+                        entity_type = parts[0]
+                        entity_name = parts[1]
+                        start_line = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 0
+                        end_line = int(parts[3]) if len(parts) > 3 and parts[3].isdigit() else start_line
+                        
                         entity = {
                             'type': entity_type.lower(),
-                            'name': entity_name
+                            'name': entity_name,
+                            'start_line': start_line,
+                            'end_line': end_line,
+                            'line_count': end_line - start_line + 1
                         }
                         result['entities'].append(entity)
                 elif key == 'DIVISION':
@@ -488,23 +504,32 @@ public class RealProLeapParser {{
                             result['divisions'][unit_name] = {}
                         result['divisions'][unit_name][div_type.lower()] = True
                 elif key == 'PARAGRAPH':
-                    parts = value.split(':', 1)
-                    if len(parts) == 2:
-                        para_name, unit_name = parts
+                    parts = value.split(':', 4)
+                    if len(parts) >= 2:
+                        para_name = parts[0]
+                        unit_name = parts[1]
+                        start_line = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 0
+                        end_line = int(parts[3]) if len(parts) > 3 and parts[3].isdigit() else start_line
+                        
                         if unit_name not in result['paragraphs']:
                             result['paragraphs'][unit_name] = []
                         result['paragraphs'][unit_name].append({
                             'name': para_name,
-                            'unit': unit_name
+                            'unit': unit_name,
+                            'start_line': start_line,
+                            'end_line': end_line,
+                            'line_count': end_line - start_line + 1
                         })
                 elif key == 'STATEMENT':
-                    parts = value.split(':', 4)
+                    parts = value.split(':', 6)
                     if len(parts) >= 3:
                         para_name = parts[0]
                         stmt_type = parts[1] if len(parts) > 1 else "UNKNOWN"
                         stmt_details = parts[2] if len(parts) > 2 else ""
                         stmt_text = parts[3] if len(parts) > 3 else parts[2] if len(parts) == 3 else ""
                         unit_name = parts[4] if len(parts) > 4 else parts[3] if len(parts) == 4 else parts[2] if len(parts) == 3 else ""
+                        start_line = int(parts[5]) if len(parts) > 5 and parts[5].isdigit() else 0
+                        end_line = int(parts[6]) if len(parts) > 6 and parts[6].isdigit() else start_line
                         
                         if unit_name not in result['statements']:
                             result['statements'][unit_name] = {}
@@ -515,7 +540,10 @@ public class RealProLeapParser {{
                         stmt_info = {
                             'text': stmt_text,
                             'type': stmt_type,
-                            'details': stmt_details
+                            'details': stmt_details,
+                            'start_line': start_line,
+                            'end_line': end_line,
+                            'line_count': end_line - start_line + 1
                         }
                         result['statements'][unit_name][para_name].append(stmt_info)
                 elif key == 'DATA_ITEM':

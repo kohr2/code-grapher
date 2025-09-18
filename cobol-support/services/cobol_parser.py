@@ -72,8 +72,24 @@ class COBOLParser:
         """Extract entities from parsed COBOL data"""
         entities = []
         
-        # Add existing entities (program, compilation_unit)
-        entities.extend(cobol_data.get("entities", []))
+        # Add existing entities (program, compilation_unit) with line information
+        for entity in cobol_data.get("entities", []):
+            if isinstance(entity, dict):
+                start_line = entity.get('start_line', 0)
+                end_line = entity.get('end_line', start_line)
+                line_count = entity.get('line_count', end_line - start_line + 1)
+                
+                # Add line information to entity properties
+                entity_props = entity.get('properties', {})
+                entity_props.update({
+                    'line': f"{start_line}-{end_line}",
+                    'line_count': line_count,
+                    'start_line': start_line,
+                    'end_line': end_line
+                })
+                entity['properties'] = entity_props
+                
+            entities.append(entity)
         
         # Extract paragraph entities
         paragraphs = cobol_data.get("paragraphs", {})
@@ -82,13 +98,20 @@ class COBOLParser:
                 if isinstance(para_data, dict):
                     para_name = para_data.get('name', '')
                     if para_name:
+                        start_line = para_data.get('start_line', 0)
+                        end_line = para_data.get('end_line', start_line)
+                        line_count = para_data.get('line_count', end_line - start_line + 1)
+                        
                         entities.append({
                             "type": "paragraph",
                             "name": para_name,
                             "properties": {
                                 "unit": unit_name,
                                 "context": f"Paragraph in {unit_name}",
-                                "line": 0  # Line numbers not available from parser
+                                "line": f"{start_line}-{end_line}",
+                                "line_count": line_count,
+                                "start_line": start_line,
+                                "end_line": end_line
                             }
                         })
         
@@ -97,6 +120,7 @@ class COBOLParser:
         if file_path and os.path.exists(file_path):
             data_items = self._extract_data_items_from_source(file_path)
             for item in data_items:
+                line_number = item["line_number"]
                 entities.append({
                     "type": "data_item",
                     "name": item["name"],
@@ -106,7 +130,10 @@ class COBOLParser:
                         "data_type": item["data_type"],
                         "picture": item["picture"],
                         "context": f"Data item in {item['unit']}",
-                        "line": item["line_number"]
+                        "line": f"{line_number}-{line_number}",
+                        "line_count": 1,
+                        "start_line": line_number,
+                        "end_line": line_number
                     }
                 })
         
@@ -117,6 +144,7 @@ class COBOLParser:
                 if isinstance(item_data, dict):
                     item_name = item_data.get('name', '')
                     if item_name:
+                        line_number = item_data.get('line_number', 0)
                         entities.append({
                             "type": "data_item",
                             "name": item_name,
@@ -126,7 +154,10 @@ class COBOLParser:
                                 "data_type": item_data.get('data_type', 'unknown'),
                                 "picture": item_data.get('picture', ''),
                                 "context": f"Data item in {unit_name}",
-                                "line": item_data.get('line_number', 0)
+                                "line": f"{line_number}-{line_number}",
+                                "line_count": 1,
+                                "start_line": line_number,
+                                "end_line": line_number
                             }
                         })
         
@@ -144,13 +175,14 @@ class COBOLParser:
             current_unit = "UNKNOWN"
             
             for line_num, line in enumerate(lines, 1):
-                line = line.strip()
+                # Remove line numbers (first 6 characters) and clean the line
+                clean_line = line[6:].strip() if len(line) > 6 else line.strip()
                 
                 # Check if we're in DATA DIVISION
-                if line.upper().startswith('DATA DIVISION'):
+                if clean_line.upper().startswith('DATA DIVISION'):
                     in_data_division = True
                     continue
-                elif line.upper().startswith('PROCEDURE DIVISION'):
+                elif clean_line.upper().startswith('PROCEDURE DIVISION'):
                     in_data_division = False
                     continue
                 
@@ -158,12 +190,12 @@ class COBOLParser:
                     continue
                 
                 # Skip empty lines and comments
-                if not line or line.startswith('*') or line.startswith('.'):
+                if not clean_line or clean_line.startswith('*') or clean_line.startswith('.'):
                     continue
                 
                 # Extract data items (lines starting with level numbers)
-                if line and line[0].isdigit():
-                    parts = line.split()
+                if clean_line and clean_line[0].isdigit():
+                    parts = clean_line.split()
                     if len(parts) >= 2:
                         level = int(parts[0])
                         name = parts[1]
