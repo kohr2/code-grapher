@@ -9,7 +9,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from services.real_proleap_parser import RealProLeapParser
-from cobol_relationship_extractor import extract_cobol_relationships
+from services.cobol_relationship_extractor import extract_cobol_relationships
 
 def test_enhanced_ast_structures():
     """Test the enhanced COBOL AST structure extraction"""

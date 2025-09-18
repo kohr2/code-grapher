@@ -11,7 +11,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from services.cobol_parser import COBOLParser
-from services.cobol_relationship_extractor import COBOLRelationshipExtractor
+from services.cobol_relationship_extractor import extract_cobol_relationships
 
 # Add the project root to the path for imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))

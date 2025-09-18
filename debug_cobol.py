@@ -9,7 +9,7 @@ sys.path.append('.')
 sys.path.append('cobol-support')
 
 from services.real_proleap_parser import RealProLeapParser
-from services.cobol_relationship_extractor import COBOLRelationshipExtractor
+from cobol_support.services.cobol_relationship_extractor import extract_cobol_relationships
 
 def main():
     print("=== Testing COBOL Parser ===")
@@ -34,8 +34,7 @@ def main():
     print("\n=== Testing COBOL Relationship Extractor ===")
     
     # Test relationship extractor
-    extractor = COBOLRelationshipExtractor()
-    relationships = extractor.extract_relationships(result)
+    relationships = extract_cobol_relationships(result)
     
     print(f"Relationships extracted: {len(relationships)}")
     

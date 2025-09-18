@@ -76,9 +76,7 @@ def test_mock_relationship_extraction():
     
     try:
         # Import the extractor
-        from cobol_support.services.cobol_relationship_extractor import COBOLRelationshipExtractor
-        
-        extractor = COBOLRelationshipExtractor()
+        from services.cobol_relationship_extractor import extract_cobol_relationships
         
         # Mock COBOL data
         mock_data = {
@@ -97,7 +95,7 @@ def test_mock_relationship_extraction():
             }
         }
         
-        relationships = extractor.extract_relationships(mock_data)
+        relationships = extract_cobol_relationships(mock_data)
         
         print(f"   ✅ Extracted {len(relationships)} relationships")
         

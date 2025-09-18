@@ -8,7 +8,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from cobol_relationship_extractor import extract_cobol_relationships, RelationshipType
+from services.cobol_relationship_extractor import extract_cobol_relationships, RelationshipType
 
 def test_enhanced_relationship_extraction():
     """Test the enhanced COBOL relationship extraction with mock data"""

@@ -28,12 +28,12 @@ Code Grapher now supports comprehensive COBOL code analysis, enabling you to:
    - Generates Java code for detailed COBOL analysis
    - **NEW**: Enhanced with line range extraction
 
-3. **COBOL Section Extractor** (`cobol-support/cobol_section_extractor.py`)
+3. **COBOL Section Extractor** (`cobol-support/services/cobol_section_extractor.py`)
    - Extracts relevant sections from COBOL programs
    - Optimizes content for AI processing
    - **NEW**: Includes line range properties for sections
 
-4. **COBOL Relationship Extractor** (`cobol-support/cobol_relationship_extractor.py`)
+4. **COBOL Relationship Extractor** (`cobol-support/services/cobol_relationship_extractor.py`)
    - Extracts COBOL-specific relationships
    - Identifies CALL, PERFORM, and COPY statements
    - Maps data flow between COBOL entities
@@ -76,10 +76,11 @@ python run_line_info_tests.py
 code-grapher/
 ├── cobol-support/
 │   ├── services/
-│   │   ├── cobol_parser.py              # Main COBOL parser service
-│   │   └── real_proleap_parser.py       # ProLeap integration
-│   ├── cobol_section_extractor.py       # Section extraction with line info
-│   ├── cobol_relationship_extractor.py  # Relationship extraction
+│   │   ├── cobol_parser.py                    # Main COBOL parser service
+│   │   ├── real_proleap_parser.py             # ProLeap integration
+│   │   ├── cobol_section_extractor.py         # Section extraction with line info
+│   │   ├── cobol_relationship_extractor.py    # Relationship extraction
+│   │   └── reformat_cobol_for_proleap.py      # COBOL file reformatter
 │   └── tests/
 │       ├── test_cobol_line_information.py    # Comprehensive unit tests
 │       ├── test_line_info_integration.py     # Integration tests
@@ -262,7 +263,7 @@ for para in paragraphs:
 ### Section Extraction with Line Information
 
 ```python
-from cobol_support.cobol_section_extractor import COBOLSectionExtractor
+from cobol_support.services.cobol_section_extractor import COBOLSectionExtractor
 
 # Extract sections with line information
 extractor = COBOLSectionExtractor()

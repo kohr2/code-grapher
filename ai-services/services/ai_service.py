@@ -1,6 +1,7 @@
 """
 Main AI service orchestrator that coordinates all AI functionality
 """
+import os
 import time
 from typing import Any, Dict, List, Optional
 from ..interfaces.ai_services_interface import AIServicesInterface
@@ -155,8 +156,12 @@ class AIService(AIServicesInterface, ServiceInterface):
                     {"timestamp": start_time}
                 )
             
+            # Optimize COBOL content to reduce prompt size
+            optimized_source_code = self._optimize_cobol_content(source_file, source_code, target_file)
+            optimized_target_code = self._optimize_cobol_content(target_file, target_code, source_file)
+            
             result = self._relationship_service.extract_relationships(
-                source_file, target_file, source_code, target_code
+                source_file, target_file, optimized_source_code, optimized_target_code
             )
             
             # Track completion
@@ -196,6 +201,41 @@ class AIService(AIServicesInterface, ServiceInterface):
                 success=False,
                 error=str(e)
             )
+    
+    def _optimize_cobol_content(self, file_path: str, content: str, target_file: str) -> str:
+        """Optimize COBOL content for AI processing by extracting relevant sections"""
+        try:
+            # Check if this is a COBOL file
+            if not file_path.lower().endswith(('.cbl', '.cob', '.cobol')):
+                return content
+            
+            # Import COBOL section extractor
+            from cobol_support.services.cobol_section_extractor import create_optimized_cobol_content
+            
+            # Extract target entities from the target file name
+            target_entities = []
+            if target_file:
+                target_name = os.path.splitext(os.path.basename(target_file))[0]
+                target_entities.append(target_name)
+            
+            # Create optimized content (max 200 lines)
+            optimized_content = create_optimized_cobol_content(content, target_entities, max_lines=200)
+            
+            # Log the optimization
+            original_lines = len(content.split('\n'))
+            optimized_lines = len(optimized_content.split('\n'))
+            reduction_percent = ((original_lines - optimized_lines) / original_lines) * 100 if original_lines > 0 else 0
+            
+            if self.logger:
+                self.logger.log_info(f"COBOL optimization: {file_path} reduced from {original_lines} to {optimized_lines} lines ({reduction_percent:.1f}% reduction)")
+            
+            return optimized_content
+            
+        except Exception as e:
+            # If optimization fails, return original content
+            if self.logger:
+                self.logger.log_warning(f"COBOL optimization failed for {file_path}: {e}, using original content")
+            return content
     
     def generate_description(self, entity: Dict[str, Any], context: Optional[str] = None) -> str:
         """Generate AI-powered description for entity"""
