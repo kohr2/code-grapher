@@ -132,3 +132,8 @@ The COBOL line information functionality is now:
 - ✅ **Well documented** with usage guides and examples
 
 The implementation successfully transforms COBOL entities from having `line: 0` to having accurate line ranges like `line: "217-221"` with proper `line_count` calculations, making code navigation and understanding much more effective! 🎉
+
+## 📚 Documentation
+
+- **Main Documentation**: `../COBOL_INTEGRATION.md` - Complete COBOL integration guide with line information
+- **Test Documentation**: This file - Test implementation summary
