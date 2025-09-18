@@ -1,32 +1,20 @@
 {
-  "timestamp": "2025-09-07T20:35:32.736013",
-  "duration_seconds": 5276.978103160858,
-  "files_processed": 7,
-  "total_files": 9,
+  "timestamp": "2025-09-18T11:44:24.589122",
+  "duration_seconds": 6.4817728996276855,
+  "files_processed": 0,
+  "total_files": 1,
   "graph_stats": {
-    "total_entities": 248,
-    "total_relationships": 334,
+    "total_entities": 0,
+    "total_relationships": 0,
     "database_stats": {
-      "total_nodes": 254,
-      "total_relationships": 251,
-      "node_types": {
-        "file": 7,
-        "program": 11,
-        "compilation_unit": 7,
-        "paragraph": 69,
-        "data_item": 160
-      },
-      "relationship_types": {
-        "CONTAINS": 81,
-        "CALLS": 4,
-        "PERFORMS": 34,
-        "USES": 109,
-        "DATA_FLOW": 23
-      }
+      "total_nodes": 0,
+      "total_relationships": 0,
+      "node_types": {},
+      "relationship_types": {}
     }
   },
   "ai_enabled": true,
-  "relationships_extracted": 334,
-  "descriptions_generated": 7,
-  "embeddings_created": 241
+  "relationships_extracted": 0,
+  "descriptions_generated": 0,
+  "embeddings_created": 0
 }

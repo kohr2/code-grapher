@@ -160,7 +160,7 @@ public class RealProLeapParser {{
             System.out.println("✅ COBOL file found: " + cobolFile.getAbsolutePath());
             
             // Parse the file
-            Program program = parser.analyzeFile(cobolFile, CobolPreprocessor.CobolSourceFormatEnum.TANDEM);
+            Program program = parser.analyzeFile(cobolFile, CobolPreprocessor.CobolSourceFormatEnum.VARIABLE);
             
             System.out.println("✅ File parsed successfully");
             
@@ -345,7 +345,15 @@ public class RealProLeapParser {{
             classpath = ':'.join(classpath_parts)
             
             run_result = subprocess.run([
-                'java', '--add-opens=java.base/sun.misc=ALL-UNNAMED', '-cp', classpath, 'RealProLeapParser'
+                'java', 
+                '--add-opens=java.base/sun.misc=ALL-UNNAMED',
+                '--add-opens=java.base/java.lang=ALL-UNNAMED',
+                '--add-opens=java.base/java.util=ALL-UNNAMED',
+                '--add-opens=java.base/java.io=ALL-UNNAMED',
+                '--add-opens=java.base/java.nio=ALL-UNNAMED',
+                '--add-opens=java.base/sun.nio.ch=ALL-UNNAMED',
+                '--add-opens=java.base/sun.nio.fs=ALL-UNNAMED',
+                '-cp', classpath, 'RealProLeapParser'
             ], capture_output=True, text=True, timeout=120, cwd=self.proleap_dir)
             
             # Check if the output contains SUCCESS (check both stdout and stderr)
