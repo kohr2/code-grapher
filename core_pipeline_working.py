@@ -432,7 +432,82 @@ def parse_and_extract_entities(file_paths: List[str]) -> List[Dict[str, Any]]:
 
 
 
-# Removed AI-based relationship extraction - using AST-based extraction instead (see function at line 802)
+def extract_enhanced_relationships(parsed_files: List[Dict[str, Any]], 
+                                 use_ai: bool = True) -> List[RelationshipExtraction]:
+    """Extract relationships using enhanced AI with specialized entity awareness"""
+    print(f"🤖 Extracting enhanced relationships (AI enabled: {use_ai})...")
+    
+    if not use_ai:
+        print("   ⚠️  AI disabled, using basic import relationships only")
+        return []
+    
+    try:
+        # Get AI service for relationship extraction
+        ai_service = get_ai_service()
+        
+        all_relationships = []
+        successful_files = [f for f in parsed_files if f["success"]]
+        
+        # Extract relationships between all file pairs
+        for i, source_file in enumerate(successful_files):
+            for j, target_file in enumerate(successful_files):
+                if i != j:  # Don't compare file with itself
+                    print(f"   🔍 Analyzing: {Path(source_file['file_path']).name} -> {Path(target_file['file_path']).name}")
+                    
+                    try:
+                        # Get entity types for specialized relationship detection
+                        source_entities = source_file.get("entities", [])
+                        target_entities = target_file.get("entities", [])
+                        
+                        # Extract relationships using AI service
+                        result = ai_service.extract_relationships(
+                            source_file['file_path'], 
+                            target_file['file_path'],
+                            source_file.get('content', ''),
+                            target_file.get('content', '')
+                        )
+                        
+                        # Convert to legacy format for compatibility
+                        relationships = []
+                        if result.success:
+                            for rel in result.relationships:
+                                # Create RelationshipExtraction object for compatibility
+                                rel_extraction = RelationshipExtraction(
+                                    source_file=rel.source_file,
+                                    target_file=rel.target_file,
+                                    source_entity=rel.source_entity,
+                                    target_entity=rel.target_entity,
+                                    relationship_type=rel.relationship_type,
+                                    confidence=rel.confidence,
+                                    relationship_strength=rel.confidence_level.value,
+                                    line_number=rel.line_number,
+                                    context=rel.context
+                                )
+                                relationships.append(rel_extraction)
+                        
+                        all_relationships.extend(relationships)
+                        
+                        if relationships:
+                            print(f"      ✅ Found {len(relationships)} enhanced relationships")
+                        else:
+                            print(f"      ➖ No relationships found")
+                    
+                    except Exception as e:
+                        print(f"      ❌ Error analyzing {Path(source_file['file_path']).name}: {e}")
+                        
+                        # Log extraction failure
+                        logger.logger.error(f"Failed to extract relationships from {Path(source_file['file_path']).name}: {str(e)}")
+        
+        print(f"   ✅ Total enhanced relationships extracted: {len(all_relationships)}")
+        return all_relationships
+        
+    except Exception as e:
+        print(f"   ❌ Enhanced relationship extraction failed: {e}")
+        
+        # Log overall system failure
+        logger.logger.error(f"Enhanced relationship extraction system failed: {str(e)}")
+        
+        return []
 
 
 def extract_relationships_for_entities_DEPRECATED():

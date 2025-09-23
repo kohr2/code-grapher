@@ -21,9 +21,16 @@ class GraphManagerFacade(GraphOperationsInterface, ServiceInterface):
         """Lazily initialize the legacy manager"""
         if self._legacy_manager is None:
             # Import here to avoid circular dependencies
-            from graph_manager import CodeGraphManager
-
-            self._legacy_manager = CodeGraphManager()
+            # Try V2 first (uses neo4j driver), fallback to V1 (uses py2neo)
+            try:
+                from graph_manager_v2 import CodeGraphManagerV2
+                self._legacy_manager = CodeGraphManagerV2()
+            except ImportError:
+                try:
+                    from graph_manager import CodeGraphManager
+                    self._legacy_manager = CodeGraphManager()
+                except ImportError as e:
+                    raise ImportError(f"Could not import any graph manager: {e}")
 
     def initialize(self, config: Dict[str, Any]) -> None:
         """Initialize the service with configuration"""
@@ -105,16 +112,22 @@ class GraphManagerFacade(GraphOperationsInterface, ServiceInterface):
                 else:
                     self.logger.log_warning(f"Target node not found: {target_entity}")
 
-            # Skip creating missing nodes - log warning instead
+            # Create missing entities on-the-fly instead of skipping relationships
             if not source_node:
                 if self.logger:
-                    self.logger.log_warning(f"Skipping relationship - source node not found: {source_entity}")
-                return None  # Skip this relationship
+                    self.logger.log_info(f"Creating missing source entity: {source_entity}")
+                source_node = self._create_missing_entity(source_entity)
 
             if not target_node:
                 if self.logger:
-                    self.logger.log_warning(f"Skipping relationship - target node not found: {target_entity}")
-                return None  # Skip this relationship
+                    self.logger.log_info(f"Creating missing target entity: {target_entity}")
+                target_node = self._create_missing_entity(target_entity)
+
+            # Skip if we still can't create the entities
+            if not source_node or not target_node:
+                if self.logger:
+                    self.logger.log_warning(f"Skipping relationship - could not create entities: {source_entity} -> {target_entity}")
+                return None
 
             # Create relationship between nodes
             result = self._legacy_manager.create_relationship(
@@ -386,3 +399,59 @@ class GraphManagerFacade(GraphOperationsInterface, ServiceInterface):
             if self.logger:
                 self.logger.log_warning(f"Error finding entity {entity_name}: {e}")
             return None
+
+    def _create_missing_entity(self, entity_name: str) -> Any:
+        """Create a missing entity on-the-fly when referenced in relationships"""
+        self._ensure_manager()
+        try:
+            if self.logger:
+                self.logger.log_info(f"Creating missing entity: {entity_name}")
+            
+            # Determine entity type based on name patterns
+            entity_type = self._infer_entity_type(entity_name)
+            
+            # Create basic properties for the missing entity
+            properties = {
+                "name": entity_name,
+                "created_on_demand": True,
+                "source": "relationship_reference",
+                "file_path": "unknown",  # We don't know the file for inferred entities
+                "line": 0
+            }
+            
+            # Create the entity using the legacy manager
+            if hasattr(self._legacy_manager, 'create_code_entity'):
+                entity_node = self._legacy_manager.create_code_entity(entity_type, entity_name, properties)
+                if self.logger:
+                    self.logger.log_info(f"Created missing entity: {entity_type}:{entity_name}")
+                return entity_node
+            else:
+                if self.logger:
+                    self.logger.log_warning(f"Cannot create missing entity - legacy manager has no create_code_entity method")
+                return None
+                
+        except Exception as e:
+            if self.logger:
+                self.logger.log_error(f"Failed to create missing entity '{entity_name}': {e}")
+            return None
+
+    def _infer_entity_type(self, entity_name: str) -> str:
+        """Infer the entity type based on the entity name"""
+        # Common patterns for different entity types
+        if entity_name.startswith("PERFORM_"):
+            return "paragraph"
+        elif entity_name in ["type", "text", "line", "unit", "value", "data"]:
+            return "data_item"
+        elif entity_name.startswith("WS-") or entity_name.startswith("WORKING-STORAGE"):
+            return "data_item"
+        elif entity_name.startswith("FD-") or entity_name.startswith("FILE-"):
+            return "file"
+        elif entity_name.startswith("PROGRAM-") or entity_name.startswith("PROG-"):
+            return "program"
+        elif entity_name.startswith("SECTION-") or entity_name.startswith("SEC-"):
+            return "section"
+        elif entity_name.startswith("PARAGRAPH-") or entity_name.startswith("PARA-"):
+            return "paragraph"
+        else:
+            # Default to inferred type for unknown patterns
+            return "inferred"
