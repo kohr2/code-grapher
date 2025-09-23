@@ -1,28 +1,28 @@
 {
-  "timestamp": "2025-09-18T11:52:25.251279",
-  "duration_seconds": 367.3271758556366,
+  "timestamp": "2025-09-22T12:11:23.384177",
+  "duration_seconds": 568.3631248474121,
   "files_processed": 1,
   "total_files": 1,
   "graph_stats": {
-    "total_entities": 95,
-    "total_relationships": 152,
+    "total_entities": 345,
+    "total_relationships": 982,
     "database_stats": {
-      "total_nodes": 100,
-      "total_relationships": 107,
+      "total_nodes": 345,
+      "total_relationships": 2,
       "node_types": {
         "file": 1,
         "program": 1,
         "compilation_unit": 1,
-        "paragraph": 97
+        "paragraph": 92,
+        "data_item": 250
       },
       "relationship_types": {
-        "CONTAINS": 66,
-        "PERFORMS": 41
+        "CONTAINS": 2
       }
     }
   },
   "ai_enabled": true,
-  "relationships_extracted": 152,
+  "relationships_extracted": 982,
   "descriptions_generated": 1,
-  "embeddings_created": 94
+  "embeddings_created": 344
 }

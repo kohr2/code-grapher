@@ -105,44 +105,16 @@ class GraphManagerFacade(GraphOperationsInterface, ServiceInterface):
                 else:
                     self.logger.log_warning(f"Target node not found: {target_entity}")
 
-            # Create missing nodes automatically
+            # Skip creating missing nodes - log warning instead
             if not source_node:
                 if self.logger:
-                    self.logger.log_info(f"Creating missing source node: {source_entity}")
-                
-                # Extract actual name and type from prefixed names
-                source_name = source_entity
-                source_type = "inferred"
-                if ":" in source_entity:
-                    parts = source_entity.split(":", 1)
-                    if len(parts) == 2:
-                        source_type = parts[0].lower()
-                        source_name = parts[1]
-                
-                source_node = self._legacy_manager.create_code_entity(
-                    entity_type=source_type,
-                    name=source_name,
-                    properties={"inferred": True, "created_for_relationship": True, "file_path": "unknown"},
-                )
+                    self.logger.log_warning(f"Skipping relationship - source node not found: {source_entity}")
+                return None  # Skip this relationship
 
             if not target_node:
                 if self.logger:
-                    self.logger.log_info(f"Creating missing target node: {target_entity}")
-                
-                # Extract actual name and type from prefixed names
-                target_name = target_entity
-                target_type = "inferred"
-                if ":" in target_entity:
-                    parts = target_entity.split(":", 1)
-                    if len(parts) == 2:
-                        target_type = parts[0].lower()
-                        target_name = parts[1]
-                
-                target_node = self._legacy_manager.create_code_entity(
-                    entity_type=target_type,
-                    name=target_name,
-                    properties={"inferred": True, "created_for_relationship": True, "file_path": "unknown"},
-                )
+                    self.logger.log_warning(f"Skipping relationship - target node not found: {target_entity}")
+                return None  # Skip this relationship
 
             # Create relationship between nodes
             result = self._legacy_manager.create_relationship(

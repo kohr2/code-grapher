@@ -764,15 +764,144 @@ public class RealProLeapParser {{
         return result
     
     def _fallback_parse(self, file_path: str) -> Dict[str, Any]:
-        """Fallback parsing when ProLeap is not available"""
+        """Fallback parsing when ProLeap is not available - uses regex-based extraction"""
+        print(f"🔄 Using regex-based fallback parser for {file_path}")
+        
+        try:
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read()
+            
+            entities = []
+            paragraphs = {}
+            data_items = {}
+            statements = {}
+            
+            # Extract program name from IDENTIFICATION DIVISION
+            import re
+            program_match = re.search(r'PROGRAM-ID\.\s*([A-Z0-9-]+)', content, re.IGNORECASE)
+            program_name = program_match.group(1).upper() if program_match else "UNKNOWN"
+            
+            # Add program entity
+            entities.append({
+                "type": "program",
+                "name": program_name,
+                "properties": {
+                    "file_path": file_path,
+                    "line": "1-10",
+                    "start_line": 1,
+                    "end_line": 10
+                }
+            })
+            
+            # Add compilation unit
+            entities.append({
+                "type": "compilation_unit", 
+                "name": program_name,
+                "properties": {
+                    "file_path": file_path,
+                    "line": "1-50",
+                    "start_line": 1,
+                    "end_line": 50
+                }
+            })
+            
+            # Extract paragraphs (PROCEDURE DIVISION)
+            paragraph_pattern = r'^[0-9]{6}\s+(\d{4}-[A-Z0-9-]+)\.'
+            for match in re.finditer(paragraph_pattern, content, re.MULTILINE | re.IGNORECASE):
+                paragraph_name = match.group(1).upper()
+                line_num = content[:match.start()].count('\n') + 1
+                
+                entities.append({
+                    "type": "paragraph",
+                    "name": paragraph_name,
+                    "properties": {
+                        "file_path": file_path,
+                        "line": f"{line_num}",
+                        "start_line": line_num,
+                        "end_line": line_num + 5
+                    }
+                })
+                
+                paragraphs[paragraph_name] = {
+                    "name": paragraph_name,
+                    "line": line_num,
+                    "unit": program_name
+                }
+            
+            # Extract data items (DATA DIVISION)
+            data_item_pattern = r'^[0-9]{6}\s+(\d{2})\s+([A-Z0-9-]+)'
+            for match in re.finditer(data_item_pattern, content, re.MULTILINE | re.IGNORECASE):
+                data_name = match.group(2).upper()
+                line_num = content[:match.start()].count('\n') + 1
+                level = match.group(1)
+                
+                entities.append({
+                    "type": "data_item",
+                    "name": data_name,
+                    "properties": {
+                        "file_path": file_path,
+                        "line": f"{line_num}",
+                        "start_line": line_num,
+                        "end_line": line_num,
+                        "level": level
+                    }
+                })
+                
+                data_items[data_name] = {
+                    "name": data_name,
+                    "level": level,
+                    "line": line_num,
+                    "unit": program_name
+                }
+            
+            # Extract basic statements
+            statement_patterns = [
+                (r'PERFORM\s+(\w+(?:-\w+)*)', 'PERFORM'),
+                (r'CALL\s+[\'"]?(\w+(?:-\w+)*)[\'"]?', 'CALL'),
+                (r'READ\s+(\w+(?:-\w+)*)', 'READ'),
+                (r'WRITE\s+(\w+(?:-\w+)*)', 'WRITE'),
+                (r'MOVE\s+[\'"]?(\w+(?:-\w+)*)[\'"]?\s+TO\s+(\w+(?:-\w+)*)', 'MOVE')
+            ]
+            
+            for pattern, stmt_type in statement_patterns:
+                for match in re.finditer(pattern, content, re.IGNORECASE):
+                    line_num = content[:match.start()].count('\n') + 1
+                    statement_text = match.group(0)
+                    
+                    statements[f"{stmt_type}_{line_num}"] = {
+                        "type": stmt_type,
+                        "text": statement_text,
+                        "line": line_num,
+                        "unit": program_name
+                    }
+            
+            return {
+                "parse_success": True,
+                "success": True,
+                "language": "cobol",
+                "file_path": file_path,
+                "compilation_units": [{"name": program_name}],
+                "entities": entities,
+                "paragraphs": paragraphs,
+                "data_items": data_items,
+                "statements": statements,
+                "file_descriptions": {},
+                "linkage_items": {},
+                "using_raw_parser": False,
+                "using_fallback": True
+            }
+            
+        except Exception as e:
+            print(f"❌ Fallback parsing failed: {e}")
         return {
             "parse_success": False,
             "success": False,
-            "error": "Real ProLeap parser not available",
+                "error": f"Fallback parser failed: {e}",
             "file_path": file_path,
             "language": "cobol",
             "entities": [],
-            "using_raw_parser": False
+                "using_raw_parser": False,
+                "using_fallback": True
         }
     
     def is_available(self) -> bool:

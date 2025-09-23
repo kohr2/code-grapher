@@ -708,6 +708,52 @@ def create_enhanced_graph_with_entities(parsed_files: List[Dict[str, Any]],
                         "docstring": entity.get("docstring", ""),
                         "code_snippet": extract_code_snippet(file_data["content"], entity.get("line", 0), "class")
                     })
+                elif entity_type_str == "import":
+                # Add import details
+                entity_properties.update({
+                    "module": entity.get("module", ""),
+                    "signature": f"import {entity.get('module', entity_name)}",
+                    "import_type": "from" if "." in entity.get("module", "") else "direct",
+                    "file_path": file_path
+                })
+                
+                # Add specialized metadata if available
+                if entity.get("specialized_type"):
+                    entity_properties.update({
+                        "specialized_type": entity["specialized_type"],
+                        "original_type": entity.get("type")
+                    })
+                    
+                    # Flatten specialized metadata to avoid nested dict issues
+                    metadata = entity.get("attributes", {}).get("specialized_metadata", {})
+                    for key, value in metadata.items():
+                        if isinstance(value, (str, int, float, bool)):
+                            entity_properties[f"meta_{key}"] = value
+                
+                # Add AI-generated description if available
+                if code_descriptions and file_path in code_descriptions:
+                    entity_description = code_descriptions[file_path].get(entity_name)
+                    if entity_description:
+                        entity_properties["description"] = entity_description
+                        entity_properties["ai_description"] = entity_description
+                        # Add code snippet for better search/retrieval
+                        entity_properties["code_snippet"] = _get_entity_code_snippet(file_path, entity)
+                
+                entity_node = graph_manager.create_code_entity(
+                    entity_type,
+                    entity_name, 
+                    entity_properties
+                )
+                
+                if entity_node:
+                    total_entities += 1
+                    entity_type_counts[entity_type] = entity_type_counts.get(entity_type, 0) + 1
+                    
+                    # Create CONTAINS relationship
+                    graph_manager.create_relationship(
+                        file_node, entity_node, "CONTAINS"
+                    )
+        
         # Create AI-discovered relationships
         print(f"   🔍 DEBUG: Processing {len(ai_relationships)} relationships for graph creation")
         for i, relationship in enumerate(ai_relationships):

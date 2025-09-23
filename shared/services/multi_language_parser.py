@@ -973,7 +973,7 @@ def extract_multi_language_relationships(parsed_files: List[Dict[str, Any]]) -> 
             cobol_support_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'cobol-support')
             if cobol_support_path not in sys.path:
                 sys.path.insert(0, cobol_support_path)
-            from cobol_support.services.cobol_relationship_extractor import RelationshipExtraction, RelationshipType
+            from services.cobol_relationship_extractor import RelationshipExtraction, RelationshipType
 
             # Map JS relationship types to our enum
             type_mapping = {
@@ -1029,7 +1029,7 @@ def extract_multi_language_relationships(parsed_files: List[Dict[str, Any]]) -> 
             cobol_support_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'cobol-support')
             if cobol_support_path not in sys.path:
                 sys.path.insert(0, cobol_support_path)
-            from cobol_support.services.cobol_relationship_extractor import extract_cobol_relationships
+            from services.cobol_relationship_extractor import extract_cobol_relationships
             
             for cobol_file in cobol_files:
                 # Use relationships already extracted by COBOL parser if available

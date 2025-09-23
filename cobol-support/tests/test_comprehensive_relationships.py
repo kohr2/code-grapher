@@ -21,7 +21,19 @@ sys.path.insert(0, str(cobol_support_path))
 
 from services.cobol_parser import COBOLParser
 from services.cobol_relationship_extractor import extract_cobol_relationships
-from ai_services.models.relationship_models import RelationshipType
+
+# Add the project root path for ai-services
+import sys
+project_root = os.path.join(os.path.dirname(__file__), '..', '..')
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+# Add ai-services to the path
+ai_services_path = os.path.join(project_root, 'ai-services')
+if ai_services_path not in sys.path:
+    sys.path.insert(0, ai_services_path)
+
+from models.relationship_models import RelationshipType
 
 
 class TestComprehensiveCOBOLRelationships(unittest.TestCase):

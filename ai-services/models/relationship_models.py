@@ -36,6 +36,16 @@ class RelationshipType(Enum):
     BINDS_SCREEN = "BINDS_SCREEN"  # Screen data connections
     PERFORMS = "PERFORMS"  # PERFORM statement relationships
     REPLACES = "REPLACES"  # REPLACING phrase relationships
+    
+    # Additional relationship types used by COBOL extractor
+    CONTAINS = "CONTAINS"  # Containment relationships
+    MODIFIES = "MODIFIES"  # Variable modification relationships
+    READS = "READS"  # File read operations
+    WRITES = "WRITES"  # File write operations
+    CONDITIONAL = "CONDITIONAL"  # Conditional logic relationships
+    ARITHMETIC = "ARITHMETIC"  # Arithmetic operation relationships
+    FILE_ACCESS = "FILE_ACCESS"  # File access operations
+    WRITTEN_BY = "WRITTEN_BY"  # Author relationships
 
 
 class ConfidenceLevel(Enum):
