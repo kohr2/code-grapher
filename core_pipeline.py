@@ -432,14 +432,6 @@ def parse_and_extract_entities(file_paths: List[str]) -> List[Dict[str, Any]]:
 
 
 
-# Removed AI-based relationship extraction - using AST-based extraction instead (see function at line 802)
-
-
-def extract_relationships_for_entities_DEPRECATED():
-    """Deprecated function - no longer used"""
-    pass
-
-
 def extract_code_snippet(file_content: str, start_line: int, entity_type: str, max_lines: int = 20) -> str:
     """Extract code snippet for an entity from file content"""
     try:

@@ -437,21 +437,59 @@ class GraphManagerFacade(GraphOperationsInterface, ServiceInterface):
 
     def _infer_entity_type(self, entity_name: str) -> str:
         """Infer the entity type based on the entity name"""
-        # Common patterns for different entity types
-        if entity_name.startswith("PERFORM_"):
+        # Clean up the entity name
+        clean_name = entity_name.strip()
+        
+        # COBOL paragraph patterns
+        if (clean_name.startswith("PERFORM_") or 
+            clean_name.startswith("PARAGRAPH-") or 
+            clean_name.startswith("PARA-") or
+            clean_name.startswith("SECTION-") or 
+            clean_name.startswith("SEC-") or
+            # Numeric paragraph references (common in COBOL) - but not single digits
+            (clean_name.isdigit() and len(clean_name) > 1) or
+            # Paragraph names with hyphens and numbers
+            ("-" in clean_name and any(c.isdigit() for c in clean_name))):
             return "paragraph"
-        elif entity_name in ["type", "text", "line", "unit", "value", "data"]:
+        
+        # COBOL data item patterns
+        elif (clean_name.startswith("WS-") or 
+              clean_name.startswith("WORKING-STORAGE") or
+              clean_name.startswith("FD-") or 
+              clean_name.startswith("FILE-") or
+              clean_name.startswith("TRANS-") or  # Transaction data items
+              clean_name.startswith("CARD-") or   # Card-related data items
+              clean_name in ["type", "text", "line", "unit", "value", "data"] or
+              # Literal values (quoted strings)
+              (clean_name.startswith("'") and clean_name.endswith("'")) or
+              # Single character literals and single digits
+              (len(clean_name) == 1 and (clean_name.isalpha() or clean_name.isdigit())) or
+              # Common COBOL literals
+              clean_name in ["0", "1", "N", "Y", "HIGH", "LOW", "OPEN", "SYSTEM"]):
             return "data_item"
-        elif entity_name.startswith("WS-") or entity_name.startswith("WORKING-STORAGE"):
-            return "data_item"
-        elif entity_name.startswith("FD-") or entity_name.startswith("FILE-"):
-            return "file"
-        elif entity_name.startswith("PROGRAM-") or entity_name.startswith("PROG-"):
+        
+        # COBOL program patterns
+        elif (clean_name.startswith("PROGRAM-") or 
+              clean_name.startswith("PROG-") or
+              clean_name.endswith("-PROGRAM")):
             return "program"
-        elif entity_name.startswith("SECTION-") or entity_name.startswith("SEC-"):
-            return "section"
-        elif entity_name.startswith("PARAGRAPH-") or entity_name.startswith("PARA-"):
-            return "paragraph"
+        
+        # COBOL file patterns
+        elif (clean_name.startswith("FD-") or 
+              clean_name.startswith("FILE-") or
+              clean_name.endswith("-FILE")):
+            return "file"
+        
         else:
-            # Default to inferred type for unknown patterns
-            return "inferred"
+            # For malformed names or unknown patterns, try to infer based on content
+            if (clean_name.startswith("'") or 
+                clean_name.startswith(" ") or  # Malformed names often start with space
+                len(clean_name) > 50):  # Very long names are likely malformed
+                # Likely a malformed data item or literal
+                return "data_item"
+            elif any(char.isdigit() for char in clean_name) and len(clean_name) <= 10:
+                # Likely a paragraph number or reference
+                return "paragraph"
+            else:
+                # Default to inferred type for truly unknown patterns
+                return "inferred"
