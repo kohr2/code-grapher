@@ -708,12 +708,89 @@ def create_enhanced_graph_with_entities(parsed_files: List[Dict[str, Any]],
                         "docstring": entity.get("docstring", ""),
                         "code_snippet": extract_code_snippet(file_data["content"], entity.get("line", 0), "class")
                     })
-        # Create AI-discovered relationships
+                elif entity_type_str == "import":
+                    # Add import details
+                    entity_properties.update({
+                        "module": entity.get("module", ""),
+                        "signature": f"import {entity.get('module', entity_name)}",
+                        "import_type": "from" if "." in entity.get("module", "") else "direct"
+                    })
+                
+                # Add specialized metadata if available
+                if entity.get("specialized_type"):
+                    entity_properties.update({
+                        "specialized_type": entity["specialized_type"],
+                        "original_type": entity.get("type")
+                    })
+                    
+                    # Flatten specialized metadata to avoid nested dict issues
+                    metadata = entity.get("attributes", {}).get("specialized_metadata", {})
+                    for key, value in metadata.items():
+                        if isinstance(value, (str, int, float, bool)):
+                            entity_properties[f"meta_{key}"] = value
+                
+                # Add AI-generated description if available
+                if code_descriptions and file_path in code_descriptions:
+                    entity_description = code_descriptions[file_path].get(entity_name)
+                    if entity_description:
+                        entity_properties["description"] = entity_description
+                        entity_properties["ai_description"] = entity_description
+                        # Add code snippet for better search/retrieval
+                        entity_properties["code_snippet"] = _get_entity_code_snippet(file_path, entity)
+                
+                entity_node = graph_manager.create_code_entity(
+                    entity_type,
+                    entity_name, 
+                    entity_properties
+                )
+                
+                if entity_node:
+                    total_entities += 1
+                    entity_type_counts[entity_type] = entity_type_counts.get(entity_type, 0) + 1
+                    
+                    # Create CONTAINS relationship
+                    graph_manager.create_relationship(
+                        file_node, entity_node, "CONTAINS"
+                    )
+        
+        # Create AI-discovered relationships with improved validation
         print(f"   🔍 DEBUG: Processing {len(ai_relationships)} relationships for graph creation")
+        
+        # First, get all existing entity names for validation
+        existing_entities_query = "MATCH (n) RETURN n.name as name, n.file_path as file_path"
+        existing_entities_result = graph_manager.graph.run(existing_entities_query).data()
+        existing_entities = set()
+        for record in existing_entities_result:
+            entity_name = record.get("name")
+            file_path = record.get("file_path")
+            if entity_name and file_path:
+                existing_entities.add(f"{entity_name}@{file_path}")
+        
+        print(f"   🔍 DEBUG: Found {len(existing_entities)} existing entities for validation")
+        
+        valid_relationships = 0
+        invalid_relationships = 0
+        
         for i, relationship in enumerate(ai_relationships):
             try:
                 rel_type = relationship.relationship_type.value if hasattr(relationship.relationship_type, 'value') else str(relationship.relationship_type)
-                print(f"   🔍 DEBUG: Processing relationship {i+1}/{len(ai_relationships)}: {relationship.source_entity} -{rel_type}-> {relationship.target_entity}")
+                
+                # Check if both entities exist before attempting to create relationship
+                source_key = f"{relationship.source_entity}@{relationship.source_file}"
+                target_key = f"{relationship.target_entity}@{relationship.target_file}"
+                
+                if source_key not in existing_entities:
+                    print(f"   ❌ DEBUG: Skipping relationship {i+1}/{len(ai_relationships)} - source entity not found: {relationship.source_entity} in {relationship.source_file}")
+                    invalid_relationships += 1
+                    continue
+                    
+                if target_key not in existing_entities:
+                    print(f"   ❌ DEBUG: Skipping relationship {i+1}/{len(ai_relationships)} - target entity not found: {relationship.target_entity} in {relationship.target_file}")
+                    invalid_relationships += 1
+                    continue
+                
+                # Both entities exist, proceed with relationship creation
+                print(f"   🔍 DEBUG: Processing valid relationship {i+1}/{len(ai_relationships)}: {relationship.source_entity} -{rel_type}-> {relationship.target_entity}")
                 
                 # Find source and target nodes using general query (any node type with matching name)
                 source_query = "MATCH (n {name: $name}) WHERE n.file_path = $file_path RETURN n LIMIT 1"
@@ -735,6 +812,7 @@ def create_enhanced_graph_with_entities(parsed_files: List[Dict[str, Any]],
                     target_node = target_result[0]["n"]
                     
                     relationship_type_counts[rel_type] = relationship_type_counts.get(rel_type, 0) + 1
+                    valid_relationships += 1
                     
                     print(f"   ✅ DEBUG: Creating {rel_type} relationship: {relationship.source_entity} -> {relationship.target_entity}")
                     graph_manager.create_relationship(
@@ -742,12 +820,12 @@ def create_enhanced_graph_with_entities(parsed_files: List[Dict[str, Any]],
                     )
                 else:
                     print(f"   ❌ DEBUG: Could not find nodes for {relationship.source_entity} -> {relationship.target_entity}")
-                    if not source_result:
-                        print(f"      Source not found: {relationship.source_entity} in {relationship.source_file}")
-                    if not target_result:
-                        print(f"      Target not found: {relationship.target_entity} in {relationship.target_file}")
+                    invalid_relationships += 1
             except Exception as e:
                 print(f"         ⚠️  Could not create relationship {relationship.source_entity} -> {relationship.target_entity}: {e}")
+                invalid_relationships += 1
+        
+        print(f"   📊 DEBUG: Relationship creation summary: {valid_relationships} valid, {invalid_relationships} invalid out of {len(ai_relationships)} total")
         
         graph_manager.close()
         
@@ -756,7 +834,13 @@ def create_enhanced_graph_with_entities(parsed_files: List[Dict[str, Any]],
             "total_entities": total_entities,
             "entity_type_counts": entity_type_counts,
             "relationship_type_counts": relationship_type_counts,
-            "total_relationships": sum(relationship_type_counts.values())
+            "total_relationships": sum(relationship_type_counts.values()),
+            "relationship_validation": {
+                "total_extracted": len(ai_relationships),
+                "valid_relationships": valid_relationships,
+                "invalid_relationships": invalid_relationships,
+                "validation_rate": f"{(valid_relationships/len(ai_relationships)*100):.1f}%" if ai_relationships else "0%"
+            }
         }
         
     except Exception as e:
