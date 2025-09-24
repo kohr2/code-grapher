@@ -806,10 +806,21 @@ public class RealProLeapParser {{
             })
             
             # Extract paragraphs (PROCEDURE DIVISION)
-            paragraph_pattern = r'^[0-9]{6}\s+(\d{4}-[A-Z0-9-]+)\.'
+            # Updated pattern to avoid matching line numbers as paragraphs
+            # Valid COBOL paragraph names should start with letters or have meaningful prefixes
+            paragraph_pattern = r'^[0-9]{6}\s+([A-Z][A-Z0-9-]*[A-Z0-9]|\d{4}-[A-Z][A-Z0-9-]*[A-Z0-9])\.'
             for match in re.finditer(paragraph_pattern, content, re.MULTILINE | re.IGNORECASE):
                 paragraph_name = match.group(1).upper()
                 line_num = content[:match.start()].count('\n') + 1
+                
+                # Additional validation: ensure it's not just a line number
+                # Skip if it's purely numeric or looks like a line number
+                if paragraph_name.isdigit() or (len(paragraph_name) == 4 and paragraph_name.isdigit()):
+                    continue
+                
+                # Skip if it's a line number pattern (like "1092")
+                if re.match(r'^\d{4}$', paragraph_name):
+                    continue
                 
                 entities.append({
                     "type": "paragraph",
