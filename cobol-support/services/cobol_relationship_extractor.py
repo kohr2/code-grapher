@@ -77,6 +77,32 @@ def _get_statements_for_unit(file_data: Dict[str, Any], cu_name: str) -> List[Di
     return unit_statements
 
 
+def _deduplicate_relationships(relationships: List[RelationshipExtraction]) -> List[RelationshipExtraction]:
+    """Remove duplicate relationships based on source, target, and type"""
+    seen = set()
+    unique_relationships = []
+    
+    for rel in relationships:
+        # Create a unique key for the relationship
+        key = (
+            rel.source_entity,
+            rel.target_entity, 
+            rel.relationship_type.value,
+            rel.source_file,
+            rel.target_file
+        )
+        
+        if key not in seen:
+            seen.add(key)
+            unique_relationships.append(rel)
+        else:
+            # Optional: Log duplicate relationships for debugging
+            # print(f"   🔍 DEBUG: Skipping duplicate relationship: {rel.source_entity} -{rel.relationship_type.value}-> {rel.target_entity}")
+            pass
+    
+    return unique_relationships
+
+
 def extract_cobol_relationships(file_data: Dict[str, Any]) -> List[RelationshipExtraction]:
     """
     Extract COBOL relationships from parsed COBOL file data
@@ -141,13 +167,16 @@ def extract_cobol_relationships(file_data: Dict[str, Any]) -> List[RelationshipE
                 # print(f"   🔍 DEBUG: Filtered out self-referencing relationship: {rel.source_entity} -{rel.relationship_type.value}-> {rel.target_entity}")
                 pass
         
-        print(f"   🟦 Extracted {len(filtered_relationships)} COBOL relationships from {file_path} (filtered {len(relationships) - len(filtered_relationships)} self-referencing)")
+        # Deduplicate relationships
+        unique_relationships = _deduplicate_relationships(filtered_relationships)
+        
+        print(f"   🟦 Extracted {len(unique_relationships)} COBOL relationships from {file_path} (filtered {len(relationships) - len(filtered_relationships)} self-referencing, {len(filtered_relationships) - len(unique_relationships)} duplicates)")
         
     except Exception as e:
         print(f"   ⚠️  Error extracting COBOL relationships from {file_path}: {e}")
-        filtered_relationships = []
+        unique_relationships = []
     
-    return filtered_relationships
+    return unique_relationships
 
 
 def _extract_basic_relationships(file_data: Dict[str, Any], file_path: str) -> List[RelationshipExtraction]:
@@ -642,18 +671,9 @@ def _extract_data_item_relationships(file_data: Dict[str, Any], cu_name: str, fi
                 picture_clause = data_item.get('picture_clause', '')
                 condition_names = data_item.get('condition_names', '')
                 
-                # Create relationship between compilation unit and data item
-                relationships.append(RelationshipExtraction(
-                    source_file=file_path,
-                    target_file=file_path,
-                    source_entity=cu_name,
-                    target_entity=item_name,
-                    relationship_type=RelationshipType.CONTAINS,
-                    confidence=1.0,
-                    relationship_strength="strong",
-                    line_number=1,
-                    context=f"Data item definition: {item_name} (Level {item_level}, PIC {picture_clause})"
-                ))
+                # CONTAINS relationship already created in _extract_basic_relationships
+                # Skip to avoid duplication
+                pass
                 
                 # Extract 88-level condition relationships
                 if condition_names:
@@ -680,17 +700,9 @@ def _extract_data_item_relationships(file_data: Dict[str, Any], cu_name: str, fi
                 item_name = linkage_item.get('name', '')
                 item_level = linkage_item.get('level', '')
                 
-                relationships.append(RelationshipExtraction(
-                    source_file=file_path,
-                    target_file=file_path,
-                    source_entity=cu_name,
-                    target_entity=item_name,
-                    relationship_type=RelationshipType.CONTAINS,
-                    confidence=1.0,
-                    relationship_strength="strong",
-                    line_number=1,
-                    context=f"Linkage item definition: {item_name} (Level {item_level})"
-                ))
+                # CONTAINS relationship already created in _extract_basic_relationships
+                # Skip to avoid duplication
+                pass
         
         # Extract file description relationships
         file_descriptions = file_data.get("file_descriptions", {})
@@ -698,17 +710,9 @@ def _extract_data_item_relationships(file_data: Dict[str, Any], cu_name: str, fi
             for file_desc in file_descriptions[cu_name]:
                 file_name = file_desc.get('name', '')
                 
-                relationships.append(RelationshipExtraction(
-                    source_file=file_path,
-                    target_file=file_path,
-                    source_entity=cu_name,
-                    target_entity=file_name,
-                    relationship_type=RelationshipType.CONTAINS,
-                    confidence=1.0,
-                    relationship_strength="strong",
-                    line_number=1,
-                    context=f"File description: {file_name}"
-                ))
+                # CONTAINS relationship already created in _extract_basic_relationships
+                # Skip to avoid duplication
+                pass
                 
     except Exception as e:
         print(f"   ⚠️  Error extracting data item relationships: {e}")
