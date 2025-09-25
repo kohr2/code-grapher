@@ -84,7 +84,7 @@ class RawProLeapParser:
     def parse_file(self, file_path: str) -> Dict[str, Any]:
         """Parse a COBOL file using raw ProLeap"""
         if not self.using_raw_parser:
-            return self._fallback_parse(file_path)
+            raise RuntimeError("ProLeap parser is not available. Please ensure Java 17+, Maven, and the ProLeap project are properly installed.")
         
         try:
             # Convert to absolute path
@@ -101,7 +101,7 @@ class RawProLeapParser:
                 f.write(java_code)
             
             # Run the program using Maven
-            result = self._run_proleap_parser(java_file, abs_file_path, temp_dir)
+            result = self._run_proleap_parser(java_file, abs_file_path, temp_dir, abs_file_path)
             
             # Clean up
             import shutil
@@ -125,12 +125,10 @@ class RawProLeapParser:
                     "using_raw_parser": True
                 }
             else:
-                print(f"⚠️  ProLeap parsing failed: {result.get('error', 'Unknown error')}")
-                return self._fallback_parse(file_path)
+                raise RuntimeError(f"ProLeap parsing failed: {result.get('error', 'Unknown error')}")
                 
         except Exception as e:
-            print(f"❌ ProLeap parsing error: {e}")
-            return self._fallback_parse(file_path)
+            raise RuntimeError(f"ProLeap parsing error: {e}")
     
     def _create_proleap_program(self, file_path: str) -> str:
         """Create a Java program that uses ProLeap directly"""
@@ -298,7 +296,7 @@ public class RealProLeapParser {{
 }}
 """
     
-    def _run_proleap_parser(self, java_file: str, cobol_file: str, temp_dir: str) -> Dict[str, Any]:
+    def _run_proleap_parser(self, java_file: str, cobol_file: str, temp_dir: str, abs_file_path: str) -> Dict[str, Any]:
         """Run the ProLeap parser using Maven"""
         target_java_file = None
         try:
@@ -310,59 +308,38 @@ public class RealProLeapParser {{
             target_java_file = os.path.join(proleap_src_dir, 'RealProLeapParser.java')
             import shutil
             shutil.copy2(java_file, target_java_file)
-            # Compile using Maven with warning suppression
+            # Compile using Maven with proper Java module access
             compile_result = subprocess.run([
                 'mvn', 'compile', '-q', 
                 '-Dmaven.compiler.showWarnings=false', 
                 '-Dmaven.compiler.showDeprecation=false',
                 '-Dmaven.compiler.fork=true',
                 '-Dmaven.compiler.executable=java',
-                '-Dmaven.compiler.compilerArgs=-J--add-opens=java.base/sun.misc=ALL-UNNAMED'
+                '-Dmaven.compiler.compilerArgs=-J--add-opens=java.base/sun.misc=ALL-UNNAMED -J--add-opens=java.base/java.lang=ALL-UNNAMED'
             ], capture_output=True, text=True, timeout=60, cwd=self.proleap_dir)
             
             if compile_result.returncode != 0:
-                return {
-                    'success': False,
-                    'error': f'Compilation failed: {compile_result.stderr}'
-                }
+                # Check if it's just warnings (not actual compilation errors)
+                stderr_text = compile_result.stderr.lower()
+                if 'warning' in stderr_text and 'error' not in stderr_text:
+                    # It's just warnings, continue with execution
+                    print(f"⚠️  ProLeap compilation warnings (continuing): {compile_result.stderr}")
+                else:
+                    return {
+                        'success': False,
+                        'error': f'Compilation failed: {compile_result.stderr}'
+                    }
             
             # Add a small delay to ensure file system is ready
             import time
             time.sleep(0.5)
             
-            # Run the compiled program directly with java command
-            # First, copy dependencies to target/dependency
-            copy_deps_result = subprocess.run([
-                'mvn', 'dependency:copy-dependencies', '-q'
-            ], capture_output=True, text=True, timeout=60, cwd=self.proleap_dir)
-            
-            if copy_deps_result.returncode != 0:
-                return {
-                    'success': False,
-                    'error': f'Failed to copy dependencies: {copy_deps_result.stderr}'
-                }
-            
-            # Build classpath
-            classpath_parts = [os.path.join(self.proleap_dir, 'target', 'classes')]
-            
-            # Add all JAR files from target/dependency
-            dependency_dir = os.path.join(self.proleap_dir, 'target', 'dependency')
-            if os.path.exists(dependency_dir):
-                jar_files = [os.path.join(dependency_dir, f) for f in os.listdir(dependency_dir) if f.endswith('.jar')]
-                classpath_parts.extend(jar_files)
-            
-            classpath = ':'.join(classpath_parts)
-            
+            # Use Maven exec plugin to run the Java program with proper classpath
             run_result = subprocess.run([
-                'java', 
-                '--add-opens=java.base/sun.misc=ALL-UNNAMED',
-                '--add-opens=java.base/java.lang=ALL-UNNAMED',
-                '--add-opens=java.base/java.util=ALL-UNNAMED',
-                '--add-opens=java.base/java.io=ALL-UNNAMED',
-                '--add-opens=java.base/java.nio=ALL-UNNAMED',
-                '--add-opens=java.base/sun.nio.ch=ALL-UNNAMED',
-                '--add-opens=java.base/sun.nio.fs=ALL-UNNAMED',
-                '-cp', classpath, 'RealProLeapParser'
+                'mvn', 'exec:java', 
+                '-Dexec.mainClass=RealProLeapParser',
+                '-Dexec.args=' + abs_file_path,
+                '-q'
             ], capture_output=True, text=True, timeout=120, cwd=self.proleap_dir)
             
             # Check if the output contains SUCCESS (check both stdout and stderr)
@@ -375,6 +352,15 @@ public class RealProLeapParser {{
                 result = self._parse_proleap_output(combined_output)
                 return result
             else:
+                # Check if it's just warnings (not actual execution errors)
+                stderr_text = run_result.stderr.lower()
+                if 'warning' in stderr_text and 'error' not in stderr_text and 'exception' not in stderr_text:
+                    # It's just warnings, try to parse anyway
+                    print(f"⚠️  ProLeap execution warnings (continuing): {run_result.stderr}")
+                    if combined_output.strip():
+                        result = self._parse_proleap_output(combined_output)
+                        return result
+                
                 return {
                     'success': False,
                     'error': f'Execution failed: {run_result.stderr}'
@@ -762,204 +748,6 @@ public class RealProLeapParser {{
                             'unit': unit_name
                         })
         return result
-    
-    def _fallback_parse(self, file_path: str) -> Dict[str, Any]:
-        """Fallback parsing when ProLeap is not available - uses regex-based extraction"""
-        print(f"🔄 Using regex-based fallback parser for {file_path}")
-        
-        try:
-            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                content = f.read()
-            
-            entities = []
-            paragraphs = {}
-            data_items = {}
-            statements = {}
-            
-            # Extract program name and identification data from IDENTIFICATION DIVISION
-            import re
-            program_match = re.search(r'PROGRAM-ID\.\s*([A-Z0-9-]+)', content, re.IGNORECASE)
-            program_name = program_match.group(1).upper() if program_match else "UNKNOWN"
-            
-            # Extract identification data
-            identification_data = {}
-            author_match = re.search(r'AUTHOR\.\s*([A-Z0-9-]+)', content, re.IGNORECASE)
-            if author_match:
-                identification_data['author'] = author_match.group(1).upper()
-            
-            date_match = re.search(r'DATE-WRITTEN\.\s*([A-Z0-9-]+)', content, re.IGNORECASE)
-            if date_match:
-                identification_data['date_written'] = date_match.group(1).upper()
-            
-            security_match = re.search(r'SECURITY\.\s*([A-Z0-9-]+)', content, re.IGNORECASE)
-            if security_match:
-                identification_data['security'] = security_match.group(1).upper()
-            
-            # Extract file descriptions from FILE-CONTROL section
-            file_descriptions = {}
-            file_control_match = re.search(r'FILE-CONTROL\.(.*?)(?=DATA DIVISION|$)', content, re.IGNORECASE | re.DOTALL)
-            if file_control_match:
-                file_control_section = file_control_match.group(1)
-                # Extract SELECT statements
-                select_matches = re.finditer(r'SELECT\s+(\w+(?:-\w+)*)', file_control_section, re.IGNORECASE)
-                for match in select_matches:
-                    file_name = match.group(1).upper()
-                    file_descriptions[file_name] = {
-                        "name": file_name,
-                        "organization": "SEQUENTIAL",
-                        "access_mode": "SEQUENTIAL"
-                    }
-            
-            # Find the actual line numbers for program and compilation unit
-            lines = content.split('\n')
-            program_line = 1
-            compilation_unit_line = 1
-            
-            # Find PROGRAM-ID line
-            for i, line in enumerate(lines):
-                if 'PROGRAM-ID' in line.upper():
-                    program_line = i + 1
-                    break
-            
-            # Add program entity
-            entities.append({
-                "type": "program",
-                "name": program_name,
-                "properties": {
-                    "file_path": file_path,
-                    "line": f"{program_line}-{program_line + 5}",
-                    "start_line": program_line,
-                    "end_line": program_line + 5,
-                    "line_count": 6
-                }
-            })
-            
-            # Add compilation unit
-            entities.append({
-                "type": "compilation_unit", 
-                "name": program_name,
-                "properties": {
-                    "file_path": file_path,
-                    "line": f"{compilation_unit_line}-{len(lines)}",
-                    "start_line": compilation_unit_line,
-                    "end_line": len(lines),
-                    "line_count": len(lines) - compilation_unit_line + 1
-                }
-            })
-            
-            # Extract paragraphs (PROCEDURE DIVISION)
-            # Updated pattern to avoid matching line numbers as paragraphs
-            # Valid COBOL paragraph names should start with letters or have meaningful prefixes
-            paragraph_pattern = r'^[0-9]{6}\s+([A-Z][A-Z0-9-]*[A-Z0-9]|\d{4}-[A-Z][A-Z0-9-]*[A-Z0-9])\.'
-            for match in re.finditer(paragraph_pattern, content, re.MULTILINE | re.IGNORECASE):
-                paragraph_name = match.group(1).upper()
-                line_num = content[:match.start()].count('\n') + 1
-                
-                # Additional validation: ensure it's not just a line number
-                # Skip if it's purely numeric or looks like a line number
-                if paragraph_name.isdigit() or (len(paragraph_name) == 4 and paragraph_name.isdigit()):
-                    continue
-                
-                # Skip if it's a line number pattern (like "1092")
-                if re.match(r'^\d{4}$', paragraph_name):
-                    continue
-                
-                entities.append({
-                    "type": "paragraph",
-                    "name": paragraph_name,
-                    "properties": {
-                        "file_path": file_path,
-                        "line": f"{line_num}-{line_num + 5}",
-                        "start_line": line_num,
-                        "end_line": line_num + 5,
-                        "line_count": 6
-                    }
-                })
-                
-                paragraphs[paragraph_name] = {
-                    "name": paragraph_name,
-                    "line": line_num,
-                    "unit": program_name
-                }
-            
-            # Extract data items (DATA DIVISION)
-            data_item_pattern = r'^[0-9]{6}\s+(\d{2})\s+([A-Z0-9-]+)'
-            for match in re.finditer(data_item_pattern, content, re.MULTILINE | re.IGNORECASE):
-                data_name = match.group(2).upper()
-                line_num = content[:match.start()].count('\n') + 1
-                level = match.group(1)
-                
-                entities.append({
-                    "type": "data_item",
-                    "name": data_name,
-                    "properties": {
-                        "file_path": file_path,
-                        "line": f"{line_num}-{line_num}",
-                        "start_line": line_num,
-                        "end_line": line_num,
-                        "line_count": 1,
-                        "level": level
-                    }
-                })
-                
-                data_items[data_name] = {
-                    "name": data_name,
-                    "level": level,
-                    "line": line_num,
-                    "unit": program_name
-                }
-            
-            # Extract basic statements
-            statement_patterns = [
-                (r'PERFORM\s+(\w+(?:-\w+)*)', 'PERFORM'),
-                (r'CALL\s+[\'"]?(\w+(?:-\w+)*)[\'"]?', 'CALL'),
-                (r'READ\s+(\w+(?:-\w+)*)', 'READ'),
-                (r'WRITE\s+(\w+(?:-\w+)*)', 'WRITE'),
-                (r'MOVE\s+[\'"]?(\w+(?:-\w+)*)[\'"]?\s+TO\s+(\w+(?:-\w+)*)', 'MOVE')
-            ]
-            
-            for pattern, stmt_type in statement_patterns:
-                for match in re.finditer(pattern, content, re.IGNORECASE):
-                    line_num = content[:match.start()].count('\n') + 1
-                    statement_text = match.group(0)
-                    
-                    statements[f"{stmt_type}_{line_num}"] = {
-                        "type": stmt_type,
-                        "text": statement_text,
-                        "line": line_num,
-                        "unit": program_name
-                    }
-            
-            return {
-                "parse_success": True,
-                "success": True,
-                "language": "cobol",
-                "file_path": file_path,
-                "compilation_units": [{"name": program_name}],
-                "entities": entities,
-                "paragraphs": paragraphs,
-                "data_items": data_items,
-                "statements": statements,
-                "file_descriptions": file_descriptions,
-                "linkage_items": {},
-                "identification_data": {program_name: identification_data} if identification_data else {},
-                "screen_sections": {},
-                "using_raw_parser": False,
-                "using_fallback": True
-            }
-            
-        except Exception as e:
-            print(f"❌ Fallback parsing failed: {e}")
-        return {
-            "parse_success": False,
-            "success": False,
-                "error": f"Fallback parser failed: {e}",
-            "file_path": file_path,
-            "language": "cobol",
-            "entities": [],
-                "using_raw_parser": False,
-                "using_fallback": True
-        }
     
     def is_available(self) -> bool:
         """Check if raw ProLeap parser is available"""
