@@ -18,11 +18,12 @@ load_dotenv()
 class CodeGraphManager:
     """Manages the graph database for code analysis and RAG"""
 
-    def __init__(self, uri: Optional[str] = None, username: Optional[str] = None, password: Optional[str] = None):
+    def __init__(self, uri: Optional[str] = None, username: Optional[str] = None, password: Optional[str] = None, database: Optional[str] = None):
         # Use environment variables with fallbacks
         self.uri = uri or os.getenv("NEO4J_URL", "bolt://localhost:7687")
         self.username = username or os.getenv("NEO4J_USERNAME", "neo4j")
         self.password = password or os.getenv("NEO4J_PASSWORD", "password")
+        self.database = database or os.getenv("NEO4J_DATABASE", "neo4j")
         self.session_logger = logger.create_session_logger("GraphManager")
 
         # Log initialization
@@ -66,9 +67,21 @@ class CodeGraphManager:
             # Add metadata
             properties.update({"name": name, "created_at": datetime.now().isoformat(), "type": entity_type})
 
-            # Create node
-            node = Node(entity_type, **properties)
-            self.graph.create(node)
+            # Create node using raw Neo4j driver with database specification
+            with self.driver.session(database=self.database) as session:
+                # Create the node using Cypher
+                cypher = f"CREATE (n:{entity_type}) SET n += $properties RETURN n"
+                result = session.run(cypher, properties=properties)
+                record = result.single()
+                
+                if record:
+                    # Create a py2neo Node for compatibility
+                    node = Node(entity_type, **properties)
+                    # Set the identity to match the created node
+                    node.identity = record["n"].id
+                    return node
+                else:
+                    raise Exception("Failed to create node")
 
             duration = time.time() - start_time
 
@@ -105,13 +118,35 @@ class CodeGraphManager:
 
         start_time = time.time()
         try:
-            # Create relationship
-            rel = Relationship(from_node, rel_type, to_node)
-            if properties:
-                for key, value in properties.items():
-                    rel[key] = value
-
-            self.graph.create(rel)
+            # Create relationship using raw Neo4j driver with database specification
+            with self.driver.session(database=self.database) as session:
+                # Create the relationship using Cypher
+                cypher = """
+                MATCH (from {name: $from_name})
+                MATCH (to {name: $to_name})
+                CREATE (from)-[r:%s]->(to)
+                SET r += $properties
+                RETURN r
+                """ % rel_type
+                
+                rel_properties = properties or {}
+                result = session.run(cypher, 
+                                   from_name=from_node.get("name"), 
+                                   to_name=to_node.get("name"), 
+                                   properties=rel_properties)
+                record = result.single()
+                
+                if record:
+                    # Create a py2neo Relationship for compatibility
+                    rel = Relationship(from_node, rel_type, to_node)
+                    if properties:
+                        for key, value in properties.items():
+                            rel[key] = value
+                    # Set the identity to match the created relationship
+                    rel.identity = record["r"].id
+                    return rel
+                else:
+                    raise Exception("Failed to create relationship")
 
             duration = time.time() - start_time
 
@@ -146,12 +181,20 @@ class CodeGraphManager:
 
         start_time = time.time()
         try:
-            query = f"MATCH (n:{entity_type} {{name: $name}}) RETURN n"
-            result = self.graph.run(query, name=name).data()
+            # Use raw Neo4j driver with database specification
+            with self.driver.session(database=self.database) as session:
+                query = f"MATCH (n:{entity_type} {{name: $name}}) RETURN n"
+                result = session.run(query, name=name)
+                record = result.single()
 
             duration = time.time() - start_time
 
-            node = result[0]["n"] if result else None
+            node = None
+            if record:
+                # Create a py2neo Node for compatibility
+                node_data = dict(record["n"])
+                node = Node(entity_type, **node_data)
+                node.identity = record["n"].id
 
             self.session_logger.log_operation_end(
                 "find_entity", duration=duration, success=True, details={"found": node is not None}

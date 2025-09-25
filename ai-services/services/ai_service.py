@@ -4,6 +4,14 @@ Main AI service orchestrator that coordinates all AI functionality
 import os
 import time
 from typing import Any, Dict, List, Optional
+
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # dotenv not available, continue without it
+    pass
 from ..interfaces.ai_services_interface import AIServicesInterface
 from ..interfaces.ai_provider_interface import AIProviderInterface
 from .relationship_service import RelationshipService
@@ -11,6 +19,7 @@ from .description_service import DescriptionService
 from .evaluation_service import EvaluationService
 from ..providers.ollama_provider import OllamaProvider
 from ..providers.gemini_provider import GeminiProvider
+from ..providers.openai_provider import OpenAIProvider
 from ..providers.mock_provider import MockProvider
 from ..models.provider_models import ProviderConfig, AIProviderType
 from ..models.relationship_models import RelationshipExtractionResult
@@ -387,6 +396,25 @@ class AIService(AIServicesInterface, ServiceInterface):
             except Exception as e:
                 if self.logger:
                     self.logger.log_warning(f"Failed to initialize Gemini provider: {e}")
+        
+        # Initialize OpenAI provider if API key available
+        if self.config.openai_api_key:
+            try:
+                openai_config = ProviderConfig(
+                    provider_type=AIProviderType.OPENAI,
+                    api_key=self.config.openai_api_key,
+                    model_name=self.config.openai_model,
+                    base_url=self.config.openai_base_url,
+                    timeout=self.config.timeout_seconds,
+                    max_retries=self.config.max_retries
+                )
+                openai_provider = OpenAIProvider(openai_config, self.logger)
+                openai_provider.initialize({})
+                self._providers[AIProviderType.OPENAI] = openai_provider
+                
+            except Exception as e:
+                if self.logger:
+                    self.logger.log_warning(f"Failed to initialize OpenAI provider: {e}")
         
         # Always initialize mock provider for testing
         try:

@@ -4,8 +4,8 @@ Description generation service for AI-powered entity descriptions
 import time
 from typing import Dict, Any, Optional, List
 from pathlib import Path
-from description_generator_interface import DescriptionGeneratorInterface
-from ai_provider_interface import AIProviderInterface
+from ..interfaces.description_generator_interface import DescriptionGeneratorInterface
+from ..interfaces.ai_provider_interface import AIProviderInterface
 from shared.interfaces.logger_interface import LoggerInterface
 
 

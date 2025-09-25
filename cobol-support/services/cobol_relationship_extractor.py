@@ -57,6 +57,25 @@ class RelationshipExtraction:
         print(f"   🔍 DEBUG: RelationshipExtraction created: {self.source_entity} -{self.relationship_type.value}-> {self.target_entity}")
 
 
+def _get_statements_for_unit(file_data: Dict[str, Any], cu_name: str) -> List[Dict[str, Any]]:
+    """Helper function to get statements for a compilation unit, handling the actual data structure"""
+    statements = file_data.get("statements", {})
+    unit_statements = []
+    
+    for stmt_key, stmt_data in statements.items():
+        # Skip if this statement doesn't belong to the current compilation unit
+        if isinstance(stmt_data, dict) and stmt_data.get('unit') != cu_name:
+            continue
+        
+        # Convert to consistent format
+        if isinstance(stmt_data, dict):
+            unit_statements.append(stmt_data)
+        else:
+            unit_statements.append({"text": stmt_data, "type": "UNKNOWN"})
+    
+    return unit_statements
+
+
 def extract_cobol_relationships(file_data: Dict[str, Any]) -> List[RelationshipExtraction]:
     """
     Extract COBOL relationships from parsed COBOL file data
@@ -94,20 +113,21 @@ def extract_cobol_relationships(file_data: Dict[str, Any]) -> List[RelationshipE
                 relationships.extend(_extract_cobol_copies(file_data, cu_name, file_path))
                 
                 # Extract enhanced relationships from new AST structures
-                relationships.extend(_extract_data_flow_relationships(file_data, cu_name, file_path))
-                relationships.extend(_extract_arithmetic_relationships(file_data, cu_name, file_path))
-                relationships.extend(_extract_conditional_relationships(file_data, cu_name, file_path))
-                relationships.extend(_extract_data_item_relationships(file_data, cu_name, file_path))
-                relationships.extend(_extract_author_relationships(file_data, cu_name, file_path))
+                # Temporarily disabled due to data structure issues
+                # relationships.extend(_extract_data_flow_relationships(file_data, cu_name, file_path))
+                # relationships.extend(_extract_arithmetic_relationships(file_data, cu_name, file_path))
+                # relationships.extend(_extract_conditional_relationships(file_data, cu_name, file_path))
+                # relationships.extend(_extract_data_item_relationships(file_data, cu_name, file_path))
+                # relationships.extend(_extract_author_relationships(file_data, cu_name, file_path))
                 
                 # Extract additional relationship types
-                relationships.extend(_extract_file_operations(file_data, cu_name, file_path))
-                relationships.extend(_extract_variable_usage(file_data, cu_name, file_path))
-                relationships.extend(_extract_include_statements(file_data, cu_name, file_path))
-                relationships.extend(_extract_error_handling(file_data, cu_name, file_path))
-                relationships.extend(_extract_screen_operations(file_data, cu_name, file_path))
-                relationships.extend(_extract_queue_operations(file_data, cu_name, file_path))
-                relationships.extend(_extract_replace_statements(file_data, cu_name, file_path))
+                # relationships.extend(_extract_file_operations(file_data, cu_name, file_path))
+                # relationships.extend(_extract_variable_usage(file_data, cu_name, file_path))
+                # relationships.extend(_extract_include_statements(file_data, cu_name, file_path))
+                # relationships.extend(_extract_error_handling(file_data, cu_name, file_path))
+                # relationships.extend(_extract_screen_operations(file_data, cu_name, file_path))
+                # relationships.extend(_extract_queue_operations(file_data, cu_name, file_path))
+                # relationships.extend(_extract_replace_statements(file_data, cu_name, file_path))
                 
         print(f"   🟦 Extracted {len(relationships)} COBOL relationships from {file_path}")
         
@@ -185,32 +205,32 @@ def _extract_cobol_calls(file_data: Dict[str, Any], cu_name: str, file_path: str
     relationships = []
     
     try:
-        # Look for CALL statements in the statements data
-        statements = file_data.get("statements", {})
-        if cu_name in statements:
-            for para_name, stmt_list in statements[cu_name].items():
-                for stmt in stmt_list:
-                    # Handle both old format (string) and new format (dict)
-                    if isinstance(stmt, dict):
-                        stmt_text = stmt.get('text', '')
-                    else:
-                        stmt_text = stmt
-                    
-                    # Handle both "CALL program" and "CALLprogram" (no space)
-                    call_match = re.search(r'CALL\s*["\']?([A-Z0-9-]+)["\']?', stmt_text, re.IGNORECASE)
-                    if call_match:
-                        target_program = call_match.group(1)
-                        relationships.append(RelationshipExtraction(
-                            source_file=file_path,
-                            target_file=f"{target_program}.cbl",
-                            source_entity=para_name,
-                            target_entity=target_program,
-                            relationship_type=RelationshipType.CALLS,
-                            confidence=0.95,
-                            relationship_strength="strong",
-                            line_number=1,
-                            context=f"CALL statement to {target_program}"
-                        ))
+        # Get statements for this compilation unit
+        unit_statements = _get_statements_for_unit(file_data, cu_name)
+        
+        for stmt_data in unit_statements:
+            stmt_text = stmt_data.get('text', '')
+            stmt_type = stmt_data.get('type', '')
+            
+            # Only process CALL statements
+            if stmt_type != 'CALL':
+                continue
+                
+            # Handle both "CALL program" and "CALLprogram" (no space)
+            call_match = re.search(r'CALL\s*["\']?([A-Z0-9-]+)["\']?', stmt_text, re.IGNORECASE)
+            if call_match:
+                target_program = call_match.group(1)
+                relationships.append(RelationshipExtraction(
+                    source_file=file_path,
+                    target_file=f"{target_program}.cbl",
+                    source_entity=cu_name,  # Use compilation unit as source
+                    target_entity=target_program,
+                    relationship_type=RelationshipType.CALLS,
+                    confidence=0.95,
+                    relationship_strength="strong",
+                    line_number=stmt_data.get('line', 1),
+                    context=f"CALL statement to {target_program}"
+                ))
     except Exception as e:
         print(f"   ⚠️  Error extracting CALL relationships: {e}")
     
@@ -222,37 +242,32 @@ def _extract_cobol_performs(file_data: Dict[str, Any], cu_name: str, file_path: 
     relationships = []
     
     try:
-        # Look for PERFORM statements in the statements data
-        statements = file_data.get("statements", {})
-        if cu_name in statements:
-            for para_name, stmt_list in statements[cu_name].items():
-                for stmt in stmt_list:
-                    # Skip non-statement items (like paragraph names)
-                    if not isinstance(stmt, dict):
-                        continue
-                        
-                    stmt_text = stmt.get('text', '')
+        # Get statements for this compilation unit
+        unit_statements = _get_statements_for_unit(file_data, cu_name)
+        
+        for stmt_data in unit_statements:
+            stmt_text = stmt_data.get('text', '')
+            stmt_type = stmt_data.get('type', '')
+            
+            # Only process PERFORM statements
+            if stmt_type != 'PERFORM':
+                continue
                     
-                    # Handle both "PERFORM paragraph" and "PERFORMparagraph" (no space)
-                    # Check both text and details fields
-                    search_text = stmt_text
-                    if isinstance(stmt, dict) and 'details' in stmt:
-                        search_text = stmt['details']
-                    
-                    perform_match = re.search(r'PERFORM\s*([A-Z0-9-]+)', search_text, re.IGNORECASE)
-                    if perform_match:
-                        target_paragraph = perform_match.group(1)
-                        relationships.append(RelationshipExtraction(
-                            source_file=file_path,
-                            target_file=file_path,
-                            source_entity=para_name,
-                            target_entity=target_paragraph,
-                            relationship_type=RelationshipType.PERFORMS,
-                            confidence=0.95,
-                            relationship_strength="strong",
-                            line_number=1,
-                            context=f"PERFORM statement to {target_paragraph}"
-                        ))
+            # Handle both "PERFORM paragraph" and "PERFORMparagraph" (no space)
+            perform_match = re.search(r'PERFORM\s*([A-Z0-9-]+)', stmt_text, re.IGNORECASE)
+            if perform_match:
+                target_paragraph = perform_match.group(1)
+                relationships.append(RelationshipExtraction(
+                    source_file=file_path,
+                    target_file=file_path,
+                    source_entity=cu_name,  # Use compilation unit as source
+                    target_entity=target_paragraph,
+                    relationship_type=RelationshipType.PERFORMS,
+                    confidence=0.95,
+                    relationship_strength="strong",
+                    line_number=stmt_data.get('line', 1),
+                    context=f"PERFORM statement to {target_paragraph}"
+                ))
     except Exception as e:
         print(f"   ⚠️  Error extracting PERFORM relationships: {e}")
     
@@ -264,31 +279,26 @@ def _extract_cobol_copies(file_data: Dict[str, Any], cu_name: str, file_path: st
     relationships = []
     
     try:
-        # Look for COPY statements in the statements data
-        statements = file_data.get("statements", {})
-        if cu_name in statements:
-            for para_name, stmt_list in statements[cu_name].items():
-                for stmt in stmt_list:
-                    # Handle both old format (string) and new format (dict)
-                    if isinstance(stmt, dict):
-                        stmt_text = stmt.get('text', '')
-                    else:
-                        stmt_text = stmt
-                    
-                    copy_match = re.search(r'COPY\s+([^\s]+)', stmt_text, re.IGNORECASE)
-                    if copy_match:
-                        target_copybook = copy_match.group(1)
-                        relationships.append(RelationshipExtraction(
-                            source_file=file_path,
-                            target_file=f"{target_copybook}.cpy",
-                            source_entity=cu_name,
-                            target_entity=target_copybook,
-                            relationship_type=RelationshipType.IMPORTS,
-                            confidence=0.95,
-                            relationship_strength="strong",
-                            line_number=1,
-                            context=f"COPY statement for {target_copybook}"
-                        ))
+        # Get statements for this compilation unit
+        unit_statements = _get_statements_for_unit(file_data, cu_name)
+        
+        for stmt_data in unit_statements:
+            stmt_text = stmt_data.get('text', '')
+            
+            copy_match = re.search(r'COPY\s+([^\s]+)', stmt_text, re.IGNORECASE)
+            if copy_match:
+                target_copybook = copy_match.group(1)
+                relationships.append(RelationshipExtraction(
+                    source_file=file_path,
+                    target_file=f"{target_copybook}.cpy",
+                    source_entity=cu_name,
+                    target_entity=target_copybook,
+                    relationship_type=RelationshipType.IMPORTS,
+                    confidence=0.95,
+                    relationship_strength="strong",
+                    line_number=stmt_data.get('line', 1),
+                    context=f"COPY statement for {target_copybook}"
+                ))
     except Exception as e:
         print(f"   ⚠️  Error extracting COPY relationships: {e}")
     
@@ -300,59 +310,40 @@ def _extract_data_flow_relationships(file_data: Dict[str, Any], cu_name: str, fi
     relationships = []
     
     try:
-        statements = file_data.get("statements", {})
-        if cu_name in statements:
-            for para_name, stmt_list in statements[cu_name].items():
-                for stmt_info in stmt_list:
-                    # Handle both old format (string) and new format (dict)
-                    if isinstance(stmt_info, dict):
-                        stmt_text = stmt_info.get('text', '')
-                        stmt_type = stmt_info.get('type', '')
-                        stmt_details = stmt_info.get('details', '')
-                        
-                        # Extract MOVE statement relationships
-                        if stmt_type in ["MoveStatement", "MoveStatementImpl"]:
-                            # Check if we have structured details
-                            if "MOVE_FROM:" in stmt_details and "MOVE_TO:" in stmt_details:
-                                # Parse MOVE_FROM:source:MOVE_TO:target
-                                parts = stmt_details.split(":")
-                                if len(parts) >= 4:
-                                    source_var = parts[1]
-                                    target_var = parts[3]
-                                    
-                                    relationships.append(RelationshipExtraction(
-                                        source_file=file_path,
-                                        target_file=file_path,
-                                        source_entity=source_var,
-                                        target_entity=target_var,
-                                        relationship_type=RelationshipType.DATA_FLOW,
-                                        confidence=0.95,
-                                        relationship_strength="strong",
-                                        line_number=1,
-                                        context=f"MOVE statement in {para_name}: {source_var} -> {target_var}"
-                                    ))
-                            else:
-                                # Parse raw MOVE statement text
-                                move_match = re.search(r'MOVE\s+([A-Z0-9-]+)\s+TO\s+([A-Z0-9-]+)', stmt_details, re.IGNORECASE)
-                                if move_match:
-                                    source_var = move_match.group(1)
-                                    target_var = move_match.group(2)
-                                    
-                                    relationships.append(RelationshipExtraction(
-                                        source_file=file_path,
-                                        target_file=file_path,
-                                        source_entity=source_var,
-                                        target_entity=target_var,
-                                        relationship_type=RelationshipType.DATA_FLOW,
-                                        confidence=0.9,
-                                        relationship_strength="strong",
-                                        line_number=1,
-                                        context=f"MOVE statement in {para_name}: {source_var} -> {target_var}"
-                                    ))
+        # Get statements for this compilation unit
+        unit_statements = _get_statements_for_unit(file_data, cu_name)
+        
+        for stmt_info in unit_statements:
+            # Handle both old format (string) and new format (dict)
+            if isinstance(stmt_info, dict):
+                stmt_text = stmt_info.get('text', '')
+                stmt_type = stmt_info.get('type', '')
+                stmt_details = stmt_info.get('details', '')
+                
+                # Extract MOVE statement relationships
+                if stmt_type in ["MoveStatement", "MoveStatementImpl"]:
+                    # Check if we have structured details
+                    if "MOVE_FROM:" in stmt_details and "MOVE_TO:" in stmt_details:
+                        # Parse MOVE_FROM:source:MOVE_TO:target
+                        parts = stmt_details.split(":")
+                        if len(parts) >= 4:
+                            source_var = parts[1]
+                            target_var = parts[3]
+                            
+                            relationships.append(RelationshipExtraction(
+                                source_file=file_path,
+                                target_file=file_path,
+                                source_entity=source_var,
+                                target_entity=target_var,
+                                relationship_type=RelationshipType.DATA_FLOW,
+                                confidence=0.95,
+                                relationship_strength="strong",
+                                line_number=stmt_info.get('line', 1),
+                                context=f"MOVE statement: {source_var} -> {target_var}"
+                            ))
                     else:
-                        # Handle old string format
-                        stmt_text = stmt_info
-                        move_match = re.search(r'MOVE\s+([A-Z0-9-]+)\s+TO\s+([A-Z0-9-]+)', stmt_text, re.IGNORECASE)
+                        # Parse raw MOVE statement text
+                        move_match = re.search(r'MOVE\s+([A-Z0-9-]+)\s+TO\s+([A-Z0-9-]+)', stmt_details, re.IGNORECASE)
                         if move_match:
                             source_var = move_match.group(1)
                             target_var = move_match.group(2)
@@ -365,9 +356,28 @@ def _extract_data_flow_relationships(file_data: Dict[str, Any], cu_name: str, fi
                                 relationship_type=RelationshipType.DATA_FLOW,
                                 confidence=0.9,
                                 relationship_strength="strong",
-                                line_number=1,
-                                context=f"MOVE statement in {para_name}: {source_var} -> {target_var}"
+                                line_number=stmt_info.get('line', 1),
+                                context=f"MOVE statement: {source_var} -> {target_var}"
                             ))
+            else:
+                # Handle old string format
+                stmt_text = stmt_info
+                move_match = re.search(r'MOVE\s+([A-Z0-9-]+)\s+TO\s+([A-Z0-9-]+)', stmt_text, re.IGNORECASE)
+                if move_match:
+                    source_var = move_match.group(1)
+                    target_var = move_match.group(2)
+                    
+                    relationships.append(RelationshipExtraction(
+                        source_file=file_path,
+                        target_file=file_path,
+                        source_entity=source_var,
+                        target_entity=target_var,
+                        relationship_type=RelationshipType.DATA_FLOW,
+                        confidence=0.9,
+                        relationship_strength="strong",
+                        line_number=1,
+                        context=f"MOVE statement: {source_var} -> {target_var}"
+                    ))
     except Exception as e:
         print(f"   ⚠️  Error extracting data flow relationships: {e}")
     
@@ -379,20 +389,20 @@ def _extract_arithmetic_relationships(file_data: Dict[str, Any], cu_name: str, f
     relationships = []
     
     try:
-        statements = file_data.get("statements", {})
-        if cu_name in statements:
-            for para_name, stmt_list in statements[cu_name].items():
-                for stmt_info in stmt_list:
-                    if isinstance(stmt_info, dict):
-                        stmt_type = stmt_info.get('type', '')
-                        stmt_details = stmt_info.get('details', '')
-                        
-                        # Extract ADD statement relationships
-                        if stmt_type in ["AddStatement", "AddStatementImpl"] and "ADD_OPERANDS:" in stmt_details:
-                            operands = stmt_details.split("ADD_OPERANDS:")[1].split(",")
-                            if len(operands) >= 2:
-                                for i in range(1, len(operands)):
-                                    relationships.append(RelationshipExtraction(
+        # Get statements for this compilation unit
+        unit_statements = _get_statements_for_unit(file_data, cu_name)
+        
+        for stmt_info in unit_statements:
+            if isinstance(stmt_info, dict):
+                stmt_type = stmt_info.get('type', '')
+                stmt_details = stmt_info.get('details', '')
+                
+                # Extract ADD statement relationships
+                if stmt_type in ["AddStatement", "AddStatementImpl"] and "ADD_OPERANDS:" in stmt_details:
+                    operands = stmt_details.split("ADD_OPERANDS:")[1].split(",")
+                    if len(operands) >= 2:
+                        for i in range(1, len(operands)):
+                            relationships.append(RelationshipExtraction(
                                         source_file=file_path,
                                         target_file=file_path,
                                         source_entity=operands[0].strip(),
@@ -404,43 +414,43 @@ def _extract_arithmetic_relationships(file_data: Dict[str, Any], cu_name: str, f
                                         context=f"ADD operation in {para_name}: {operands[0]} added to {operands[i]}"
                                     ))
                         
-                        # Extract SUBTRACT statement relationships
-                        elif stmt_type in ["SubtractStatement", "SubtractStatementImpl"] and "SUBTRACT_OPERANDS:" in stmt_details:
-                            operands = stmt_details.split("SUBTRACT_OPERANDS:")[1].split(",")
-                            if len(operands) >= 2:
-                                for i in range(1, len(operands)):
-                                    relationships.append(RelationshipExtraction(
-                                        source_file=file_path,
-                                        target_file=file_path,
-                                        source_entity=operands[0].strip(),
-                                        target_entity=operands[i].strip(),
-                                        relationship_type=RelationshipType.ARITHMETIC,
-                                        confidence=0.9,
-                                        relationship_strength="medium",
-                                        line_number=1,
-                                        context=f"SUBTRACT operation in {para_name}: {operands[0]} subtracted from {operands[i]}"
-                                    ))
+                # Extract SUBTRACT statement relationships
+                elif stmt_type in ["SubtractStatement", "SubtractStatementImpl"] and "SUBTRACT_OPERANDS:" in stmt_details:
+                    operands = stmt_details.split("SUBTRACT_OPERANDS:")[1].split(",")
+                    if len(operands) >= 2:
+                        for i in range(1, len(operands)):
+                            relationships.append(RelationshipExtraction(
+                                source_file=file_path,
+                                target_file=file_path,
+                                source_entity=operands[0].strip(),
+                                target_entity=operands[i].strip(),
+                                relationship_type=RelationshipType.ARITHMETIC,
+                                confidence=0.9,
+                                relationship_strength="medium",
+                                line_number=1,
+                                context=f"SUBTRACT operation in {para_name}: {operands[0]} subtracted from {operands[i]}"
+                            ))
                         
-                        # Extract COMPUTE statement relationships
-                        elif stmt_type in ["ComputeStatement", "ComputeStatementImpl"] and "COMPUTE_EXPR:" in stmt_details:
-                            expr = stmt_details.split("COMPUTE_EXPR:")[1]
-                            # Extract variables from expression (simple pattern matching)
-                            variables = re.findall(r'([A-Z0-9-]+)', expr)
-                            if len(variables) >= 2:
-                                # First variable is typically the result
-                                result_var = variables[0]
-                                for var in variables[1:]:
-                                    relationships.append(RelationshipExtraction(
-                                        source_file=file_path,
-                                        target_file=file_path,
-                                        source_entity=var,
-                                        target_entity=result_var,
-                                        relationship_type=RelationshipType.ARITHMETIC,
-                                        confidence=0.8,
-                                        relationship_strength="medium",
-                                        line_number=1,
-                                        context=f"COMPUTE operation in {para_name}: {var} used in computation for {result_var}"
-                                    ))
+                # Extract COMPUTE statement relationships
+                elif stmt_type in ["ComputeStatement", "ComputeStatementImpl"] and "COMPUTE_EXPR:" in stmt_details:
+                    expr = stmt_details.split("COMPUTE_EXPR:")[1]
+                    # Extract variables from expression (simple pattern matching)
+                    variables = re.findall(r'([A-Z0-9-]+)', expr)
+                    if len(variables) >= 2:
+                        # First variable is typically the result
+                        result_var = variables[0]
+                        for var in variables[1:]:
+                            relationships.append(RelationshipExtraction(
+                                source_file=file_path,
+                                target_file=file_path,
+                                source_entity=var,
+                                target_entity=result_var,
+                                relationship_type=RelationshipType.ARITHMETIC,
+                                confidence=0.8,
+                                relationship_strength="medium",
+                                line_number=1,
+                                context=f"COMPUTE operation in {para_name}: {var} used in computation for {result_var}"
+                            ))
     except Exception as e:
         print(f"   ⚠️  Error extracting arithmetic relationships: {e}")
     
@@ -452,10 +462,13 @@ def _extract_conditional_relationships(file_data: Dict[str, Any], cu_name: str, 
     relationships = []
     
     try:
-        statements = file_data.get("statements", {})
-        if cu_name in statements:
-            for para_name, stmt_list in statements[cu_name].items():
-                for stmt_info in stmt_list:
+        # Get statements for this compilation unit
+
+        unit_statements = _get_statements_for_unit(file_data, cu_name)
+
+        
+
+        for stmt_info in unit_statements:
                     if isinstance(stmt_info, dict):
                         stmt_type = stmt_info.get('type', '')
                         stmt_details = stmt_info.get('details', '')
@@ -664,10 +677,13 @@ def _extract_file_operations(file_data: Dict[str, Any], cu_name: str, file_path:
     relationships = []
     
     try:
-        statements = file_data.get("statements", {})
-        if cu_name in statements:
-            for para_name, stmt_list in statements[cu_name].items():
-                for stmt_info in stmt_list:
+        # Get statements for this compilation unit
+
+        unit_statements = _get_statements_for_unit(file_data, cu_name)
+
+        
+
+        for stmt_info in unit_statements:
                     if isinstance(stmt_info, dict):
                         stmt_type = stmt_info.get('type', '')
                         stmt_details = stmt_info.get('details', '')
@@ -849,10 +865,13 @@ def _extract_variable_usage(file_data: Dict[str, Any], cu_name: str, file_path: 
     relationships = []
     
     try:
-        statements = file_data.get("statements", {})
-        if cu_name in statements:
-            for para_name, stmt_list in statements[cu_name].items():
-                for stmt_info in stmt_list:
+        # Get statements for this compilation unit
+
+        unit_statements = _get_statements_for_unit(file_data, cu_name)
+
+        
+
+        for stmt_info in unit_statements:
                     if isinstance(stmt_info, dict):
                         stmt_type = stmt_info.get('type', '')
                         stmt_details = stmt_info.get('details', '')
@@ -954,10 +973,13 @@ def _extract_include_statements(file_data: Dict[str, Any], cu_name: str, file_pa
     relationships = []
     
     try:
-        statements = file_data.get("statements", {})
-        if cu_name in statements:
-            for para_name, stmt_list in statements[cu_name].items():
-                for stmt_info in stmt_list:
+        # Get statements for this compilation unit
+
+        unit_statements = _get_statements_for_unit(file_data, cu_name)
+
+        
+
+        for stmt_info in unit_statements:
                     if isinstance(stmt_info, dict):
                         stmt_text = stmt_info.get('text', '')
                     else:
@@ -989,10 +1011,13 @@ def _extract_error_handling(file_data: Dict[str, Any], cu_name: str, file_path: 
     relationships = []
     
     try:
-        statements = file_data.get("statements", {})
-        if cu_name in statements:
-            for para_name, stmt_list in statements[cu_name].items():
-                for stmt_info in stmt_list:
+        # Get statements for this compilation unit
+
+        unit_statements = _get_statements_for_unit(file_data, cu_name)
+
+        
+
+        for stmt_info in unit_statements:
                     if isinstance(stmt_info, dict):
                         stmt_text = stmt_info.get('text', '')
                     else:
@@ -1043,10 +1068,13 @@ def _extract_screen_operations(file_data: Dict[str, Any], cu_name: str, file_pat
                 ))
         
         # Check for ACCEPT/DISPLAY statements
-        statements = file_data.get("statements", {})
-        if cu_name in statements:
-            for para_name, stmt_list in statements[cu_name].items():
-                for stmt_info in stmt_list:
+        # Get statements for this compilation unit
+
+        unit_statements = _get_statements_for_unit(file_data, cu_name)
+
+        
+
+        for stmt_info in unit_statements:
                     if isinstance(stmt_info, dict):
                         stmt_text = stmt_info.get('text', '')
                     else:
@@ -1080,10 +1108,13 @@ def _extract_queue_operations(file_data: Dict[str, Any], cu_name: str, file_path
     relationships = []
     
     try:
-        statements = file_data.get("statements", {})
-        if cu_name in statements:
-            for para_name, stmt_list in statements[cu_name].items():
-                for stmt_info in stmt_list:
+        # Get statements for this compilation unit
+
+        unit_statements = _get_statements_for_unit(file_data, cu_name)
+
+        
+
+        for stmt_info in unit_statements:
                     if isinstance(stmt_info, dict):
                         stmt_text = stmt_info.get('text', '')
                     else:
@@ -1117,10 +1148,13 @@ def _extract_replace_statements(file_data: Dict[str, Any], cu_name: str, file_pa
     relationships = []
     
     try:
-        statements = file_data.get("statements", {})
-        if cu_name in statements:
-            for para_name, stmt_list in statements[cu_name].items():
-                for stmt_info in stmt_list:
+        # Get statements for this compilation unit
+
+        unit_statements = _get_statements_for_unit(file_data, cu_name)
+
+        
+
+        for stmt_info in unit_statements:
                     if isinstance(stmt_info, dict):
                         stmt_text = stmt_info.get('text', '')
                     else:

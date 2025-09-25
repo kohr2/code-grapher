@@ -14,6 +14,7 @@ sys.path.insert(0, str(ai_services_path.parent))
 from ai_services.services.ai_service import AIService
 from ai_services.config.ai_config import AIServiceConfig
 from ai_services.providers.mock_provider import MockProvider
+from ai_services.providers.openai_provider import OpenAIProvider
 from ai_services.models.provider_models import AIProviderType
 from ai_services.models.relationship_models import RelationshipExtractionResult, Relationship, RelationshipType
 from ai_services.models.evaluation_models import EvaluationCategory
@@ -245,10 +246,62 @@ class TestAIService(unittest.TestCase):
         # Mock all providers to fail
         with patch('services.ai_service.OllamaProvider', side_effect=Exception("Failed")), \
              patch('services.ai_service.GeminiProvider', side_effect=Exception("Failed")), \
+             patch('services.ai_service.OpenAIProvider', side_effect=Exception("Failed")), \
              patch('services.ai_service.MockProvider', side_effect=Exception("Failed")):
             
             with self.assertRaises(RuntimeError):
                 self.ai_service.initialize({})
+    
+    def test_openai_provider_initialization(self):
+        """Test OpenAI provider initialization when API key is provided"""
+        config = AIServiceConfig()
+        config.openai_api_key = "test-api-key"
+        config.openai_model = "gpt-4o-mini"
+        config.default_provider = AIProviderType.OPENAI
+        
+        ai_service = AIService(config, self.mock_logger)
+        
+        with patch('services.ai_service.OpenAIProvider') as mock_openai_provider_class:
+            mock_provider = Mock()
+            mock_openai_provider_class.return_value = mock_provider
+            
+            ai_service.initialize({})
+            
+            # Check that OpenAI provider was initialized
+            mock_openai_provider_class.assert_called_once()
+            mock_provider.initialize.assert_called_once()
+    
+    def test_openai_provider_not_initialized_without_key(self):
+        """Test that OpenAI provider is not initialized without API key"""
+        config = AIServiceConfig()
+        config.openai_api_key = None
+        config.default_provider = AIProviderType.OPENAI
+        
+        ai_service = AIService(config, self.mock_logger)
+        
+        with patch('services.ai_service.OpenAIProvider') as mock_openai_provider_class:
+            ai_service.initialize({})
+            
+            # OpenAI provider should not be called without API key
+            mock_openai_provider_class.assert_not_called()
+    
+    def test_get_openai_provider(self):
+        """Test getting OpenAI provider"""
+        config = AIServiceConfig()
+        config.openai_api_key = "test-api-key"
+        config.default_provider = AIProviderType.OPENAI
+        
+        ai_service = AIService(config, self.mock_logger)
+        
+        with patch('services.ai_service.OpenAIProvider') as mock_openai_provider_class:
+            mock_provider = Mock()
+            mock_openai_provider_class.return_value = mock_provider
+            
+            ai_service.initialize({})
+            
+            provider = ai_service.get_provider("openai")
+            
+            self.assertEqual(provider, mock_provider)
 
 
 if __name__ == '__main__':

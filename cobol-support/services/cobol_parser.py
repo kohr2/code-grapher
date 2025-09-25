@@ -11,7 +11,7 @@ from dataclasses import dataclass
 
 # Import raw ProLeap parser
 from .raw_proleap_parser import RawProLeapParser
-from cobol_relationship_extractor import extract_cobol_relationships
+from services.cobol_relationship_extractor import extract_cobol_relationships
 
 
 @dataclass

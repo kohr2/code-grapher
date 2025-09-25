@@ -3,8 +3,8 @@ Ollama provider implementation that wraps the existing ollama_client.py
 """
 import time
 from typing import Any, Dict, List, Optional
-from base_provider import BaseAIProvider
-from provider_models import AIResponse, ProviderConfig, AIProviderType
+from .base_provider import BaseAIProvider
+from ..models.provider_models import AIResponse, ProviderConfig, AIProviderType
 from shared.interfaces.logger_interface import LoggerInterface
 
 

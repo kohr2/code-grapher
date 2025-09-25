@@ -58,9 +58,11 @@ async def run_mcp_server():
         raise
 
 
-async def run_pipeline(directory: str, use_ai: bool = True):
+async def run_pipeline(directory: str, use_ai: bool = True, limit: int = None):
     """Run the pipeline directly with service architecture"""
     print(f"🚀 Running Code Grapher Pipeline (Phase 5) on: {directory}")
+    if limit:
+        print(f"📊 Processing limit: {limit} files")
     
     try:
         # Create and initialize application
@@ -79,7 +81,8 @@ async def run_pipeline(directory: str, use_ai: bool = True):
         # Run pipeline
         result = await pipeline_service.run_enhanced_pipeline(
             target_directory=directory,
-            use_ai=use_ai
+            use_ai=use_ai,
+            file_limit=limit
         )
         
         # Display results
@@ -158,6 +161,7 @@ Examples:
   python main.py mcp                           # Run MCP server
   python main.py pipeline /path/to/code       # Run pipeline on directory
   python main.py pipeline . --no-ai           # Run pipeline without AI
+  python main.py pipeline temp_processing --limit 1  # Quick test with 1 file
   python main.py health                       # Check application health
 
 Phase 5 Features:
@@ -191,6 +195,11 @@ Phase 5 Features:
         action='store_true',
         help='Disable AI descriptions and relationship extraction'
     )
+    pipeline_parser.add_argument(
+        '--limit',
+        type=int,
+        help='Limit the number of files to process (useful for quick testing)'
+    )
     
     # Health check command
     health_parser = subparsers.add_parser(
@@ -210,7 +219,8 @@ Phase 5 Features:
         
         elif args.command == 'pipeline':
             use_ai = not args.no_ai
-            asyncio.run(run_pipeline(args.directory, use_ai))
+            limit = getattr(args, 'limit', None)
+            asyncio.run(run_pipeline(args.directory, use_ai, limit))
         
         elif args.command == 'health':
             success = asyncio.run(run_health_check())

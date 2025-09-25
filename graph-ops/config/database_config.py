@@ -13,6 +13,7 @@ class DatabaseConfig:
     uri: str = "bolt://localhost:7687"
     username: str = "neo4j"
     password: str = "password"
+    database: str = "neo4j"
     max_connection_lifetime: int = 3600  # 1 hour
     max_connection_pool_size: int = 50
     connection_acquisition_timeout: int = 60
@@ -24,6 +25,7 @@ class DatabaseConfig:
             uri=os.getenv("NEO4J_URL", cls.uri),
             username=os.getenv("NEO4J_USERNAME", cls.username),
             password=os.getenv("NEO4J_PASSWORD", cls.password),
+            database=os.getenv("NEO4J_DATABASE", cls.database),
             max_connection_lifetime=int(os.getenv("NEO4J_MAX_CONNECTION_LIFETIME", cls.max_connection_lifetime)),
             max_connection_pool_size=int(os.getenv("NEO4J_MAX_POOL_SIZE", cls.max_connection_pool_size)),
             connection_acquisition_timeout=int(os.getenv("NEO4J_CONNECTION_TIMEOUT", cls.connection_acquisition_timeout))

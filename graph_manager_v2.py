@@ -41,11 +41,13 @@ class CodeGraphManagerV2:
     
     def __init__(self, uri: Optional[str] = None, 
                  username: Optional[str] = None, 
-                 password: Optional[str] = None):
+                 password: Optional[str] = None,
+                 database: Optional[str] = None):
         # Use environment variables with fallbacks
         self.uri = uri or os.getenv("NEO4J_URL", "bolt://localhost:7687")
         self.username = username or os.getenv("NEO4J_USERNAME", "neo4j")
         self.password = password or os.getenv("NEO4J_PASSWORD", "password")
+        self.database = database or os.getenv("NEO4J_DATABASE", "neo4j")
         
         # Get logger through service locator
         self.logger = ServiceLocator.get_logger("graph_manager_v2")
@@ -63,13 +65,15 @@ class CodeGraphManagerV2:
             self.config = DatabaseConfig(
                 uri=self.uri,
                 username=self.username,
-                password=self.password
+                password=self.password,
+                database=self.database
             )
             
             self.connection_manager = ConnectionManager(
                 self.config.uri, 
                 self.config.username, 
-                self.config.password
+                self.config.password,
+                self.config.database
             )
             
             self.repository = Neo4jRepository(self.connection_manager)

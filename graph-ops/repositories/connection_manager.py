@@ -13,10 +13,12 @@ class ConnectionManager:
     
     def __init__(self, uri: Optional[str] = None, 
                  username: Optional[str] = None, 
-                 password: Optional[str] = None):
+                 password: Optional[str] = None,
+                 database: Optional[str] = None):
         self.uri = uri or os.getenv("NEO4J_URL", "bolt://localhost:7687")
         self.username = username or os.getenv("NEO4J_USERNAME", "neo4j")
         self.password = password or os.getenv("NEO4J_PASSWORD", "password")
+        self.database = database or os.getenv("NEO4J_DATABASE", "neo4j")
         self.logger = ServiceLocator.get_logger("connection_manager")
         
         # Connection pool configuration
@@ -53,7 +55,7 @@ class ConnectionManager:
             
         session = None
         try:
-            session = self._driver.session()
+            session = self._driver.session(database=self.database)
             yield session
         except Exception as e:
             self.logger.log_error(f"Session error: {e}")

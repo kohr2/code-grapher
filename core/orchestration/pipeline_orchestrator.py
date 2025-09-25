@@ -117,6 +117,7 @@ class PipelineOrchestrator(PipelineInterface):
             enable_embeddings = kwargs.get("enable_embeddings", self.config.pipeline.enable_embeddings)
             primer_file_path = kwargs.get("primer_file_path")
             include_documentation = kwargs.get("include_documentation", True)
+            file_limit = kwargs.get("file_limit")
 
             pipeline_data = {
                 "target_directory": target_directory,
@@ -136,7 +137,9 @@ class PipelineOrchestrator(PipelineInterface):
             self.logger.log_info(
                 "Discovering and parsing source files (Python, TypeScript, JavaScript, JSON, Markdown, COBOL)..."
             )
-            parsed_files = await self._parse_codebase(target_directory)
+            if file_limit:
+                self.logger.log_info(f"Limiting processing to {file_limit} files for quick testing")
+            parsed_files = await self._parse_codebase(target_directory, file_limit)
 
             if not parsed_files:
                 return PipelineResult.failure(
@@ -215,7 +218,7 @@ class PipelineOrchestrator(PipelineInterface):
             self.logger.log_error(f"Failed to clear database: {e}")
             raise
 
-    async def _parse_codebase(self, directory: str) -> List[Dict[str, Any]]:
+    async def _parse_codebase(self, directory: str, file_limit: int = None) -> List[Dict[str, Any]]:
         """
         Parse codebase files to extract entities using multi-language parsing
         """
@@ -237,7 +240,13 @@ class PipelineOrchestrator(PipelineInterface):
                                 source_files.append(os.path.join(root, file))
                                 break
 
-            self.logger.log_info(f"Found {len(source_files)} source files")
+            # Apply file limit if specified
+            if file_limit and len(source_files) > file_limit:
+                original_count = len(source_files)
+                source_files = source_files[:file_limit]
+                self.logger.log_info(f"Found {original_count} source files, limiting to {len(source_files)} for quick testing")
+            else:
+                self.logger.log_info(f"Found {len(source_files)} source files")
 
             if not source_files:
                 return []
