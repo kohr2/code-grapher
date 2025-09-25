@@ -133,6 +133,8 @@ class RawProLeapParser:
     def _create_proleap_program(self, file_path: str) -> str:
         """Create a Java program that uses ProLeap directly"""
         return f"""
+package io.proleap.cobol;
+
 import java.io.File;
 import java.util.*;
 import io.proleap.cobol.asg.runner.impl.CobolParserRunnerImpl;
@@ -300,46 +302,102 @@ public class RealProLeapParser {{
         """Run the ProLeap parser using Maven"""
         target_java_file = None
         try:
-            # Copy the Java file to the ProLeap project
-            proleap_src_dir = os.path.join(self.proleap_dir, 'src', 'main', 'java')
+            # Copy the Java file to the ProLeap project in the correct package structure
+            proleap_src_dir = os.path.join(self.proleap_dir, 'src', 'main', 'java', 'io', 'proleap', 'cobol')
             if not os.path.exists(proleap_src_dir):
                 os.makedirs(proleap_src_dir)
             
             target_java_file = os.path.join(proleap_src_dir, 'RealProLeapParser.java')
             import shutil
             shutil.copy2(java_file, target_java_file)
-            # Compile using Maven with proper Java module access
-            compile_result = subprocess.run([
-                'mvn', 'compile', '-q', 
-                '-Dmaven.compiler.showWarnings=false', 
-                '-Dmaven.compiler.showDeprecation=false',
-                '-Dmaven.compiler.fork=true',
-                '-Dmaven.compiler.executable=java',
-                '-Dmaven.compiler.compilerArgs=-J--add-opens=java.base/sun.misc=ALL-UNNAMED -J--add-opens=java.base/java.lang=ALL-UNNAMED'
+            # First, check if ProLeap project is already compiled
+            if not os.path.exists(os.path.join(self.proleap_dir, 'target', 'classes', 'io', 'proleap', 'cobol', 'asg', 'runner', 'impl', 'CobolParserRunnerImpl.class')):
+                # ProLeap project needs to be compiled
+                proleap_compile_result = subprocess.run([
+                    'mvn', 'clean', 'compile', '-q', 
+                    '-Dmaven.compiler.showWarnings=false', 
+                    '-Dmaven.compiler.showDeprecation=false',
+                    '-Dmaven.compiler.fork=true',
+                    '-Dmaven.compiler.executable=java',
+                    '-Dmaven.compiler.compilerArgs=-J--add-opens=java.base/sun.misc=ALL-UNNAMED -J--add-opens=java.base/java.lang=ALL-UNNAMED'
+                ], capture_output=True, text=True, timeout=120, cwd=self.proleap_dir)
+                
+                if proleap_compile_result.returncode != 0:
+                    # Check if it's just warnings (not actual compilation errors)
+                    stderr_text = proleap_compile_result.stderr.lower()
+                    if 'warning' in stderr_text and 'error' not in stderr_text:
+                        # It's just warnings, continue with execution
+                        print(f"⚠️  ProLeap compilation warnings (continuing): {proleap_compile_result.stderr}")
+                    else:
+                        return {
+                            'success': False,
+                            'error': f'ProLeap compilation failed: {proleap_compile_result.stderr}'
+                        }
+            else:
+                print("✅ ProLeap project already compiled, skipping compilation")
+            
+            # Copy dependencies
+            deps_result = subprocess.run([
+                'mvn', 'dependency:copy-dependencies', '-q'
             ], capture_output=True, text=True, timeout=60, cwd=self.proleap_dir)
             
-            if compile_result.returncode != 0:
-                # Check if it's just warnings (not actual compilation errors)
-                stderr_text = compile_result.stderr.lower()
-                if 'warning' in stderr_text and 'error' not in stderr_text:
-                    # It's just warnings, continue with execution
-                    print(f"⚠️  ProLeap compilation warnings (continuing): {compile_result.stderr}")
-                else:
-                    return {
-                        'success': False,
-                        'error': f'Compilation failed: {compile_result.stderr}'
-                    }
+            if deps_result.returncode != 0:
+                return {
+                    'success': False,
+                    'error': f'Failed to copy dependencies: {deps_result.stderr}'
+                }
+            
+            # Now compile our custom Java file
+            manual_compile_result = subprocess.run([
+                'javac', '-cp', 'target/classes:target/dependency/*', 
+                '-d', 'target/classes', 
+                'src/main/java/io/proleap/cobol/RealProLeapParser.java'
+            ], capture_output=True, text=True, timeout=30, cwd=self.proleap_dir)
+            
+            if manual_compile_result.returncode != 0:
+                return {
+                    'success': False,
+                    'error': f'Manual compilation failed: {manual_compile_result.stderr}'
+                }
+            
             
             # Add a small delay to ensure file system is ready
             import time
             time.sleep(0.5)
             
-            # Use Maven exec plugin to run the Java program with proper classpath
+            # Use direct Java execution with proper classpath
+            # First, copy dependencies to target/dependency
+            copy_deps_result = subprocess.run([
+                'mvn', 'dependency:copy-dependencies', '-q'
+            ], capture_output=True, text=True, timeout=60, cwd=self.proleap_dir)
+            
+            if copy_deps_result.returncode != 0:
+                return {
+                    'success': False,
+                    'error': f'Failed to copy dependencies: {copy_deps_result.stderr}'
+                }
+            
+            # Build classpath
+            classpath_parts = [os.path.join(self.proleap_dir, 'target', 'classes')]
+            
+            # Add all JAR files from target/dependency
+            dependency_dir = os.path.join(self.proleap_dir, 'target', 'dependency')
+            if os.path.exists(dependency_dir):
+                jar_files = [os.path.join(dependency_dir, f) for f in os.listdir(dependency_dir) if f.endswith('.jar')]
+                classpath_parts.extend(jar_files)
+            
+            classpath = ':'.join(classpath_parts)
+            
             run_result = subprocess.run([
-                'mvn', 'exec:java', 
-                '-Dexec.mainClass=RealProLeapParser',
-                '-Dexec.args=' + abs_file_path,
-                '-q'
+                'java', 
+                '--add-opens=java.base/sun.misc=ALL-UNNAMED',
+                '--add-opens=java.base/java.lang=ALL-UNNAMED',
+                '--add-opens=java.base/java.util=ALL-UNNAMED',
+                '--add-opens=java.base/java.io=ALL-UNNAMED',
+                '--add-opens=java.base/java.nio=ALL-UNNAMED',
+                '--add-opens=java.base/sun.nio.ch=ALL-UNNAMED',
+                '--add-opens=java.base/sun.nio.fs=ALL-UNNAMED',
+                '-cp', classpath, 'io.proleap.cobol.RealProLeapParser'
             ], capture_output=True, text=True, timeout=120, cwd=self.proleap_dir)
             
             # Check if the output contains SUCCESS (check both stdout and stderr)
