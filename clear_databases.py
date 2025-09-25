@@ -7,7 +7,6 @@ import os
 import shutil
 from pathlib import Path
 from dotenv import load_dotenv
-from graph_manager import CodeGraphManager
 
 # Load environment variables
 load_dotenv()
