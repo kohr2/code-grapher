@@ -684,6 +684,14 @@ class PipelineOrchestrator(PipelineInterface):
                 properties["description"] = description
                 properties["file_path"] = file_path
                 properties["line"] = entity.get("line", entity.get("line_number", 0))
+                
+                # Pass through line information properties from COBOL parser
+                if "line_count" in entity:
+                    properties["line_count"] = entity["line_count"]
+                if "start_line" in entity:
+                    properties["start_line"] = entity["start_line"]
+                if "end_line" in entity:
+                    properties["end_line"] = entity["end_line"]
 
                 graph_service.create_entity_node(entity_type, entity_name, properties)
                 entities_created += 1

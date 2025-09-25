@@ -78,12 +78,13 @@ class COBOLParser:
         # Add existing entities (program, compilation_unit) with line information
         for entity in cobol_data.get("entities", []):
             if isinstance(entity, dict):
-                start_line = entity.get('start_line', 0)
-                end_line = entity.get('end_line', start_line)
-                line_count = entity.get('line_count', end_line - start_line + 1)
+                # Check both entity level and properties level for line information
+                entity_props = entity.get('properties', {})
+                start_line = entity.get('start_line', entity_props.get('start_line', 0))
+                end_line = entity.get('end_line', entity_props.get('end_line', start_line))
+                line_count = entity.get('line_count', entity_props.get('line_count', end_line - start_line + 1))
                 
                 # Add line information to entity properties
-                entity_props = entity.get('properties', {})
                 entity_props.update({
                     'line': f"{start_line}-{end_line}",
                     'line_count': line_count,

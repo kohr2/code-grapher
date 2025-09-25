@@ -776,10 +776,50 @@ public class RealProLeapParser {{
             data_items = {}
             statements = {}
             
-            # Extract program name from IDENTIFICATION DIVISION
+            # Extract program name and identification data from IDENTIFICATION DIVISION
             import re
             program_match = re.search(r'PROGRAM-ID\.\s*([A-Z0-9-]+)', content, re.IGNORECASE)
             program_name = program_match.group(1).upper() if program_match else "UNKNOWN"
+            
+            # Extract identification data
+            identification_data = {}
+            author_match = re.search(r'AUTHOR\.\s*([A-Z0-9-]+)', content, re.IGNORECASE)
+            if author_match:
+                identification_data['author'] = author_match.group(1).upper()
+            
+            date_match = re.search(r'DATE-WRITTEN\.\s*([A-Z0-9-]+)', content, re.IGNORECASE)
+            if date_match:
+                identification_data['date_written'] = date_match.group(1).upper()
+            
+            security_match = re.search(r'SECURITY\.\s*([A-Z0-9-]+)', content, re.IGNORECASE)
+            if security_match:
+                identification_data['security'] = security_match.group(1).upper()
+            
+            # Extract file descriptions from FILE-CONTROL section
+            file_descriptions = {}
+            file_control_match = re.search(r'FILE-CONTROL\.(.*?)(?=DATA DIVISION|$)', content, re.IGNORECASE | re.DOTALL)
+            if file_control_match:
+                file_control_section = file_control_match.group(1)
+                # Extract SELECT statements
+                select_matches = re.finditer(r'SELECT\s+(\w+(?:-\w+)*)', file_control_section, re.IGNORECASE)
+                for match in select_matches:
+                    file_name = match.group(1).upper()
+                    file_descriptions[file_name] = {
+                        "name": file_name,
+                        "organization": "SEQUENTIAL",
+                        "access_mode": "SEQUENTIAL"
+                    }
+            
+            # Find the actual line numbers for program and compilation unit
+            lines = content.split('\n')
+            program_line = 1
+            compilation_unit_line = 1
+            
+            # Find PROGRAM-ID line
+            for i, line in enumerate(lines):
+                if 'PROGRAM-ID' in line.upper():
+                    program_line = i + 1
+                    break
             
             # Add program entity
             entities.append({
@@ -787,9 +827,10 @@ public class RealProLeapParser {{
                 "name": program_name,
                 "properties": {
                     "file_path": file_path,
-                    "line": "1-10",
-                    "start_line": 1,
-                    "end_line": 10
+                    "line": f"{program_line}-{program_line + 5}",
+                    "start_line": program_line,
+                    "end_line": program_line + 5,
+                    "line_count": 6
                 }
             })
             
@@ -799,9 +840,10 @@ public class RealProLeapParser {{
                 "name": program_name,
                 "properties": {
                     "file_path": file_path,
-                    "line": "1-50",
-                    "start_line": 1,
-                    "end_line": 50
+                    "line": f"{compilation_unit_line}-{len(lines)}",
+                    "start_line": compilation_unit_line,
+                    "end_line": len(lines),
+                    "line_count": len(lines) - compilation_unit_line + 1
                 }
             })
             
@@ -827,9 +869,10 @@ public class RealProLeapParser {{
                     "name": paragraph_name,
                     "properties": {
                         "file_path": file_path,
-                        "line": f"{line_num}",
+                        "line": f"{line_num}-{line_num + 5}",
                         "start_line": line_num,
-                        "end_line": line_num + 5
+                        "end_line": line_num + 5,
+                        "line_count": 6
                     }
                 })
                 
@@ -851,9 +894,10 @@ public class RealProLeapParser {{
                     "name": data_name,
                     "properties": {
                         "file_path": file_path,
-                        "line": f"{line_num}",
+                        "line": f"{line_num}-{line_num}",
                         "start_line": line_num,
                         "end_line": line_num,
+                        "line_count": 1,
                         "level": level
                     }
                 })
@@ -896,8 +940,10 @@ public class RealProLeapParser {{
                 "paragraphs": paragraphs,
                 "data_items": data_items,
                 "statements": statements,
-                "file_descriptions": {},
+                "file_descriptions": file_descriptions,
                 "linkage_items": {},
+                "identification_data": {program_name: identification_data} if identification_data else {},
+                "screen_sections": {},
                 "using_raw_parser": False,
                 "using_fallback": True
             }

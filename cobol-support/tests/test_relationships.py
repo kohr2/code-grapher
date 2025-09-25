@@ -56,6 +56,7 @@ class TestCOBOLRelationshipExtractor(unittest.TestCase):
             "file_path": "test_fraud_mgmt.cbl",
             "language": "cobol",
             "parse_success": True,
+            "success": True,
             "compilation_units": [
                 {
                     "name": "FRAUD-MGMT-SYSTEM",
@@ -66,83 +67,117 @@ class TestCOBOLRelationshipExtractor(unittest.TestCase):
                 {
                     "type": "program",
                     "name": "FRAUD-MGMT-SYSTEM",
-                    "file_path": "test_fraud_mgmt.cbl",
-                    "line_number": 1
+                    "properties": {
+                        "file_path": "test_fraud_mgmt.cbl",
+                        "line": "1-10",
+                        "start_line": 1,
+                        "end_line": 10,
+                        "line_count": 10
+                    }
                 },
                 {
                     "type": "paragraph",
                     "name": "0000-MAIN-PROCESS",
-                    "file_path": "test_fraud_mgmt.cbl",
-                    "line_number": 217
+                    "properties": {
+                        "file_path": "test_fraud_mgmt.cbl",
+                        "line": "217-220",
+                        "start_line": 217,
+                        "end_line": 220,
+                        "line_count": 4
+                    }
                 },
                 {
                     "type": "paragraph", 
                     "name": "1000-INITIALIZE-PROGRAM",
-                    "file_path": "test_fraud_mgmt.cbl",
-                    "line_number": 223
+                    "properties": {
+                        "file_path": "test_fraud_mgmt.cbl",
+                        "line": "223-230",
+                        "start_line": 223,
+                        "end_line": 230,
+                        "line_count": 8
+                    }
                 },
                 {
                     "type": "data_item",
                     "name": "WS-TOTAL-RISK-SCORE",
-                    "file_path": "test_fraud_mgmt.cbl",
-                    "line_number": 150
+                    "properties": {
+                        "file_path": "test_fraud_mgmt.cbl",
+                        "line": "150-150",
+                        "start_line": 150,
+                        "end_line": 150,
+                        "line_count": 1,
+                        "level": "01",
+                        "picture_clause": "PIC 9(4)"
+                    }
                 },
                 {
                     "type": "data_item",
                     "name": "TRANS-AMOUNT",
-                    "file_path": "test_fraud_mgmt.cbl",
-                    "line_number": 51
+                    "properties": {
+                        "file_path": "test_fraud_mgmt.cbl",
+                        "line": "51-51",
+                        "start_line": 51,
+                        "end_line": 51,
+                        "line_count": 1,
+                        "level": "05", 
+                        "picture_clause": "PIC 9(8)V99"
+                    }
                 }
             ],
             "statements": {
-                "FRAUD-MGMT-SYSTEM": {
-                    "0000-MAIN-PROCESS": [
-                        {
-                            "type": "PerformStatement",
-                            "text": "PERFORM 1000-INITIALIZE-PROGRAM",
-                            "details": "PERFORM 1000-INITIALIZE-PROGRAM"
-                        },
-                        {
-                            "type": "MoveStatement", 
-                            "text": "MOVE TRANS-DATE TO CUST-LAST-TRANS-DATE",
-                            "details": "MOVE_FROM:TRANS-DATE:MOVE_TO:CUST-LAST-TRANS-DATE"
-                        },
-                        {
-                            "type": "IfStatement",
-                            "text": "IF WS-TOTAL-RISK-SCORE >= HIGH-RISK-THRESHOLD",
-                            "details": "IF_CONDITION:WS-TOTAL-RISK-SCORE >= HIGH-RISK-THRESHOLD"
-                        },
-                        {
-                            "type": "ComputeStatement",
-                            "text": "COMPUTE CUST-AVG-MONTHLY-SPEND = (CUST-AVG-MONTHLY-SPEND * 0.9) + (TRANS-AMOUNT * 0.1)",
-                            "details": "COMPUTE_EXPR:CUST-AVG-MONTHLY-SPEND = (CUST-AVG-MONTHLY-SPEND * 0.9) + (TRANS-AMOUNT * 0.1)"
-                        },
-                        {
-                            "type": "AddStatement",
-                            "text": "ADD 75 TO WS-TOTAL-RISK-SCORE",
-                            "details": "ADD_OPERANDS:75,WS-TOTAL-RISK-SCORE"
-                        },
-                        {
-                            "type": "ReadStatement",
-                            "text": "READ TRANSACTION-FILE",
-                            "details": "READ_FILE:TRANSACTION-FILE"
-                        },
-                        {
-                            "type": "WriteStatement",
-                            "text": "WRITE FRAUD-LOG-RECORD",
-                            "details": "WRITE_FILE:FRAUD-LOG-RECORD"
-                        },
-                        {
-                            "type": "OpenStatement",
-                            "text": "OPEN INPUT TRANSACTION-FILE",
-                            "details": "OPEN_FILES:TRANSACTION-FILE"
-                        },
-                        {
-                            "type": "DisplayStatement",
-                            "text": "DISPLAY 'FRAUD MANAGEMENT SYSTEM - INITIALIZING'",
-                            "details": "DISPLAY_MESSAGE:FRAUD MANAGEMENT SYSTEM - INITIALIZING"
-                        }
-                    ]
+                "PERFORM_218": {
+                    "type": "PERFORM",
+                    "text": "PERFORM 1000-INITIALIZE-PROGRAM",
+                    "line": 218,
+                    "unit": "FRAUD-MGMT-SYSTEM"
+                },
+                "MOVE_219": {
+                    "type": "MOVE",
+                    "text": "MOVE TRANS-DATE TO CUST-LAST-TRANS-DATE",
+                    "line": 219,
+                    "unit": "FRAUD-MGMT-SYSTEM"
+                },
+                "IF_220": {
+                    "type": "IF",
+                    "text": "IF WS-TOTAL-RISK-SCORE >= HIGH-RISK-THRESHOLD",
+                    "line": 220,
+                    "unit": "FRAUD-MGMT-SYSTEM"
+                },
+                "COMPUTE_221": {
+                    "type": "COMPUTE",
+                    "text": "COMPUTE CUST-AVG-MONTHLY-SPEND = (CUST-AVG-MONTHLY-SPEND * 0.9) + (TRANS-AMOUNT * 0.1)",
+                    "line": 221,
+                    "unit": "FRAUD-MGMT-SYSTEM"
+                },
+                "ADD_222": {
+                    "type": "ADD",
+                    "text": "ADD 75 TO WS-TOTAL-RISK-SCORE",
+                    "line": 222,
+                    "unit": "FRAUD-MGMT-SYSTEM"
+                },
+                "READ_223": {
+                    "type": "READ",
+                    "text": "READ TRANSACTION-FILE",
+                    "line": 223,
+                    "unit": "FRAUD-MGMT-SYSTEM"
+                },
+                "WRITE_224": {
+                    "type": "WRITE",
+                    "text": "WRITE FRAUD-LOG-RECORD",
+                    "line": 224,
+                    "unit": "FRAUD-MGMT-SYSTEM"
+                },
+                "OPEN_225": {
+                    "type": "OPEN",
+                    "text": "OPEN INPUT TRANSACTION-FILE",
+                    "line": 225,
+                    "unit": "FRAUD-MGMT-SYSTEM"
+                },
+                "DISPLAY_226": {
+                    "type": "DISPLAY",
+                    "text": "DISPLAY 'FRAUD MANAGEMENT SYSTEM - INITIALIZING'",
+                    "line": 226,
+                    "unit": "FRAUD-MGMT-SYSTEM"
                 }
             },
             "screen_sections": {
