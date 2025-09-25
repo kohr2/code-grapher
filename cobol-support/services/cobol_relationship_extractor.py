@@ -59,20 +59,29 @@ class RelationshipExtraction:
 
 
 def _get_statements_for_unit(file_data: Dict[str, Any], cu_name: str) -> List[Dict[str, Any]]:
-    """Helper function to get statements for a compilation unit, handling the actual data structure"""
+    """Helper function to get statements for a compilation unit (ProLeap format)"""
     statements = file_data.get("statements", {})
     unit_statements = []
     
-    for stmt_key, stmt_data in statements.items():
-        # Skip if this statement doesn't belong to the current compilation unit
-        if isinstance(stmt_data, dict) and stmt_data.get('unit') != cu_name:
+    # ProLeap format: statements are grouped by line number, each group contains paragraph -> statement list
+    for line_key, line_data in statements.items():
+        if not isinstance(line_data, dict):
             continue
-        
-        # Convert to consistent format
-        if isinstance(stmt_data, dict):
-            unit_statements.append(stmt_data)
-        else:
-            unit_statements.append({"text": stmt_data, "type": "UNKNOWN"})
+            
+        # Each line can have multiple paragraphs with statements
+        for para_name, stmt_list in line_data.items():
+            if not isinstance(stmt_list, list):
+                continue
+                
+            for stmt in stmt_list:
+                if not isinstance(stmt, dict):
+                    continue
+                    
+                # Add paragraph name and line info to statement
+                stmt_with_context = stmt.copy()
+                stmt_with_context['para_name'] = para_name
+                stmt_with_context['unit'] = cu_name
+                unit_statements.append(stmt_with_context)
     
     return unit_statements
 
@@ -251,92 +260,246 @@ def _extract_basic_relationships(file_data: Dict[str, Any], file_path: str) -> L
 
 
 def _extract_simple_uses_relationships(file_data: Dict[str, Any], cu_name: str, file_path: str) -> List[RelationshipExtraction]:
-    """Extract simple USES relationships from COBOL statements"""
+    """Extract simple USES relationships from COBOL statements (ProLeap format)"""
     relationships = []
     
     try:
-        # Get statements for this compilation unit
+        # Get statements for this compilation unit - ProLeap format
         statements = file_data.get("statements", {})
         
-        # Look for variable usage patterns in statements
-        for stmt_key, stmt_data in statements.items():
-            if not isinstance(stmt_data, dict):
+        # ProLeap format: statements are grouped by line number, each group contains paragraph -> statement list
+        for line_key, line_data in statements.items():
+            if not isinstance(line_data, dict):
                 continue
                 
-            stmt_text = stmt_data.get('text', '')
-            stmt_type = stmt_data.get('type', '')
-            line_number = stmt_data.get('line', 1)
-            
-            # Extract variable usage from MOVE statements
-            if 'MOVE' in stmt_text.upper():
-                # Look for patterns like "MOVE variable TO target"
-                move_match = re.search(r'MOVE\s+([A-Z0-9-]+)\s+TO\s+([A-Z0-9-]+)', stmt_text, re.IGNORECASE)
-                if move_match:
-                    source_var = move_match.group(1)
-                    target_var = move_match.group(2)
-                    relationships.append(RelationshipExtraction(
-                        source_file=file_path,
-                        target_file=file_path,
-                        source_entity=source_var,
-                        target_entity=target_var,
-                        relationship_type=RelationshipType.USES,
-                        confidence=0.9,
-                        relationship_strength="strong",
-                        line_number=line_number,
-                        context=f"MOVE statement: {source_var} -> {target_var}"
-                    ))
-            
-            # Extract variable usage from READ statements
-            if 'READ' in stmt_text.upper():
-                read_match = re.search(r'READ\s+([A-Z0-9-]+)', stmt_text, re.IGNORECASE)
-                if read_match:
-                    file_name = read_match.group(1)
-                    relationships.append(RelationshipExtraction(
-                        source_file=file_path,
-                        target_file=file_path,
-                        source_entity=cu_name,
-                        target_entity=file_name,
-                        relationship_type=RelationshipType.USES,
-                        confidence=0.9,
-                        relationship_strength="strong",
-                        line_number=line_number,
-                        context=f"READ statement: {cu_name} uses {file_name}"
-                    ))
-            
-            # Extract variable usage from WRITE statements
-            if 'WRITE' in stmt_text.upper():
-                write_match = re.search(r'WRITE\s+([A-Z0-9-]+)', stmt_text, re.IGNORECASE)
-                if write_match:
-                    file_name = write_match.group(1)
-                    relationships.append(RelationshipExtraction(
-                        source_file=file_path,
-                        target_file=file_path,
-                        source_entity=cu_name,
-                        target_entity=file_name,
-                        relationship_type=RelationshipType.USES,
-                        confidence=0.9,
-                        relationship_strength="strong",
-                        line_number=line_number,
-                        context=f"WRITE statement: {cu_name} uses {file_name}"
-                    ))
-            
-            # Extract variable usage from IF statements
-            if 'IF' in stmt_text.upper():
-                # Look for variable references in IF conditions
-                if_match = re.search(r'IF\s+([A-Z0-9-]+)', stmt_text, re.IGNORECASE)
-                if if_match:
-                    var_name = if_match.group(1)
-                    relationships.append(RelationshipExtraction(
-                        source_file=file_path,
-                        target_file=file_path,
-                        source_entity=cu_name,
-                        target_entity=var_name,
-                        relationship_type=RelationshipType.USES,
-                        confidence=0.8,
-                        relationship_strength="medium",
-                        line_number=line_number,
-                        context=f"IF statement: {cu_name} uses {var_name}"
-                    ))
+            # Each line can have multiple paragraphs with statements
+            for para_name, stmt_list in line_data.items():
+                if not isinstance(stmt_list, list):
+                    continue
+                    
+                for stmt in stmt_list:
+                    if not isinstance(stmt, dict):
+                        continue
+                        
+                    stmt_text = stmt.get('details', '')  # Use details field for actual statement text
+                    stmt_type = stmt.get('type', '')
+                    stmt_details = stmt.get('details', '')
+                    line_number = stmt.get('start_line', 1)
+                    
+                    # Extract PERFORM relationships
+                    if 'PerformStatementImpl' in stmt_type and 'PERFORM' in stmt_details.upper():
+                        # Extract paragraph name from PERFORM statement
+                        perform_match = re.search(r'PERFORM\s*([A-Z0-9-]+)', stmt_details, re.IGNORECASE)
+                        if perform_match:
+                            target_para = perform_match.group(1)
+                            relationships.append(RelationshipExtraction(
+                                source_file=file_path,
+                                target_file=file_path,
+                                source_entity=para_name,
+                                target_entity=target_para,
+                                relationship_type=RelationshipType.PERFORMS,
+                                confidence=0.95,
+                                relationship_strength="strong",
+                                line_number=line_number,
+                                context=f"PERFORM statement: {para_name} performs {target_para}"
+                            ))
+                    
+                    # Extract CALL relationships
+                    elif 'CallStatementImpl' in stmt_type:
+                        # Extract program name from CALL statement
+                        call_match = re.search(r'CALL\s*([A-Z0-9-]+)', stmt_text, re.IGNORECASE)
+                        if call_match:
+                            target_program = call_match.group(1)
+                            relationships.append(RelationshipExtraction(
+                                source_file=file_path,
+                                target_file=file_path,
+                                source_entity=para_name,
+                                target_entity=target_program,
+                                relationship_type=RelationshipType.CALLS,
+                                confidence=0.95,
+                                relationship_strength="strong",
+                                line_number=line_number,
+                                context=f"CALL statement: {para_name} calls {target_program}"
+                            ))
+                    
+                    # Extract variable usage from MOVE statements
+                    elif 'MoveStatementImpl' in stmt_type:
+                        move_match = re.search(r'MOVE\s+([A-Z0-9-]+)\s+TO\s+([A-Z0-9-]+)', stmt_text, re.IGNORECASE)
+                        if move_match:
+                            source_var = move_match.group(1)
+                            target_var = move_match.group(2)
+                            relationships.append(RelationshipExtraction(
+                                source_file=file_path,
+                                target_file=file_path,
+                                source_entity=para_name,
+                                target_entity=source_var,
+                                relationship_type=RelationshipType.USES,
+                                confidence=0.9,
+                                relationship_strength="strong",
+                                line_number=line_number,
+                                context=f"MOVE statement: {para_name} uses {source_var}"
+                            ))
+                            relationships.append(RelationshipExtraction(
+                                source_file=file_path,
+                                target_file=file_path,
+                                source_entity=para_name,
+                                target_entity=target_var,
+                                relationship_type=RelationshipType.MODIFIES,
+                                confidence=0.9,
+                                relationship_strength="strong",
+                                line_number=line_number,
+                                context=f"MOVE statement: {para_name} modifies {target_var}"
+                            ))
+                    
+                    # Extract variable usage from READ statements
+                    elif 'ReadStatementImpl' in stmt_type:
+                        read_match = re.search(r'READ\s+([A-Z0-9-]+)', stmt_text, re.IGNORECASE)
+                        if read_match:
+                            file_name = read_match.group(1)
+                            relationships.append(RelationshipExtraction(
+                                source_file=file_path,
+                                target_file=file_path,
+                                source_entity=para_name,
+                                target_entity=file_name,
+                                relationship_type=RelationshipType.READS,
+                                confidence=0.95,
+                                relationship_strength="strong",
+                                line_number=line_number,
+                                context=f"READ statement: {para_name} reads {file_name}"
+                            ))
+                    
+                    # Extract variable usage from WRITE statements
+                    elif 'WriteStatementImpl' in stmt_type:
+                        write_match = re.search(r'WRITE([A-Z0-9-]+)', stmt_text, re.IGNORECASE)
+                        if write_match:
+                            file_name = write_match.group(1)
+                            relationships.append(RelationshipExtraction(
+                                source_file=file_path,
+                                target_file=file_path,
+                                source_entity=para_name,
+                                target_entity=file_name,
+                                relationship_type=RelationshipType.WRITES,
+                                confidence=0.95,
+                                relationship_strength="strong",
+                                line_number=line_number,
+                                context=f"WRITE statement: {para_name} writes {file_name}"
+                            ))
+                    
+                    # Extract file access from CLOSE statements
+                    elif 'CloseStatementImpl' in stmt_type:
+                        close_match = re.search(r'CLOSE([A-Z0-9-]+)', stmt_text, re.IGNORECASE)
+                        if close_match:
+                            file_name = close_match.group(1)
+                            relationships.append(RelationshipExtraction(
+                                source_file=file_path,
+                                target_file=file_path,
+                                source_entity=para_name,
+                                target_entity=file_name,
+                                relationship_type=RelationshipType.FILE_ACCESS,
+                                confidence=0.95,
+                                relationship_strength="strong",
+                                line_number=line_number,
+                                context=f"CLOSE statement: {para_name} closes {file_name}"
+                            ))
+                    
+                    # Extract file access from OPEN statements
+                    elif 'OpenStatementImpl' in stmt_type:
+                        open_match = re.search(r'OPEN(?:INPUT|OUTPUT|I-O)([A-Z0-9-]+)', stmt_text, re.IGNORECASE)
+                        if open_match:
+                            file_name = open_match.group(1)
+                            relationships.append(RelationshipExtraction(
+                                source_file=file_path,
+                                target_file=file_path,
+                                source_entity=para_name,
+                                target_entity=file_name,
+                                relationship_type=RelationshipType.FILE_ACCESS,
+                                confidence=0.95,
+                                relationship_strength="strong",
+                                line_number=line_number,
+                                context=f"OPEN statement: {para_name} opens {file_name}"
+                            ))
+                    
+                    # Extract screen binding from DISPLAY statements
+                    elif 'DisplayStatementImpl' in stmt_type:
+                        # Extract message from DISPLAY statement
+                        display_match = re.search(r'DISPLAY"([^"]+)"', stmt_text, re.IGNORECASE)
+                        if display_match:
+                            message = display_match.group(1)
+                            relationships.append(RelationshipExtraction(
+                                source_file=file_path,
+                                target_file=file_path,
+                                source_entity=para_name,
+                                target_entity=message,
+                                relationship_type=RelationshipType.BINDS_SCREEN,
+                                confidence=0.9,
+                                relationship_strength="medium",
+                                line_number=line_number,
+                                context=f"DISPLAY statement: {para_name} displays {message}"
+                            ))
+                    
+                    # Extract variable usage from IF statements
+                    elif 'IfStatementImpl' in stmt_type:
+                        if_match = re.search(r'IF\s+([A-Z0-9-]+)', stmt_text, re.IGNORECASE)
+                        if if_match:
+                            var_name = if_match.group(1)
+                            relationships.append(RelationshipExtraction(
+                                source_file=file_path,
+                                target_file=file_path,
+                                source_entity=para_name,
+                                target_entity=var_name,
+                                relationship_type=RelationshipType.USES,
+                                confidence=0.8,
+                                relationship_strength="medium",
+                                line_number=line_number,
+                                context=f"IF statement: {para_name} uses {var_name}"
+                            ))
+                    
+                    # Extract variable usage from COMPUTE statements
+                    elif 'ComputeStatementImpl' in stmt_type:
+                        # Extract variables from COMPUTE expressions
+                        variables = re.findall(r'([A-Z0-9-]+)', stmt_text)
+                        for var in variables:
+                            if len(var) > 2:  # Filter out short matches
+                                relationships.append(RelationshipExtraction(
+                                    source_file=file_path,
+                                    target_file=file_path,
+                                    source_entity=para_name,
+                                    target_entity=var,
+                                    relationship_type=RelationshipType.USES,
+                                    confidence=0.9,
+                                    relationship_strength="strong",
+                                    line_number=line_number,
+                                    context=f"COMPUTE statement: {para_name} uses {var}"
+                                ))
+                    
+                    # Extract variable usage from ADD statements
+                    elif 'AddStatementImpl' in stmt_type:
+                        add_match = re.search(r'ADD\s+([A-Z0-9-]+)\s+TO\s+([A-Z0-9-]+)', stmt_text, re.IGNORECASE)
+                        if add_match:
+                            source_var = add_match.group(1)
+                            target_var = add_match.group(2)
+                            relationships.append(RelationshipExtraction(
+                                source_file=file_path,
+                                target_file=file_path,
+                                source_entity=para_name,
+                                target_entity=source_var,
+                                relationship_type=RelationshipType.USES,
+                                confidence=0.9,
+                                relationship_strength="strong",
+                                line_number=line_number,
+                                context=f"ADD statement: {para_name} uses {source_var}"
+                            ))
+                            relationships.append(RelationshipExtraction(
+                                source_file=file_path,
+                                target_file=file_path,
+                                source_entity=para_name,
+                                target_entity=target_var,
+                                relationship_type=RelationshipType.MODIFIES,
+                                confidence=0.9,
+                                relationship_strength="strong",
+                                line_number=line_number,
+                                context=f"ADD statement: {para_name} modifies {target_var}"
+                            ))
     
     except Exception as e:
         print(f"   ⚠️  Error extracting simple USES relationships: {e}")
@@ -529,7 +692,7 @@ def _extract_data_flow_relationships(file_data: Dict[str, Any], cu_name: str, fi
 
 
 def _extract_arithmetic_relationships(file_data: Dict[str, Any], cu_name: str, file_path: str) -> List[RelationshipExtraction]:
-    """Extract arithmetic operation relationships"""
+    """Extract arithmetic operation relationships (ProLeap format)"""
     relationships = []
     
     try:
@@ -539,62 +702,67 @@ def _extract_arithmetic_relationships(file_data: Dict[str, Any], cu_name: str, f
         for stmt_info in unit_statements:
             if isinstance(stmt_info, dict):
                 stmt_type = stmt_info.get('type', '')
+                stmt_text = stmt_info.get('text', '')
                 stmt_details = stmt_info.get('details', '')
+                para_name = stmt_info.get('para_name', cu_name)
+                line_number = stmt_info.get('start_line', 1)
                 
                 # Extract ADD statement relationships
-                if stmt_type in ["AddStatement", "AddStatementImpl"] and "ADD_OPERANDS:" in stmt_details:
-                    operands = stmt_details.split("ADD_OPERANDS:")[1].split(",")
-                    if len(operands) >= 2:
-                        for i in range(1, len(operands)):
-                            relationships.append(RelationshipExtraction(
-                                        source_file=file_path,
-                                        target_file=file_path,
-                                        source_entity=operands[0].strip(),
-                                        target_entity=operands[i].strip(),
-                                        relationship_type=RelationshipType.ARITHMETIC,
-                                        confidence=0.9,
-                                        relationship_strength="medium",
-                                        line_number=1,
-                                        context=f"ADD operation in {para_name}: {operands[0]} added to {operands[i]}"
-                                    ))
-                        
+                if 'ADD' in stmt_text.upper():
+                    add_match = re.search(r'ADD\s+([A-Z0-9-]+)\s+TO\s+([A-Z0-9-]+)', stmt_text, re.IGNORECASE)
+                    if add_match:
+                        source_var = add_match.group(1)
+                        target_var = add_match.group(2)
+                        relationships.append(RelationshipExtraction(
+                            source_file=file_path,
+                            target_file=file_path,
+                            source_entity=source_var,
+                            target_entity=target_var,
+                            relationship_type=RelationshipType.ARITHMETIC,
+                            confidence=0.9,
+                            relationship_strength="strong",
+                            line_number=line_number,
+                            context=f"ADD operation in {para_name}: {source_var} added to {target_var}"
+                        ))
+                
                 # Extract SUBTRACT statement relationships
-                elif stmt_type in ["SubtractStatement", "SubtractStatementImpl"] and "SUBTRACT_OPERANDS:" in stmt_details:
-                    operands = stmt_details.split("SUBTRACT_OPERANDS:")[1].split(",")
-                    if len(operands) >= 2:
-                        for i in range(1, len(operands)):
-                            relationships.append(RelationshipExtraction(
-                                source_file=file_path,
-                                target_file=file_path,
-                                source_entity=operands[0].strip(),
-                                target_entity=operands[i].strip(),
-                                relationship_type=RelationshipType.ARITHMETIC,
-                                confidence=0.9,
-                                relationship_strength="medium",
-                                line_number=1,
-                                context=f"SUBTRACT operation in {para_name}: {operands[0]} subtracted from {operands[i]}"
-                            ))
-                        
+                elif 'SUBTRACT' in stmt_text.upper():
+                    sub_match = re.search(r'SUBTRACT\s+([A-Z0-9-]+)\s+FROM\s+([A-Z0-9-]+)', stmt_text, re.IGNORECASE)
+                    if sub_match:
+                        source_var = sub_match.group(1)
+                        target_var = sub_match.group(2)
+                        relationships.append(RelationshipExtraction(
+                            source_file=file_path,
+                            target_file=file_path,
+                            source_entity=source_var,
+                            target_entity=target_var,
+                            relationship_type=RelationshipType.ARITHMETIC,
+                            confidence=0.9,
+                            relationship_strength="strong",
+                            line_number=line_number,
+                            context=f"SUBTRACT operation in {para_name}: {source_var} subtracted from {target_var}"
+                        ))
+                
                 # Extract COMPUTE statement relationships
-                elif stmt_type in ["ComputeStatement", "ComputeStatementImpl"] and "COMPUTE_EXPR:" in stmt_details:
-                    expr = stmt_details.split("COMPUTE_EXPR:")[1]
-                    # Extract variables from expression (simple pattern matching)
-                    variables = re.findall(r'([A-Z0-9-]+)', expr)
+                elif 'COMPUTE' in stmt_text.upper():
+                    # Extract variables from COMPUTE expressions
+                    variables = re.findall(r'([A-Z0-9-]+)', stmt_text)
                     if len(variables) >= 2:
                         # First variable is typically the result
                         result_var = variables[0]
                         for var in variables[1:]:
-                            relationships.append(RelationshipExtraction(
-                                source_file=file_path,
-                                target_file=file_path,
-                                source_entity=var,
-                                target_entity=result_var,
-                                relationship_type=RelationshipType.ARITHMETIC,
-                                confidence=0.8,
-                                relationship_strength="medium",
-                                line_number=1,
-                                context=f"COMPUTE operation in {para_name}: {var} used in computation for {result_var}"
-                            ))
+                            if len(var) > 2:  # Filter out short matches
+                                relationships.append(RelationshipExtraction(
+                                    source_file=file_path,
+                                    target_file=file_path,
+                                    source_entity=var,
+                                    target_entity=result_var,
+                                    relationship_type=RelationshipType.ARITHMETIC,
+                                    confidence=0.8,
+                                    relationship_strength="medium",
+                                    line_number=line_number,
+                                    context=f"COMPUTE operation in {para_name}: {var} used in computation for {result_var}"
+                                ))
     except Exception as e:
         print(f"   ⚠️  Error extracting arithmetic relationships: {e}")
     
@@ -602,55 +770,56 @@ def _extract_arithmetic_relationships(file_data: Dict[str, Any], cu_name: str, f
 
 
 def _extract_conditional_relationships(file_data: Dict[str, Any], cu_name: str, file_path: str) -> List[RelationshipExtraction]:
-    """Extract conditional logic relationships"""
+    """Extract conditional logic relationships (ProLeap format)"""
     relationships = []
     
     try:
         # Get statements for this compilation unit
-
         unit_statements = _get_statements_for_unit(file_data, cu_name)
 
-        
-
         for stmt_info in unit_statements:
-                    if isinstance(stmt_info, dict):
-                        stmt_type = stmt_info.get('type', '')
-                        stmt_details = stmt_info.get('details', '')
-                        
-                        # Extract IF statement relationships
-                        if stmt_type in ["IfStatement", "IfStatementImpl"] and "IF_CONDITION:" in stmt_details:
-                            condition = stmt_details.split("IF_CONDITION:")[1]
-                            # Extract variables from condition
-                            variables = re.findall(r'([A-Z0-9-]+)', condition)
-                            for var in variables:
-                                relationships.append(RelationshipExtraction(
-                                    source_file=file_path,
-                                    target_file=file_path,
-                                    source_entity=var,
-                                    target_entity=para_name,
-                                    relationship_type=RelationshipType.CONDITIONAL,
-                                    confidence=0.85,
-                                    relationship_strength="medium",
-                                    line_number=1,
-                                    context=f"IF condition in {para_name}: {var} used in condition"
-                                ))
-                        
-                        # Extract EVALUATE statement relationships
-                        elif stmt_type in ["EvaluateStatement", "EvaluateStatementImpl"] and "EVALUATE_SUBJECTS:" in stmt_details:
-                            subjects = stmt_details.split("EVALUATE_SUBJECTS:")[1].split(",")
-                            for subject in subjects:
-                                subject = subject.strip()
-                                relationships.append(RelationshipExtraction(
-                                    source_file=file_path,
-                                    target_file=file_path,
-                                    source_entity=subject,
-                                    target_entity=para_name,
-                                    relationship_type=RelationshipType.CONDITIONAL,
-                                    confidence=0.85,
-                                    relationship_strength="medium",
-                                    line_number=1,
-                                    context=f"EVALUATE subject in {para_name}: {subject} evaluated"
-                                ))
+            if isinstance(stmt_info, dict):
+                stmt_type = stmt_info.get('type', '')
+                stmt_text = stmt_info.get('text', '')
+                stmt_details = stmt_info.get('details', '')
+                para_name = stmt_info.get('para_name', cu_name)
+                line_number = stmt_info.get('start_line', 1)
+                
+                # Extract IF statement relationships
+                if 'IF' in stmt_text.upper():
+                    # Extract variables from IF conditions
+                    variables = re.findall(r'([A-Z0-9-]+)', stmt_text)
+                    for var in variables:
+                        if len(var) > 2:  # Filter out short matches
+                            relationships.append(RelationshipExtraction(
+                                source_file=file_path,
+                                target_file=file_path,
+                                source_entity=var,
+                                target_entity=para_name,
+                                relationship_type=RelationshipType.CONDITIONAL,
+                                confidence=0.85,
+                                relationship_strength="medium",
+                                line_number=line_number,
+                                context=f"IF condition in {para_name}: {var} used in condition"
+                            ))
+                
+                # Extract EVALUATE statement relationships
+                elif 'EVALUATE' in stmt_text.upper():
+                    # Extract variables from EVALUATE statements
+                    variables = re.findall(r'([A-Z0-9-]+)', stmt_text)
+                    for var in variables:
+                        if len(var) > 2:  # Filter out short matches
+                            relationships.append(RelationshipExtraction(
+                                source_file=file_path,
+                                target_file=file_path,
+                                source_entity=var,
+                                target_entity=para_name,
+                                relationship_type=RelationshipType.CONDITIONAL,
+                                confidence=0.85,
+                                relationship_strength="medium",
+                                line_number=line_number,
+                                context=f"EVALUATE subject in {para_name}: {var} evaluated"
+                            ))
     except Exception as e:
         print(f"   ⚠️  Error extracting conditional relationships: {e}")
     

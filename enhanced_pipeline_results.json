@@ -1,11 +1,11 @@
 {
-  "timestamp": "2025-09-25T13:22:27.762379",
-  "duration_seconds": 15.826260805130005,
+  "timestamp": "2025-09-25T16:16:46.593863",
+  "duration_seconds": 14.549814939498901,
   "files_processed": 1,
   "total_files": 1,
   "graph_stats": {
-    "total_entities": 424,
-    "total_relationships": 340,
+    "total_entities": 219,
+    "total_relationships": 318,
     "database_stats": {
       "total_nodes": 0,
       "total_relationships": 0,
@@ -14,7 +14,7 @@
     }
   },
   "ai_enabled": true,
-  "relationships_extracted": 340,
+  "relationships_extracted": 318,
   "descriptions_generated": 1,
-  "embeddings_created": 423
+  "embeddings_created": 218
 }
