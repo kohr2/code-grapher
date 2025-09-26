@@ -229,13 +229,13 @@ def _extract_basic_relationships(file_data: Dict[str, Any], file_path: str) -> L
                         context=f"Program contains compilation unit"
                     ))
         
-        # Compilation units contain paragraphs and data items from entities
+        # Compilation units contain paragraphs from entities
         if "entities" in file_data:
             for entity in file_data["entities"]:
                 entity_type = entity.get("type", "")
                 entity_name = entity.get("name", "")
                 
-                if entity_type in ["paragraph", "data_item"] and entity_name:
+                if entity_type == "paragraph" and entity_name:
                     # Find the compilation unit this entity belongs to
                     cu_name = "UNKNOWN"
                     if "compilation_units" in file_data and file_data["compilation_units"]:
@@ -250,7 +250,7 @@ def _extract_basic_relationships(file_data: Dict[str, Any], file_path: str) -> L
                         confidence=0.9,
                         relationship_strength="strong",
                         line_number=entity.get("start_line", 1),
-                        context=f"Compilation unit {cu_name} contains {entity_type} {entity_name}"
+                        context=f"Compilation unit {cu_name} contains paragraph {entity_name}"
                     ))
                     
     except Exception as e:
@@ -322,34 +322,6 @@ def _extract_simple_uses_relationships(file_data: Dict[str, Any], cu_name: str, 
                                 context=f"CALL statement: {para_name} calls {target_program}"
                             ))
                     
-                    # Extract variable usage from MOVE statements
-                    elif 'MoveStatementImpl' in stmt_type:
-                        move_match = re.search(r'MOVE\s+([A-Z0-9-]+)\s+TO\s+([A-Z0-9-]+)', stmt_text, re.IGNORECASE)
-                        if move_match:
-                            source_var = move_match.group(1)
-                            target_var = move_match.group(2)
-                            relationships.append(RelationshipExtraction(
-                                source_file=file_path,
-                                target_file=file_path,
-                                source_entity=para_name,
-                                target_entity=source_var,
-                                relationship_type=RelationshipType.USES,
-                                confidence=0.9,
-                                relationship_strength="strong",
-                                line_number=line_number,
-                                context=f"MOVE statement: {para_name} uses {source_var}"
-                            ))
-                            relationships.append(RelationshipExtraction(
-                                source_file=file_path,
-                                target_file=file_path,
-                                source_entity=para_name,
-                                target_entity=target_var,
-                                relationship_type=RelationshipType.MODIFIES,
-                                confidence=0.9,
-                                relationship_strength="strong",
-                                line_number=line_number,
-                                context=f"MOVE statement: {para_name} modifies {target_var}"
-                            ))
                     
                     # Extract variable usage from READ statements
                     elif 'ReadStatementImpl' in stmt_type:
@@ -472,9 +444,40 @@ def _extract_simple_uses_relationships(file_data: Dict[str, Any], cu_name: str, 
                                     context=f"COMPUTE statement: {para_name} uses {var}"
                                 ))
                     
+                    # Extract variable usage from MOVE statements (already handled above, but ensure data items are connected to paragraphs)
+                    elif 'MoveStatementImpl' in stmt_type:
+                        move_match = re.search(r'MOVE([A-Z0-9-]+)TO([A-Z0-9-]+)', stmt_text, re.IGNORECASE)
+                        if move_match:
+                            source_var = move_match.group(1)
+                            target_var = move_match.group(2)
+                            # Create USES relationship for source variable
+                            relationships.append(RelationshipExtraction(
+                                source_file=file_path,
+                                target_file=file_path,
+                                source_entity=para_name,
+                                target_entity=source_var,
+                                relationship_type=RelationshipType.USES,
+                                confidence=0.9,
+                                relationship_strength="strong",
+                                line_number=line_number,
+                                context=f"MOVE statement: {para_name} uses {source_var}"
+                            ))
+                            # Create MODIFIES relationship for target variable
+                            relationships.append(RelationshipExtraction(
+                                source_file=file_path,
+                                target_file=file_path,
+                                source_entity=para_name,
+                                target_entity=target_var,
+                                relationship_type=RelationshipType.MODIFIES,
+                                confidence=0.9,
+                                relationship_strength="strong",
+                                line_number=line_number,
+                                context=f"MOVE statement: {para_name} modifies {target_var}"
+                            ))
+                    
                     # Extract variable usage from ADD statements
                     elif 'AddStatementImpl' in stmt_type:
-                        add_match = re.search(r'ADD\s+([A-Z0-9-]+)\s+TO\s+([A-Z0-9-]+)', stmt_text, re.IGNORECASE)
+                        add_match = re.search(r'ADD([A-Z0-9-]+)TO([A-Z0-9-]+)', stmt_text, re.IGNORECASE)
                         if add_match:
                             source_var = add_match.group(1)
                             target_var = add_match.group(2)
