@@ -1,11 +1,11 @@
 {
-  "timestamp": "2025-09-25T16:16:46.593863",
-  "duration_seconds": 14.549814939498901,
+  "timestamp": "2025-09-26T11:17:43.164596",
+  "duration_seconds": 12.540655851364136,
   "files_processed": 1,
   "total_files": 1,
   "graph_stats": {
     "total_entities": 219,
-    "total_relationships": 318,
+    "total_relationships": 236,
     "database_stats": {
       "total_nodes": 0,
       "total_relationships": 0,
@@ -14,7 +14,7 @@
     }
   },
   "ai_enabled": true,
-  "relationships_extracted": 318,
+  "relationships_extracted": 236,
   "descriptions_generated": 1,
   "embeddings_created": 218
 }
