@@ -68,6 +68,9 @@ class MultiLanguageParser:
             ".json": "json",
             ".md": "markdown",
             ".markdown": "markdown",
+            ".cbl": "cobol",
+            ".cob": "cobol",
+            ".cobol": "cobol",
         }
 
         return extension_map.get(ext, "unknown")
@@ -84,6 +87,8 @@ class MultiLanguageParser:
                 return self._parse_python_ast(file_path, content)
             elif language in ["typescript", "javascript"]:
                 return self._parse_typescript_javascript(file_path, content, language)
+            elif language == "cobol":
+                return self._parse_cobol(file_path, content)
             elif language == "json":
                 return self._parse_json(file_path, content)
             elif language == "markdown":
@@ -268,6 +273,83 @@ class MultiLanguageParser:
             print(f"⚠️ TypeScript extractor failed for {file_path}: {e}")
             # Fallback to pattern-based parsing
             return self._parse_ts_js_fallback(file_path, content, language)
+
+    def _parse_cobol(self, file_path: str, content: str) -> Dict[str, Any]:
+        """Parse COBOL file using our comprehensive COBOL parser"""
+        try:
+            # Import our COBOL parser
+            import sys
+            import os
+            
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            if project_root not in sys.path:
+                sys.path.insert(0, project_root)
+            
+            from shared.services.cobol_parser import COBOLParser
+            
+            # Create COBOL parser instance
+            cobol_parser = COBOLParser()
+            
+            # Parse the file
+            result = cobol_parser.parse_file(file_path)
+            
+            if result.get("parse_success", False):
+                # Convert COBOL entities to our standard format
+                standard_entities = []
+                for cobol_entity in result.get("entities", []):
+                    standard_entity = {
+                        "type": cobol_entity.entity_type.value.lower(),
+                        "name": cobol_entity.name,
+                        "line_number": cobol_entity.line_number,
+                        "content": cobol_entity.content,
+                        "parent_division": cobol_entity.parent_division,
+                        "parent_section": cobol_entity.parent_section,
+                        "parent_paragraph": cobol_entity.parent_paragraph,
+                        "level_number": cobol_entity.level_number,
+                        "data_type": cobol_entity.data_type,
+                        "picture_clause": cobol_entity.picture_clause,
+                        "value_clause": cobol_entity.value_clause,
+                        "occurs_clause": cobol_entity.occurs_clause,
+                        "redefines_clause": cobol_entity.redefines_clause,
+                        "usage_clause": cobol_entity.usage_clause,
+                        "context": cobol_entity.context,
+                    }
+                    standard_entities.append(standard_entity)
+                
+                return {
+                    "file_path": file_path,
+                    "entities": standard_entities,
+                    "language": "cobol",
+                    "lines_of_code": len(content.splitlines()),
+                    "parse_success": True,
+                    "error": None,
+                    "entity_counts": result.get("entity_counts", {}),
+                    "hierarchical_structure": result.get("hierarchical_structure", {}),
+                    "cobol_analysis": True,  # Flag to indicate COBOL analysis
+                }
+            else:
+                return {
+                    "file_path": file_path,
+                    "entities": [],
+                    "language": "cobol",
+                    "lines_of_code": len(content.splitlines()),
+                    "parse_success": False,
+                    "error": result.get("error", "COBOL parsing failed"),
+                    "entity_counts": {},
+                    "hierarchical_structure": {},
+                }
+                
+        except Exception as e:
+            return {
+                "file_path": file_path,
+                "entities": [],
+                "language": "cobol",
+                "lines_of_code": len(content.splitlines()) if content else 0,
+                "parse_success": False,
+                "error": f"COBOL parser error: {str(e)}",
+                "entity_counts": {},
+                "hierarchical_structure": {},
+            }
 
     def _parse_with_tree_sitter(self, file_path: str, content: str, language: str) -> Dict[str, Any]:
         """Parse TypeScript/JavaScript file using tree-sitter or fallback pattern matching"""
@@ -860,6 +942,7 @@ def extract_multi_language_relationships(parsed_files: List[Dict[str, Any]]) -> 
     # Separate files by language for specialized relationship extraction
     python_files = []
     ts_js_files = []
+    cobol_files = []
     other_files = []
 
     for file_data in parsed_files:
@@ -871,6 +954,8 @@ def extract_multi_language_relationships(parsed_files: List[Dict[str, Any]]) -> 
             python_files.append(file_data)
         elif language in ["typescript", "javascript"]:
             ts_js_files.append(file_data)
+        elif language == "cobol":
+            cobol_files.append(file_data)
         else:
             other_files.append(file_data)
 
@@ -945,6 +1030,59 @@ def extract_multi_language_relationships(parsed_files: List[Dict[str, Any]]) -> 
             print(f"   ✅ Extracted {len(ts_relationships)} TypeScript/JavaScript relationships")
         except Exception as e:
             print(f"   ❌ Failed to extract TypeScript/JavaScript relationships: {e}")
+
+    # Extract COBOL relationships
+    if cobol_files:
+        print(f"   🔷 Extracting COBOL relationships from {len(cobol_files)} files...")
+        try:
+            from shared.services.cobol_relationship_extractor import extract_cobol_relationships
+            
+            cobol_relationships = []
+            
+            for cobol_file in cobol_files:
+                # Use advanced COBOL relationship extractor
+                file_relationships = extract_cobol_relationships(cobol_file)
+                cobol_relationships.extend(file_relationships)
+                
+                # Also add basic hierarchical relationships
+                entities = cobol_file.get("entities", [])
+                
+                # Create relationships between divisions, sections, and paragraphs
+                for entity in entities:
+                    if entity.get("type") == "section" and entity.get("parent_division"):
+                        from ai_relationship_extractor import RelationshipExtraction, RelationshipType
+                        rel = RelationshipExtraction(
+                            source_file=cobol_file["file_path"],
+                            target_file=cobol_file["file_path"],
+                            source_entity=entity["name"],
+                            target_entity=entity["parent_division"],
+                            relationship_type=RelationshipType.DEFINES,
+                            confidence=1.0,
+                            relationship_strength="strong",
+                            line_number=entity["line_number"],
+                            context=f"Section {entity['name']} belongs to {entity['parent_division']} Division"
+                        )
+                        cobol_relationships.append(rel)
+                    
+                    elif entity.get("type") == "paragraph" and entity.get("parent_section"):
+                        from ai_relationship_extractor import RelationshipExtraction, RelationshipType
+                        rel = RelationshipExtraction(
+                            source_file=cobol_file["file_path"],
+                            target_file=cobol_file["file_path"],
+                            source_entity=entity["name"],
+                            target_entity=entity["parent_section"],
+                            relationship_type=RelationshipType.DEFINES,
+                            confidence=1.0,
+                            relationship_strength="strong",
+                            line_number=entity["line_number"],
+                            context=f"Paragraph {entity['name']} belongs to {entity['parent_section']} Section"
+                        )
+                        cobol_relationships.append(rel)
+            
+            all_relationships.extend(cobol_relationships)
+            print(f"   ✅ Extracted {len(cobol_relationships)} COBOL relationships")
+        except Exception as e:
+            print(f"   ❌ Failed to extract COBOL relationships: {e}")
 
     print(f"🎯 Total relationships extracted: {len(all_relationships)}")
     return all_relationships
