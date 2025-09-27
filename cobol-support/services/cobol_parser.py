@@ -9,8 +9,9 @@ from typing import Dict, List, Any, Optional, Tuple
 from pathlib import Path
 from dataclasses import dataclass
 
-# Import raw ProLeap parser
+# Import raw ProLeap parser and enhanced parser
 from .raw_proleap_parser import RawProLeapParser
+from .enhanced_cobol_parser import EnhancedCOBOLParser
 from services.cobol_relationship_extractor import extract_cobol_relationships
 
 
@@ -49,23 +50,45 @@ class COBOLParser:
     
     def __init__(self):
         self.parser = RawProLeapParser()
+        self.enhanced_parser = EnhancedCOBOLParser()
     
     def parse_file(self, file_path: str) -> Dict[str, Any]:
         """Parse a COBOL file and return AST/ASG data"""
-        result = self.parser.parse_file(file_path)
-        
-        # Extract entities and relationships
-        if result.get("parse_success", False):
-            # Extract entities from parsed data first
-            entities = self._extract_entities(result)
-            result["entities"] = entities
+        # Try ProLeap parser first, fallback to enhanced parser
+        try:
+            if self.parser.is_available():
+                result = self.parser.parse_file(file_path)
+                
+                # Extract entities and relationships
+                if result.get("parse_success", False):
+                    # Extract entities from parsed data first
+                    entities = self._extract_entities(result)
+                    result["entities"] = entities
+                    
+                    # Extract advanced COBOL relationships (now that entities are available)
+                    relationships = extract_cobol_relationships(result)
+                    result["relationships"] = relationships
+                    result["relationship_count"] = len(relationships)
+                    result["parser_used"] = "ProLeap"
+                
+                return result
+            else:
+                raise RuntimeError("ProLeap not available")
+                
+        except Exception as e:
+            print(f"⚠️  ProLeap parser failed ({e}), using enhanced parser...")
             
-            # Extract advanced COBOL relationships (now that entities are available)
-            relationships = extract_cobol_relationships(result)
-            result["relationships"] = relationships
-            result["relationship_count"] = len(relationships)
-        
-        return result
+            # Use enhanced parser as fallback
+            result = self.enhanced_parser.parse_file(file_path)
+            
+            if result.get("parse_success", False):
+                # Extract advanced COBOL relationships
+                relationships = extract_cobol_relationships(result)
+                result["relationships"] = relationships
+                result["relationship_count"] = len(relationships)
+                result["parser_used"] = "Enhanced"
+            
+            return result
     
     def _extract_entities(self, cobol_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Extract entities from parsed COBOL data"""
