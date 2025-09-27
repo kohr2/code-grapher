@@ -68,6 +68,9 @@ class MultiLanguageParser:
             ".json": "json",
             ".md": "markdown",
             ".markdown": "markdown",
+            ".cbl": "cobol",
+            ".cobol": "cobol",
+            ".cob": "cobol",
         }
 
         return extension_map.get(ext, "unknown")
@@ -88,6 +91,8 @@ class MultiLanguageParser:
                 return self._parse_json(file_path, content)
             elif language == "markdown":
                 return self._parse_markdown(file_path, content)
+            elif language == "cobol":
+                return self._parse_cobol(file_path, content)
             else:
                 # Fallback: basic file info without parsing
                 return {
@@ -714,6 +719,255 @@ class MultiLanguageParser:
                     }
                 )
 
+        return entities
+
+    def _parse_cobol(self, file_path: str, content: str) -> Dict[str, Any]:
+        """Parse COBOL file and extract hierarchical structure"""
+        try:
+            entities = []
+            lines = content.splitlines()
+            
+            # Track current division and section context
+            current_division = None
+            current_section = None
+            
+            for line_num, line in enumerate(lines, 1):
+                # Remove line numbers (first 6 characters) and clean up
+                clean_line = line[6:].strip() if len(line) > 6 else line.strip()
+                
+                if not clean_line or clean_line.startswith('*') or clean_line.startswith('/'):
+                    continue
+                
+                # Extract Divisions
+                division_match = re.match(r'^(\w+)\s+DIVISION\s*\.?\s*$', clean_line, re.IGNORECASE)
+                if division_match:
+                    division_name = division_match.group(1).upper()
+                    current_division = division_name
+                    current_section = None
+                    
+                    entities.append({
+                        "type": "division",
+                        "name": division_name,
+                        "line_number": line_num,
+                        "hierarchy_level": 1,
+                        "parent": None,
+                        "metadata": {
+                            "division_type": division_name,
+                            "full_text": clean_line
+                        }
+                    })
+                    continue
+                
+                # Extract all types of sections first (before paragraphs)
+                # Check for any line containing SECTION (with or without period)
+                if 'SECTION' in clean_line.upper():
+                    # Remove period and SECTION to get section name
+                    section_name = clean_line.upper().strip().replace(' SECTION', '').replace('SECTION', '').replace('.', '').strip()
+                    current_section = section_name
+                    
+                    entities.append({
+                        "type": "section",
+                        "name": section_name,
+                        "line_number": line_num,
+                        "hierarchy_level": 2,
+                        "parent": current_division,
+                        "metadata": {
+                            "section_type": section_name,
+                            "division": current_division,
+                            "full_text": clean_line
+                        }
+                    })
+                    continue
+                
+                # Extract Paragraphs (names followed by period)
+                paragraph_match = re.match(r'^([A-Z0-9-]+)\s*\.\s*$', clean_line)
+                if paragraph_match:
+                    paragraph_name = paragraph_match.group(1)
+                    
+                    entities.append({
+                        "type": "paragraph",
+                        "name": paragraph_name,
+                        "line_number": line_num,
+                        "hierarchy_level": 3,
+                        "parent": current_section or current_division,
+                        "metadata": {
+                            "paragraph_type": paragraph_name,
+                            "section": current_section,
+                            "division": current_division,
+                            "full_text": clean_line
+                        }
+                    })
+                    continue
+                
+                # Extract Paragraphs that might have additional content on same line
+                paragraph_with_content = re.match(r'^([A-Z0-9-]+)\s*\.\s+(.+)$', clean_line)
+                if paragraph_with_content:
+                    paragraph_name = paragraph_with_content.group(1)
+                    
+                    entities.append({
+                        "type": "paragraph",
+                        "name": paragraph_name,
+                        "line_number": line_num,
+                        "hierarchy_level": 3,
+                        "parent": current_section or current_division,
+                        "metadata": {
+                            "paragraph_type": paragraph_name,
+                            "section": current_section,
+                            "division": current_division,
+                            "full_text": clean_line,
+                            "has_content": True
+                        }
+                    })
+                    continue
+                
+                # Extract individual COBOL statements
+                statement_entities = self._extract_cobol_statements(clean_line, line_num, current_division, current_section)
+                entities.extend(statement_entities)
+                
+                # Extract Data Items (PIC clauses, 01 level items)
+                data_item_entities = self._extract_cobol_data_items(clean_line, line_num, current_division, current_section)
+                entities.extend(data_item_entities)
+                
+                # Extract File definitions
+                file_entities = self._extract_cobol_files(clean_line, line_num, current_division, current_section)
+                entities.extend(file_entities)
+            
+            return {
+                "file_path": file_path,
+                "entities": entities,
+                "language": "cobol",
+                "lines_of_code": len(lines),
+                "parse_success": True,
+                "error": None,
+                "cobol_analysis": {
+                    "total_divisions": len([e for e in entities if e["type"] == "division"]),
+                    "total_sections": len([e for e in entities if e["type"] == "section"]),
+                    "total_paragraphs": len([e for e in entities if e["type"] == "paragraph"]),
+                    "total_statements": len([e for e in entities if e["type"] == "statement"]),
+                    "total_data_items": len([e for e in entities if e["type"] == "data_item"]),
+                    "total_files": len([e for e in entities if e["type"] == "file"])
+                }
+            }
+            
+        except Exception as e:
+            return {
+                "file_path": file_path,
+                "entities": [],
+                "language": "cobol",
+                "lines_of_code": len(content.splitlines()) if content else 0,
+                "parse_success": False,
+                "error": str(e),
+            }
+    
+    def _extract_cobol_statements(self, line: str, line_num: int, division: str, section: str) -> List[Dict[str, Any]]:
+        """Extract individual COBOL statements"""
+        entities = []
+        
+        # Common COBOL statements
+        statement_patterns = [
+            (r'^(MOVE|ADD|SUBTRACT|MULTIPLY|DIVIDE|COMPUTE)\s+', 'arithmetic'),
+            (r'^(IF|WHEN|EVALUATE)\s+', 'conditional'),
+            (r'^(PERFORM|CALL)\s+', 'control'),
+            (r'^(OPEN|CLOSE|READ|WRITE|REWRITE|DELETE)\s+', 'io'),
+            (r'^(DISPLAY|ACCEPT)\s+', 'io'),
+            (r'^(INITIALIZE|SET|INSPECT)\s+', 'data_manipulation'),
+            (r'^(STOP|EXIT|GOBACK|GO\s+TO)\s+', 'control'),
+            (r'^(STRING|UNSTRING)\s+', 'string_manipulation'),
+            (r'^(SORT|MERGE)\s+', 'sorting'),
+            (r'^(SEARCH|SEARCH\s+ALL)\s+', 'searching'),
+        ]
+        
+        for pattern, statement_type in statement_patterns:
+            if re.match(pattern, line, re.IGNORECASE):
+                # Extract the statement name
+                match = re.match(pattern, line, re.IGNORECASE)
+                if match:
+                    statement_name = match.group(1).upper()
+                    
+                    entities.append({
+                        "type": "statement",
+                        "name": statement_name,
+                        "line_number": line_num,
+                        "hierarchy_level": 4,
+                        "parent": section or division,
+                        "metadata": {
+                            "statement_type": statement_type,
+                            "statement_name": statement_name,
+                            "division": division,
+                            "section": section,
+                            "full_text": line
+                        }
+                    })
+                    break
+        
+        return entities
+    
+    def _extract_cobol_data_items(self, line: str, line_num: int, division: str, section: str) -> List[Dict[str, Any]]:
+        """Extract COBOL data items (PIC clauses, level numbers)"""
+        entities = []
+        
+        # Data item patterns
+        data_patterns = [
+            (r'^(\d+)\s+(\w+)\s+(PIC|PICTURE)\s+', 'data_item'),  # Level number + name + PIC
+            (r'^(\d+)\s+(\w+)\s*\.', 'data_item'),  # Level number + name
+            (r'^(\d+)\s+(\w+)\s+REDEFINES\s+', 'data_item'),  # REDEFINES
+            (r'^(\d+)\s+(\w+)\s+OCCURS\s+', 'data_item'),  # OCCURS
+        ]
+        
+        for pattern, item_type in data_patterns:
+            match = re.match(pattern, line, re.IGNORECASE)
+            if match:
+                level_number = match.group(1)
+                item_name = match.group(2)
+                
+                entities.append({
+                    "type": "data_item",
+                    "name": item_name,
+                    "line_number": line_num,
+                    "hierarchy_level": 3,
+                    "parent": section or division,
+                    "metadata": {
+                        "level_number": level_number,
+                        "data_type": item_type,
+                        "division": division,
+                        "section": section,
+                        "full_text": line
+                    }
+                })
+                break
+        
+        return entities
+    
+    def _extract_cobol_files(self, line: str, line_num: int, division: str, section: str) -> List[Dict[str, Any]]:
+        """Extract COBOL file definitions"""
+        entities = []
+        
+        # File definition patterns
+        file_patterns = [
+            (r'^FD\s+(\w+)', 'file_description'),
+            (r'^SELECT\s+(\w+)', 'file_control'),
+        ]
+        
+        for pattern, file_type in file_patterns:
+            match = re.match(pattern, line, re.IGNORECASE)
+            if match:
+                file_name = match.group(1)
+                
+                entities.append({
+                    "type": "file",
+                    "name": file_name,
+                    "line_number": line_num,
+                    "hierarchy_level": 2,
+                    "parent": division,
+                    "metadata": {
+                        "file_type": file_type,
+                        "division": division,
+                        "section": section,
+                        "full_text": line
+                    }
+                })
+                break
+        
         return entities
 
     def _parse_markdown(self, file_path: str, content: str) -> Dict[str, Any]:
