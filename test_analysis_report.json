@@ -1,0 +1,123 @@
+{
+  "summary": {
+    "expected": {
+      "programs": 0,
+      "divisions": 0,
+      "sections": 0,
+      "paragraphs": 4,
+      "statements": 0
+    },
+    "actual": {
+      "PARAGRAPH": 4
+    },
+    "discrepancies": {
+      "PROGRAM": 0,
+      "DIVISION": 0,
+      "SECTION": 0,
+      "PARAGRAPH": 0,
+      "STATEMENT": 0
+    }
+  },
+  "issues": {
+    "missing_entities": [],
+    "extra_entities": []
+  },
+  "recommendations": [
+    "Implement hierarchical relationship tracking between divisions, sections, and paragraphs",
+    "Add validation system to compare expected vs actual entity counts"
+  ],
+  "enhanced_parser_config": {
+    "extraction_rules": {
+      "programs": {
+        "enabled": true,
+        "pattern": "^\\s*\\d+\\s+PROGRAM-ID\\s+\\.\\s+([A-Z0-9-]+)",
+        "description": "Extract PROGRAM-ID declarations"
+      },
+      "divisions": {
+        "enabled": true,
+        "patterns": [
+          "^\\s*\\d+\\s+(IDENTIFICATION\\s+DIVISION)",
+          "^\\s*\\d+\\s+(ENVIRONMENT\\s+DIVISION)",
+          "^\\s*\\d+\\s+(DATA\\s+DIVISION)",
+          "^\\s*\\d+\\s+(PROCEDURE\\s+DIVISION)"
+        ],
+        "description": "Extract all 4 standard COBOL divisions"
+      },
+      "sections": {
+        "enabled": true,
+        "pattern": "^\\s*\\d+\\s+([A-Z0-9-]+)\\s+SECTION\\s*\\.",
+        "description": "Extract SECTION declarations"
+      },
+      "paragraphs": {
+        "enabled": true,
+        "pattern": "^\\s*\\d+\\s+([A-Z0-9-]+)\\s*\\.",
+        "description": "Extract paragraph declarations",
+        "exclude_sections": true
+      },
+      "statements": {
+        "enabled": true,
+        "patterns": [
+          "^\\s*\\d+\\s+(DISPLAY\\s+)",
+          "^\\s*\\d+\\s+(MOVE\\s+)",
+          "^\\s*\\d+\\s+(IF\\s+)",
+          "^\\s*\\d+\\s+(PERFORM\\s+)",
+          "^\\s*\\d+\\s+(OPEN\\s+)",
+          "^\\s*\\d+\\s+(CLOSE\\s+)",
+          "^\\s*\\d+\\s+(READ\\s+)",
+          "^\\s*\\d+\\s+(WRITE\\s+)",
+          "^\\s*\\d+\\s+(ACCEPT\\s+)",
+          "^\\s*\\d+\\s+(COMPUTE\\s+)",
+          "^\\s*\\d+\\s+(ADD\\s+)",
+          "^\\s*\\d+\\s+(SUBTRACT\\s+)",
+          "^\\s*\\d+\\s+(MULTIPLY\\s+)",
+          "^\\s*\\d+\\s+(DIVIDE\\s+)",
+          "^\\s*\\d+\\s+(STOP\\s+)",
+          "^\\s*\\d+\\s+(EXIT\\s+)",
+          "^\\s*\\d+\\s+(CALL\\s+)",
+          "^\\s*\\d+\\s+(GO\\s+TO\\s+)",
+          "^\\s*\\d+\\s+(END-IF\\s*)",
+          "^\\s*\\d+\\s+(END-PERFORM\\s*)",
+          "^\\s*\\d+\\s+(END-EVALUATE\\s*)",
+          "^\\s*\\d+\\s+(EVALUATE\\s+)",
+          "^\\s*\\d+\\s+(WHEN\\s+)",
+          "^\\s*\\d+\\s+(INITIALIZE\\s+)",
+          "^\\s*\\d+\\s+(STRING\\s+)",
+          "^\\s*\\d+\\s+(UNSTRING\\s+)",
+          "^\\s*\\d+\\s+(INSPECT\\s+)",
+          "^\\s*\\d+\\s+(SET\\s+)",
+          "^\\s*\\d+\\s+(SEARCH\\s+)",
+          "^\\s*\\d+\\s+(SORT\\s+)",
+          "^\\s*\\d+\\s+(MERGE\\s+)"
+        ],
+        "description": "Extract individual COBOL statements"
+      }
+    },
+    "validation": {
+      "enable_count_validation": true,
+      "expected_counts": {
+        "programs": 0,
+        "divisions": 0,
+        "sections": 0,
+        "paragraphs": 4,
+        "statements": 0
+      }
+    },
+    "relationships": {
+      "enable_hierarchical_tracking": true,
+      "parent_child_mapping": {
+        "PROGRAM": [
+          "DIVISION"
+        ],
+        "DIVISION": [
+          "SECTION"
+        ],
+        "SECTION": [
+          "PARAGRAPH"
+        ],
+        "PARAGRAPH": [
+          "STATEMENT"
+        ]
+      }
+    }
+  }
+}

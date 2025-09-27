@@ -1,0 +1,200 @@
+{
+  "timestamp": "2025-09-27T20:22:08.306412",
+  "file_path": "",
+  "overall_status": "FAILED",
+  "total_rules": 7,
+  "passed_rules": 4,
+  "failed_rules": 3,
+  "warnings": 0,
+  "errors": 2,
+  "results": [
+    {
+      "rule": {
+        "entity_type": "PROGRAM",
+        "min_count": 1,
+        "max_count": 1,
+        "expected_count": 1,
+        "description": "Each COBOL file should have exactly one PROGRAM-ID",
+        "severity": "ERROR"
+      },
+      "actual_count": 0,
+      "passed": false,
+      "message": "Count 0 is below minimum 1",
+      "recommendations": [
+        "Increase PROGRAM extraction - check parsing patterns"
+      ]
+    },
+    {
+      "rule": {
+        "entity_type": "DIVISION",
+        "min_count": 4,
+        "max_count": 4,
+        "expected_count": 4,
+        "description": "Standard COBOL programs should have 4 divisions: IDENTIFICATION, ENVIRONMENT, DATA, PROCEDURE",
+        "severity": "ERROR"
+      },
+      "actual_count": 0,
+      "passed": false,
+      "message": "Count 0 is below minimum 4",
+      "recommendations": [
+        "Increase DIVISION extraction - check parsing patterns"
+      ]
+    },
+    {
+      "rule": {
+        "entity_type": "SECTION",
+        "min_count": 0,
+        "max_count": null,
+        "expected_count": null,
+        "description": "Sections are optional but should be properly structured",
+        "severity": "WARNING"
+      },
+      "actual_count": 0,
+      "passed": true,
+      "message": "Count 0 is within acceptable range",
+      "recommendations": []
+    },
+    {
+      "rule": {
+        "entity_type": "PARAGRAPH",
+        "min_count": 1,
+        "max_count": null,
+        "expected_count": null,
+        "description": "COBOL programs should have at least one paragraph",
+        "severity": "WARNING"
+      },
+      "actual_count": 4,
+      "passed": true,
+      "message": "Count 4 is within acceptable range",
+      "recommendations": []
+    },
+    {
+      "rule": {
+        "entity_type": "STATEMENT",
+        "min_count": 1,
+        "max_count": null,
+        "expected_count": null,
+        "description": "COBOL programs should have executable statements",
+        "severity": "INFO"
+      },
+      "actual_count": 0,
+      "passed": false,
+      "message": "Count 0 is below minimum 1",
+      "recommendations": [
+        "Increase STATEMENT extraction - check parsing patterns"
+      ]
+    },
+    {
+      "rule": {
+        "entity_type": "DATA_ITEM",
+        "min_count": 0,
+        "max_count": null,
+        "expected_count": null,
+        "description": "Data items should be properly declared",
+        "severity": "INFO"
+      },
+      "actual_count": 12,
+      "passed": true,
+      "message": "Count 12 is within acceptable range",
+      "recommendations": []
+    },
+    {
+      "rule": {
+        "entity_type": "FILE",
+        "min_count": 0,
+        "max_count": null,
+        "expected_count": null,
+        "description": "File declarations should be present if files are used",
+        "severity": "INFO"
+      },
+      "actual_count": 0,
+      "passed": true,
+      "message": "Count 0 is within acceptable range",
+      "recommendations": []
+    }
+  ],
+  "summary": {
+    "actual_counts": {
+      "PROGRAM": 0,
+      "DIVISION": 0,
+      "SECTION": 0,
+      "PARAGRAPH": 4,
+      "STATEMENT": 0,
+      "DATA_ITEM": 12,
+      "FILE": 0
+    },
+    "expected_counts": {},
+    "discrepancies": {},
+    "coverage_analysis": {
+      "total_entities": 16,
+      "entity_distribution": {
+        "PROGRAM": 0.0,
+        "DIVISION": 0.0,
+        "SECTION": 0.0,
+        "PARAGRAPH": 25.0,
+        "STATEMENT": 0.0,
+        "DATA_ITEM": 75.0,
+        "FILE": 0.0
+      },
+      "missing_standard_entities": [
+        "PROGRAM",
+        "DIVISION"
+      ],
+      "unexpected_entities": []
+    },
+    "quality_metrics": {
+      "compliance_rate": 57.14285714285714,
+      "error_rate": 28.57142857142857,
+      "warning_rate": 0.0,
+      "critical_issues": [
+        {
+          "rule": {
+            "entity_type": "PROGRAM",
+            "min_count": 1,
+            "max_count": 1,
+            "expected_count": 1,
+            "description": "Each COBOL file should have exactly one PROGRAM-ID",
+            "severity": "ERROR"
+          },
+          "actual_count": 0,
+          "passed": false,
+          "message": "Count 0 is below minimum 1",
+          "recommendations": [
+            "Increase PROGRAM extraction - check parsing patterns"
+          ]
+        },
+        {
+          "rule": {
+            "entity_type": "DIVISION",
+            "min_count": 4,
+            "max_count": 4,
+            "expected_count": 4,
+            "description": "Standard COBOL programs should have 4 divisions: IDENTIFICATION, ENVIRONMENT, DATA, PROCEDURE",
+            "severity": "ERROR"
+          },
+          "actual_count": 0,
+          "passed": false,
+          "message": "Count 0 is below minimum 4",
+          "recommendations": [
+            "Increase DIVISION extraction - check parsing patterns"
+          ]
+        }
+      ],
+      "improvement_areas": [
+        "PROGRAM",
+        "DIVISION",
+        "STATEMENT"
+      ]
+    }
+  },
+  "recommendations": [
+    "Increase PROGRAM extraction - check parsing patterns",
+    "Increase DIVISION extraction - check parsing patterns",
+    "Increase STATEMENT extraction - check parsing patterns",
+    "Implement hierarchical relationship tracking between entities",
+    "Add validation checks to parser configuration",
+    "Consider implementing entity deduplication if duplicates are found",
+    "Review regex patterns for better entity detection",
+    "Add statement-level parsing for comprehensive analysis"
+  ]
+}
