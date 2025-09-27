@@ -1,0 +1,106 @@
+{
+  "programs": {
+    "expected": 1,
+    "actual": 0,
+    "difference": 1,
+    "accuracy_percentage": 0.0,
+    "issues": [
+      "Missing 1 programs"
+    ],
+    "recommendations": [
+      "Implement hierarchical parent-child relationships",
+      "Add line number preservation for debugging",
+      "Create entity validation to ensure uniqueness",
+      "Add support for nested structures"
+    ]
+  },
+  "divisions": {
+    "expected": 4,
+    "actual": 0,
+    "difference": 4,
+    "accuracy_percentage": 0.0,
+    "issues": [
+      "Missing 4 divisions",
+      "Missing division: DATA DIVISION",
+      "Missing division: IDENTIFICATION DIVISION",
+      "Missing division: PROCEDURE DIVISION",
+      "Missing division: ENVIRONMENT DIVISION"
+    ],
+    "recommendations": [
+      "Ensure parser extracts all 4 main divisions as separate entities",
+      "Add specific regex patterns for each division type",
+      "Verify division detection logic handles all variations",
+      "Implement hierarchical parent-child relationships",
+      "Add line number preservation for debugging",
+      "Create entity validation to ensure uniqueness",
+      "Add support for nested structures"
+    ]
+  },
+  "sections": {
+    "expected": 16,
+    "actual": 0,
+    "difference": 16,
+    "accuracy_percentage": 0.0,
+    "issues": [
+      "Missing 16 sections",
+      "Only found 0 sections, expected 16",
+      "Check section detection regex patterns",
+      "Verify section naming conventions"
+    ],
+    "recommendations": [
+      "Improve section detection regex patterns",
+      "Add support for numbered sections (e.g., SECTION 1)",
+      "Verify section naming conventions are properly handled",
+      "Implement hierarchical parent-child relationships",
+      "Add line number preservation for debugging",
+      "Create entity validation to ensure uniqueness",
+      "Add support for nested structures"
+    ]
+  },
+  "paragraphs": {
+    "expected": 261,
+    "actual": 0,
+    "difference": 261,
+    "accuracy_percentage": 0.0,
+    "issues": [
+      "Missing 261 paragraphs",
+      "Only found 0 paragraphs, expected 261",
+      "Check paragraph validation logic",
+      "Review reserved word filtering",
+      "Verify paragraph naming patterns"
+    ],
+    "recommendations": [
+      "Review paragraph validation logic to avoid over-filtering",
+      "Check reserved word list for completeness",
+      "Improve paragraph detection regex patterns",
+      "Add support for nested paragraph structures",
+      "Implement hierarchical parent-child relationships",
+      "Add line number preservation for debugging",
+      "Create entity validation to ensure uniqueness",
+      "Add support for nested structures"
+    ]
+  },
+  "statements": {
+    "expected": 316,
+    "actual": 0,
+    "difference": 316,
+    "accuracy_percentage": 0.0,
+    "issues": [
+      "Missing 316 statements",
+      "Only found 0 statements, expected 316",
+      "Check statement detection regex patterns",
+      "Verify all COBOL verbs are covered",
+      "Missing statement types: {'ACCEPT', 'READ', 'COMPUTE', 'WRITE', 'MULTIPLY', 'IF', 'MOVE', 'CALL', 'ADD', 'DISPLAY', 'DIVIDE', 'SUBTRACT', 'PERFORM'}"
+    ],
+    "recommendations": [
+      "Add comprehensive statement extraction for all COBOL verbs",
+      "Implement statement-level granularity",
+      "Add support for multi-line statements",
+      "Verify statement detection patterns cover all variations",
+      "Implement hierarchical parent-child relationships",
+      "Add line number preservation for debugging",
+      "Create entity validation to ensure uniqueness",
+      "Add support for nested structures"
+    ]
+  }
+}

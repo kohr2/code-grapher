@@ -1,0 +1,46 @@
+{
+  "overall_accuracy": 0.0,
+  "total_expected_entities": 598,
+  "total_actual_entities": 0,
+  "critical_issues": [
+    "programs: 0.0% accuracy",
+    "divisions: 0.0% accuracy",
+    "sections: 0.0% accuracy",
+    "paragraphs: 0.0% accuracy",
+    "statements: 0.0% accuracy"
+  ],
+  "entity_breakdown": {
+    "programs": {
+      "expected": 1,
+      "actual": 0,
+      "accuracy": 0.0
+    },
+    "divisions": {
+      "expected": 4,
+      "actual": 0,
+      "accuracy": 0.0
+    },
+    "sections": {
+      "expected": 16,
+      "actual": 0,
+      "accuracy": 0.0
+    },
+    "paragraphs": {
+      "expected": 261,
+      "actual": 0,
+      "accuracy": 0.0
+    },
+    "statements": {
+      "expected": 316,
+      "actual": 0,
+      "accuracy": 0.0
+    }
+  },
+  "recommendations": [
+    "Missing Divisions: Ensure parser extracts all 4 main divisions (IDENTIFICATION, ENVIRONMENT, DATA, PROCEDURE) as separate entities",
+    "Missing Sections: Improve section detection regex patterns to capture all section definitions, including those with numbers",
+    "Missing Paragraphs: Review paragraph validation logic and ensure all paragraph definitions are captured, not just PERFORM statements",
+    "Missing Statements: Add comprehensive statement extraction for all COBOL verbs (DISPLAY, MOVE, IF, PERFORM, etc.)",
+    "Implement hierarchical parent-child relationships between entities"
+  ]
+}
