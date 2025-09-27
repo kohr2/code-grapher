@@ -1,0 +1,24 @@
+{
+  "parser_improvements": [
+    "Review paragraph validation logic to avoid over-filtering"
+  ],
+  "regex_patterns": {},
+  "validation_rules": [],
+  "priority_fixes": [
+    {
+      "entity_type": "sections",
+      "missing_count": 13,
+      "priority": "high"
+    },
+    {
+      "entity_type": "paragraphs",
+      "missing_count": 254,
+      "priority": "high"
+    },
+    {
+      "entity_type": "statements",
+      "missing_count": 302,
+      "priority": "high"
+    }
+  ]
+}

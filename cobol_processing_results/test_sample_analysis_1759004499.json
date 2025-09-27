@@ -1,0 +1,28 @@
+{
+  "expected_counts": {
+    "programs": 1,
+    "divisions": 4,
+    "sections": 16,
+    "paragraphs": 261,
+    "statements": 316
+  },
+  "actual_counts": {},
+  "discrepancies": {
+    "programs": 1,
+    "divisions": 4,
+    "sections": 16,
+    "paragraphs": 261,
+    "statements": 316
+  },
+  "recommendations": [
+    "Missing Divisions: Ensure parser extracts all 4 main divisions (IDENTIFICATION, ENVIRONMENT, DATA, PROCEDURE) as separate entities",
+    "Missing Sections: Improve section detection regex patterns to capture all section definitions, including those with numbers",
+    "Missing Paragraphs: Review paragraph validation logic and ensure all paragraph definitions are captured, not just PERFORM statements",
+    "Missing Statements: Add comprehensive statement extraction for all COBOL verbs (DISPLAY, MOVE, IF, PERFORM, etc.)",
+    "Implement hierarchical parent-child relationships between entities",
+    "Add line number preservation for better debugging",
+    "Create entity validation to avoid duplicates",
+    "Add support for nested paragraph structures",
+    "Implement statement-level granularity for detailed analysis"
+  ]
+}

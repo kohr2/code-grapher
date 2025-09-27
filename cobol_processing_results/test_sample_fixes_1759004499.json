@@ -1,0 +1,35 @@
+{
+  "parser_improvements": [
+    "Add specific regex patterns for each division type",
+    "Review paragraph validation logic to avoid over-filtering"
+  ],
+  "regex_patterns": {},
+  "validation_rules": [],
+  "priority_fixes": [
+    {
+      "entity_type": "programs",
+      "missing_count": 1,
+      "priority": "high"
+    },
+    {
+      "entity_type": "divisions",
+      "missing_count": 4,
+      "priority": "high"
+    },
+    {
+      "entity_type": "sections",
+      "missing_count": 16,
+      "priority": "high"
+    },
+    {
+      "entity_type": "paragraphs",
+      "missing_count": 261,
+      "priority": "high"
+    },
+    {
+      "entity_type": "statements",
+      "missing_count": 316,
+      "priority": "high"
+    }
+  ]
+}
