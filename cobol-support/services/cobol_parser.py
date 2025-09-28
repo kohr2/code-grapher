@@ -91,8 +91,9 @@ class COBOLParser:
             return result
     
     def _extract_entities(self, cobol_data: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Extract entities from parsed COBOL data"""
+        """Extract entities from parsed COBOL data with deduplication"""
         entities = []
+        entity_map = {}  # Track entities by name to prevent duplicates
         
         # Extract comments from source file for comment-enhanced descriptions
         file_path = cobol_data.get("file_path", "")
@@ -123,7 +124,10 @@ class COBOLParser:
                 
                 entity['properties'] = entity_props
                 
-            entities.append(entity)
+                # Apply deduplication logic
+                entity = self._deduplicate_entity(entity, entity_map)
+                if entity:
+                    entities.append(entity)
         
         # Extract paragraph entities
         paragraphs = cobol_data.get("paragraphs", {})
@@ -149,11 +153,16 @@ class COBOLParser:
                         if para_name in comments:
                             para_props['comment'] = comments[para_name]
                         
-                        entities.append({
+                        paragraph_entity = {
                             "type": "paragraph",
                             "name": para_name,
                             "properties": para_props
-                        })
+                        }
+                        
+                        # Apply deduplication logic
+                        paragraph_entity = self._deduplicate_entity(paragraph_entity, entity_map)
+                        if paragraph_entity:
+                            entities.append(paragraph_entity)
         
         # Extract data item entities from source code (since ProLeap parser doesn't extract them yet)
         file_path = cobol_data.get("file_path", "")
@@ -161,7 +170,7 @@ class COBOLParser:
             data_items = self._extract_data_items_from_source(file_path)
             for item in data_items:
                 line_number = item["line_number"]
-                entities.append({
+                data_item_entity = {
                     "type": "data_item",
                     "name": item["name"],
                     "properties": {
@@ -175,7 +184,12 @@ class COBOLParser:
                         "start_line": line_number,
                         "end_line": line_number
                     }
-                })
+                }
+                
+                # Apply deduplication logic
+                data_item_entity = self._deduplicate_entity(data_item_entity, entity_map)
+                if data_item_entity:
+                    entities.append(data_item_entity)
         
         # Extract data item entities from parsed data (if available)
         data_items = cobol_data.get("data_items", {})
@@ -202,11 +216,16 @@ class COBOLParser:
                         if item_name in comments:
                             item_props['comment'] = comments[item_name]
                         
-                        entities.append({
+                        data_item_entity = {
                             "type": "data_item",
                             "name": item_name,
                             "properties": item_props
-                        })
+                        }
+                        
+                        # Apply deduplication logic
+                        data_item_entity = self._deduplicate_entity(data_item_entity, entity_map)
+                        if data_item_entity:
+                            entities.append(data_item_entity)
         
         return entities
     
@@ -353,6 +372,62 @@ class COBOLParser:
             print(f"Error extracting data items from {file_path}: {e}")
         
         return data_items
+    
+    def _deduplicate_entity(self, entity: Dict[str, Any], entity_map: Dict[str, Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """
+        Deduplicate entities with the same name and type.
+        For COBOL entities, we merge properties from duplicate instances.
+        """
+        entity_name = entity.get('name', '')
+        entity_type = entity.get('type', '')
+        
+        if not entity_name or not entity_type:
+            return entity
+        
+        # Create a unique key for this entity type and name
+        entity_key = f"{entity_type}:{entity_name}"
+        
+        if entity_key in entity_map:
+            # Entity already exists, merge properties
+            existing_entity = entity_map[entity_key]
+            existing_props = existing_entity.get('properties', {})
+            new_props = entity.get('properties', {})
+            
+            # Merge line information - keep the earliest start_line and latest end_line
+            existing_start = existing_props.get('start_line', 0)
+            existing_end = existing_props.get('end_line', existing_start)
+            new_start = new_props.get('start_line', 0)
+            new_end = new_props.get('end_line', new_start)
+            
+            merged_props = existing_props.copy()
+            merged_props.update(new_props)
+            
+            # Calculate total line count for all instances
+            existing_line_count = existing_props.get('line_count', existing_end - existing_start + 1)
+            new_line_count = new_props.get('line_count', new_end - new_start + 1)
+            total_line_count = existing_line_count + new_line_count
+            
+            # Update line information to span both instances
+            merged_props.update({
+                'start_line': min(existing_start, new_start),
+                'end_line': max(existing_end, new_end),
+                'line': f"{min(existing_start, new_start)}-{max(existing_end, new_end)}",
+                'line_count': total_line_count,
+                'duplicate_instances': merged_props.get('duplicate_instances', 1) + 1,
+                'context': f"{entity_type} with {merged_props.get('duplicate_instances', 1) + 1} instances"
+            })
+            
+            # Update the existing entity in the map
+            existing_entity['properties'] = merged_props
+            entity_map[entity_key] = existing_entity
+            
+            print(f"   🔄 Merged duplicate {entity_type}: {entity_name} (instances: {merged_props['duplicate_instances']})")
+            return None  # Don't add this entity, we merged it with existing
+            
+        else:
+            # New entity, add to map
+            entity_map[entity_key] = entity
+            return entity
     
     def is_available(self) -> bool:
         """Check if COBOL parser is available"""
