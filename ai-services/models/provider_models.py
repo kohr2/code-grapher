@@ -10,6 +10,7 @@ class AIProviderType(Enum):
     """Supported AI provider types"""
     OLLAMA = "ollama"
     GEMINI = "gemini"
+    OPENAI = "openai"
     MOCK = "mock"
 
 

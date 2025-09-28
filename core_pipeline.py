@@ -146,9 +146,9 @@ def generate_code_descriptions(parsed_files: List[Dict[str, Any]], project_root:
             
             print(f"   📄 Describing entities in {file_path}")
             
-            # Generate descriptions for functions and classes
+            # Generate descriptions for functions, classes, and COBOL entities
             for entity in entities:
-                if entity.get("type") in ["function", "class"]:
+                if entity.get("type") in ["function", "class", "program", "compilation_unit", "file", "paragraph", "data_item"]:
                     entity_name = entity["name"]
                     
                     # Prepare entity data for AI service
@@ -161,8 +161,13 @@ def generate_code_descriptions(parsed_files: List[Dict[str, Any]], project_root:
                     }
                     
                     try:
-                        # Generate description using AI service
-                        description = ai_service.generate_description(entity_data, primer_context)
+                        # Get the source code snippet for this entity
+                        code_snippet = _get_entity_code_snippet(file_path, entity)
+                        
+                        # Generate description using AI service with source code
+                        description = _generate_entity_description(
+                            ai_service, entity_name, entity['type'], code_snippet, primer_context
+                        )
                         descriptions[file_path][entity_name] = description
                         
                         print(f"     🎯 {entity['type']}: {entity_name}")
@@ -193,16 +198,25 @@ def _get_entity_code_snippet(file_path: str, entity: Dict[str, Any]) -> str:
         with open(file_path, 'r', encoding='utf-8') as f:
             lines = f.read().split('\n')
         
+        entity_type = entity.get("type", "unknown")
         start_line = entity.get("line", 1) - 1  # Convert to 0-based indexing
-        end_line = min(start_line + 10, len(lines))  # Limit snippet size
         
-        snippet = '\n'.join(lines[start_line:end_line])
+        # For COBOL programs, show more context to understand the program structure
+        if entity_type in ["program", "compilation_unit"]:
+            # Show the first 20 lines to get program structure
+            end_line = min(20, len(lines))
+            snippet = '\n'.join(lines[0:end_line])
+        else:
+            # For other entities, show around the entity location
+            end_line = min(start_line + 10, len(lines))
+            snippet = '\n'.join(lines[start_line:end_line])
+        
         return snippet
     except Exception:
         return f"{entity.get('type', 'entity')} {entity.get('name', 'unknown')}"
 
 
-def _generate_entity_description(ai_client, entity_name: str, entity_type: str, code_snippet: str, primer_context: str = "") -> str:
+def _generate_entity_description(ai_service, entity_name: str, entity_type: str, code_snippet: str, primer_context: str = "") -> str:
     """Generate a concise description of a code entity using AI with business context"""
     
     # Build prompt with optional business context
@@ -214,11 +228,14 @@ def _generate_entity_description(ai_client, entity_name: str, entity_type: str, 
 
 ---""")
     
+    # Determine the code language for syntax highlighting
+    code_lang = "cobol" if entity_type in ["program", "compilation_unit"] else "python"
+    
     prompt_parts.append(f"""Analyze this {entity_type} and provide a concise 1-2 sentence description of what it does:
 
 {entity_type.title()}: {entity_name}
 Code:
-```python
+```{code_lang}
 {code_snippet}
 ```
 
@@ -232,20 +249,20 @@ Provide a clear, concise description focusing on the purpose and functionality."
     prompt = "\n\n".join(prompt_parts)
 
     try:
-        # Use appropriate method based on client type
-        if hasattr(ai_client, 'chat'):
-            response = ai_client.chat(prompt)
-        elif hasattr(ai_client, 'generate_text'):
-            result = ai_client.generate_text(prompt)
-            response = result.get('response', '') if result.get('success') else ''
+        # Use the AI service to generate description
+        entity_data = {
+            'name': entity_name,
+            'type': entity_type,
+            'code_snippet': code_snippet
+        }
+        description = ai_service.generate_description(entity_data, primer_context)
+        if description and description.strip():
+            # Remove quotes if the AI wrapped the response in them
+            if description.startswith('"') and description.endswith('"'):
+                description = description[1:-1]
+            return description
         else:
-            return f"AI description for {entity_name}"
-        # Clean up the response
-        description = response.strip()
-        # Remove quotes if the AI wrapped the response in them
-        if description.startswith('"') and description.endswith('"'):
-            description = description[1:-1]
-        return description
+            return f"A {entity_type} named {entity_name}"
     except Exception as e:
         return f"A {entity_type} named {entity_name}"
 
@@ -413,89 +430,6 @@ def parse_and_extract_entities(file_paths: List[str]) -> List[Dict[str, Any]]:
     
     return parsed_files
 
-
-
-def extract_enhanced_relationships(parsed_files: List[Dict[str, Any]], 
-                                 use_ai: bool = True) -> List[RelationshipExtraction]:
-    """Extract relationships using enhanced AI with specialized entity awareness"""
-    print(f"🤖 Extracting enhanced relationships (AI enabled: {use_ai})...")
-    
-    if not use_ai:
-        print("   ⚠️  AI disabled, using basic import relationships only")
-        return []
-    
-    try:
-        # Get AI service for relationship extraction
-        ai_service = get_ai_service()
-        
-        all_relationships = []
-        successful_files = [f for f in parsed_files if f["success"]]
-        
-        # Extract relationships between all file pairs
-        for i, source_file in enumerate(successful_files):
-            for j, target_file in enumerate(successful_files):
-                if i != j:  # Don't compare file with itself
-                    print(f"   🔍 Analyzing: {Path(source_file['file_path']).name} -> {Path(target_file['file_path']).name}")
-                    
-                    try:
-                        # Get entity types for specialized relationship detection
-                        source_entities = source_file.get("entities", [])
-                        target_entities = target_file.get("entities", [])
-                        
-                        # Extract relationships using AI service
-                        result = ai_service.extract_relationships(
-                            source_file['file_path'], 
-                            target_file['file_path'],
-                            source_file.get('content', ''),
-                            target_file.get('content', '')
-                        )
-                        
-                        # Convert to legacy format for compatibility
-                        relationships = []
-                        if result.success:
-                            for rel in result.relationships:
-                                # Create RelationshipExtraction object for compatibility
-                                rel_extraction = RelationshipExtraction(
-                                    source_file=rel.source_file,
-                                    target_file=rel.target_file,
-                                    source_entity=rel.source_entity,
-                                    target_entity=rel.target_entity,
-                                    relationship_type=rel.relationship_type,
-                                    confidence=rel.confidence,
-                                    relationship_strength=rel.confidence_level.value,
-                                    line_number=rel.line_number,
-                                    context=rel.context
-                                )
-                                relationships.append(rel_extraction)
-                        
-                        all_relationships.extend(relationships)
-                        
-                        if relationships:
-                            print(f"      ✅ Found {len(relationships)} enhanced relationships")
-                        else:
-                            print(f"      ➖ No relationships found")
-                    
-                    except Exception as e:
-                        print(f"      ❌ Error analyzing {Path(source_file['file_path']).name}: {e}")
-                        
-                        # Log extraction failure
-                        logger.logger.error(f"Failed to extract relationships from {Path(source_file['file_path']).name}: {str(e)}")
-        
-        print(f"   ✅ Total enhanced relationships extracted: {len(all_relationships)}")
-        return all_relationships
-        
-    except Exception as e:
-        print(f"   ❌ Enhanced relationship extraction failed: {e}")
-        
-        # Log overall system failure
-        logger.logger.error(f"Enhanced relationship extraction system failed: {str(e)}")
-        
-        return []
-
-
-def extract_relationships_for_entities_DEPRECATED():
-    """Deprecated function - no longer used"""
-    pass
 
 
 def extract_code_snippet(file_content: str, start_line: int, entity_type: str, max_lines: int = 20) -> str:
@@ -716,6 +650,7 @@ def create_enhanced_graph_with_entities(parsed_files: List[Dict[str, Any]],
                 if code_descriptions and file_path in code_descriptions:
                     entity_description = code_descriptions[file_path].get(entity_name)
                     if entity_description:
+                        entity_properties["description"] = entity_description
                         entity_properties["ai_description"] = entity_description
                         # Add code snippet for better search/retrieval
                         entity_properties["code_snippet"] = _get_entity_code_snippet(file_path, entity)

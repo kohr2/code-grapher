@@ -4,8 +4,8 @@ Description generation service for AI-powered entity descriptions
 import time
 from typing import Dict, Any, Optional, List
 from pathlib import Path
-from description_generator_interface import DescriptionGeneratorInterface
-from ai_provider_interface import AIProviderInterface
+from ..interfaces.description_generator_interface import DescriptionGeneratorInterface
+from ..interfaces.ai_provider_interface import AIProviderInterface
 from shared.interfaces.logger_interface import LoggerInterface
 
 
@@ -138,8 +138,29 @@ class DescriptionService(DescriptionGeneratorInterface):
         prompt = f"Generate a concise, technical description for this {entity_type}:\n\n"
         prompt += f"Name: {entity_name}\n"
         
-        # Add entity-specific information
-        if entity_type == 'function':
+        # Add COBOL-specific comment information if available
+        if entity_type in ['paragraph', 'data_item', 'compilation_unit', 'program']:
+            # Check for COBOL comments in properties
+            if 'comment' in properties and properties['comment']:
+                prompt += f"Developer Comment: {properties['comment']}\n"
+            elif 'comments' in properties and properties['comments']:
+                comments_text = ' '.join(properties['comments']) if isinstance(properties['comments'], list) else str(properties['comments'])
+                prompt += f"Developer Comments: {comments_text}\n"
+            
+            # Add COBOL-specific context
+            if entity_type == 'paragraph':
+                prompt += f"Purpose: This is a COBOL paragraph. Use the comment above to describe its specific function.\n"
+            elif entity_type == 'data_item':
+                prompt += f"Purpose: This is a COBOL data item. Use the comment above to describe its purpose and usage.\n"
+                if 'data_type' in properties:
+                    prompt += f"Data Type: {properties['data_type']}\n"
+                if 'picture' in properties:
+                    prompt += f"Picture Clause: {properties['picture']}\n"
+            elif entity_type in ['compilation_unit', 'program']:
+                prompt += f"Purpose: This is a COBOL program/compilation unit. Use the comment above to describe its overall purpose.\n"
+        
+        # Add entity-specific information for non-COBOL entities
+        elif entity_type == 'function':
             prompt += f"Purpose: Analyze this function and describe its primary purpose and functionality.\n"
             if 'parameters' in properties:
                 prompt += f"Parameters: {properties['parameters']}\n"
@@ -166,7 +187,12 @@ class DescriptionService(DescriptionGeneratorInterface):
         if business_context:
             prompt += f"\nBusiness Context:\n{business_context[:500]}...\n"
         
-        prompt += f"\nGenerate a clear, concise description (1-2 sentences) that explains the {entity_type}'s purpose and role in the codebase."
+        # Customize prompt based on entity type and comment availability
+        if entity_type in ['paragraph', 'data_item', 'compilation_unit', 'program'] and ('comment' in properties or 'comments' in properties):
+            prompt += f"\nGenerate a clear, concise description (1-2 sentences) that incorporates the developer's comment above to explain the {entity_type}'s specific purpose and functionality."
+            prompt += f" The comment should be the primary source of information about what this {entity_type} does."
+        else:
+            prompt += f"\nGenerate a clear, concise description (1-2 sentences) that explains the {entity_type}'s purpose and role in the codebase."
         
         if business_context:
             prompt += " Consider the business context when explaining its significance."

@@ -22,12 +22,10 @@ from core.config.orchestration_config import RAGConfig
 
 # Import AI evaluation tracker
 try:
-    from ai_evaluation_tracker import ai_tracker, EvaluationCategory, Sentiment
+    from ai_evaluation_tracker import ai_tracker
 except ImportError:
     # Fallback for missing AI tracker
     ai_tracker = None
-    EvaluationCategory = None
-    Sentiment = None
 
 # Import AI service for semantic search
 import sys
@@ -207,12 +205,18 @@ class RAGService(RAGServiceInterface):
             self.logger.log_info(f"Created embeddings for {total_embedded} entities in {execution_time:.2f} seconds")
 
             # Track with AI evaluation if available
-            if ai_tracker and EvaluationCategory:
-                ai_tracker.track_evaluation(
-                    EvaluationCategory.EMBEDDING_CREATION,
-                    {"entity_count": total_embedded, "execution_time": execution_time},
-                    Sentiment.POSITIVE if total_embedded > 0 else Sentiment.NEUTRAL,
-                )
+            if ai_tracker:
+                try:
+                    if hasattr(ai_tracker, "track_operation"):
+                        ai_tracker.track_operation(
+                            "EMBEDDING_CREATION",
+                            {
+                                "entity_count": total_embedded,
+                                "execution_time": execution_time,
+                            },
+                        )
+                except Exception as e:
+                    self.logger.log_warning(f"AI tracker error: {e}")
 
             return result
 
@@ -279,18 +283,7 @@ class RAGService(RAGServiceInterface):
             # Track with AI evaluation if available
             if ai_tracker:
                 try:
-                    if hasattr(ai_tracker, "track_evaluation"):
-                        ai_tracker.track_evaluation(
-                            EvaluationCategory.RAG_QUERY if EvaluationCategory else "RAG_QUERY",
-                            {
-                                "query": query.query,
-                                "result_count": len(results),
-                                "execution_time": execution_time,
-                                "hybrid_search": query.use_hybrid,
-                            },
-                            Sentiment.POSITIVE if Sentiment and results else "POSITIVE",
-                        )
-                    elif hasattr(ai_tracker, "track_operation"):
+                    if hasattr(ai_tracker, "track_operation"):
                         ai_tracker.track_operation(
                             "RAG_QUERY",
                             {

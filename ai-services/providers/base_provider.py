@@ -3,8 +3,8 @@ Base provider implementation with common functionality
 """
 from abc import ABC
 from typing import Any, Dict, List, Optional
-from ai_provider_interface import AIProviderInterface
-from provider_models import AIResponse, ProviderConfig
+from ..interfaces.ai_provider_interface import AIProviderInterface
+from ..models.provider_models import AIResponse, ProviderConfig
 from shared.interfaces.logger_interface import LoggerInterface
 
 

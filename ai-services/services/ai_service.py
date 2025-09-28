@@ -1,8 +1,17 @@
 """
 Main AI service orchestrator that coordinates all AI functionality
 """
+import os
 import time
 from typing import Any, Dict, List, Optional
+
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # dotenv not available, continue without it
+    pass
 from ..interfaces.ai_services_interface import AIServicesInterface
 from ..interfaces.ai_provider_interface import AIProviderInterface
 from .relationship_service import RelationshipService
@@ -10,6 +19,7 @@ from .description_service import DescriptionService
 from .evaluation_service import EvaluationService
 from ..providers.ollama_provider import OllamaProvider
 from ..providers.gemini_provider import GeminiProvider
+from ..providers.openai_provider import OpenAIProvider
 from ..providers.mock_provider import MockProvider
 from ..models.provider_models import ProviderConfig, AIProviderType
 from ..models.relationship_models import RelationshipExtractionResult
@@ -155,8 +165,12 @@ class AIService(AIServicesInterface, ServiceInterface):
                     {"timestamp": start_time}
                 )
             
+            # Optimize COBOL content to reduce prompt size
+            optimized_source_code = self._optimize_cobol_content(source_file, source_code, target_file)
+            optimized_target_code = self._optimize_cobol_content(target_file, target_code, source_file)
+            
             result = self._relationship_service.extract_relationships(
-                source_file, target_file, source_code, target_code
+                source_file, target_file, optimized_source_code, optimized_target_code
             )
             
             # Track completion
@@ -196,6 +210,41 @@ class AIService(AIServicesInterface, ServiceInterface):
                 success=False,
                 error=str(e)
             )
+    
+    def _optimize_cobol_content(self, file_path: str, content: str, target_file: str) -> str:
+        """Optimize COBOL content for AI processing by extracting relevant sections"""
+        try:
+            # Check if this is a COBOL file
+            if not file_path.lower().endswith(('.cbl', '.cob', '.cobol')):
+                return content
+            
+            # Import COBOL section extractor
+            from cobol_support.services.cobol_section_extractor import create_optimized_cobol_content
+            
+            # Extract target entities from the target file name
+            target_entities = []
+            if target_file:
+                target_name = os.path.splitext(os.path.basename(target_file))[0]
+                target_entities.append(target_name)
+            
+            # Create optimized content (max 200 lines)
+            optimized_content = create_optimized_cobol_content(content, target_entities, max_lines=200)
+            
+            # Log the optimization
+            original_lines = len(content.split('\n'))
+            optimized_lines = len(optimized_content.split('\n'))
+            reduction_percent = ((original_lines - optimized_lines) / original_lines) * 100 if original_lines > 0 else 0
+            
+            if self.logger:
+                self.logger.log_info(f"COBOL optimization: {file_path} reduced from {original_lines} to {optimized_lines} lines ({reduction_percent:.1f}% reduction)")
+            
+            return optimized_content
+            
+        except Exception as e:
+            # If optimization fails, return original content
+            if self.logger:
+                self.logger.log_warning(f"COBOL optimization failed for {file_path}: {e}, using original content")
+            return content
     
     def generate_description(self, entity: Dict[str, Any], context: Optional[str] = None) -> str:
         """Generate AI-powered description for entity"""
@@ -347,6 +396,25 @@ class AIService(AIServicesInterface, ServiceInterface):
             except Exception as e:
                 if self.logger:
                     self.logger.log_warning(f"Failed to initialize Gemini provider: {e}")
+        
+        # Initialize OpenAI provider if API key available
+        if self.config.openai_api_key:
+            try:
+                openai_config = ProviderConfig(
+                    provider_type=AIProviderType.OPENAI,
+                    api_key=self.config.openai_api_key,
+                    model_name=self.config.openai_model,
+                    base_url=self.config.openai_base_url,
+                    timeout=self.config.timeout_seconds,
+                    max_retries=self.config.max_retries
+                )
+                openai_provider = OpenAIProvider(openai_config, self.logger)
+                openai_provider.initialize({})
+                self._providers[AIProviderType.OPENAI] = openai_provider
+                
+            except Exception as e:
+                if self.logger:
+                    self.logger.log_warning(f"Failed to initialize OpenAI provider: {e}")
         
         # Always initialize mock provider for testing
         try:

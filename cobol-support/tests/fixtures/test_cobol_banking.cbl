@@ -1,0 +1,163 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. BANKING-SYSTEM.
+       AUTHOR. CODE-GRAPHER-TEST.
+       DATE-WRITTEN. 2025-01-27.
+       
+       ENVIRONMENT DIVISION.
+       CONFIGURATION SECTION.
+       SOURCE-COMPUTER. IBM-3090.
+       OBJECT-COMPUTER. IBM-3090.
+       
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       
+       01  WS-ACCOUNT-DATA.
+           05  WS-ACCOUNT-NUMBER    PIC X(10).
+           05  WS-ACCOUNT-TYPE      PIC X(2).
+           05  WS-ACCOUNT-BALANCE  PIC 9(10)V99.
+           05  WS-ACCOUNT-STATUS   PIC X(1).
+       
+       01  WS-TRANSACTION-DATA.
+           05  WS-TRANS-TYPE       PIC X(2).
+           05  WS-TRANS-AMOUNT     PIC 9(10)V99.
+           05  WS-TRANS-DATE       PIC X(8).
+           05  WS-TRANS-REF        PIC X(20).
+       
+       01  WS-CUSTOMER-DATA.
+           05  WS-CUSTOMER-ID      PIC X(8).
+           05  WS-CUSTOMER-NAME    PIC X(40).
+           05  WS-CUSTOMER-STATUS  PIC X(1).
+       
+       01  WS-SYSTEM-FLAGS.
+           05  WS-VALID-ACCOUNT    PIC X(1) VALUE 'N'.
+           05  WS-VALID-CUSTOMER   PIC X(1) VALUE 'N'.
+           05  WS-SUFFICIENT-FUNDS PIC X(1) VALUE 'N'.
+       
+       01  WS-ERROR-MESSAGES.
+           05  WS-ERROR-CODE       PIC X(4).
+           05  WS-ERROR-MESSAGE    PIC X(60).
+       
+       01  WS-CONSTANTS.
+           05  WS-ACCOUNT-TYPES.
+               10  WS-CHECKING     PIC X(2) VALUE 'CH'.
+               10  WS-SAVINGS      PIC X(2) VALUE 'SV'.
+               10  WS-LOAN         PIC X(2) VALUE 'LN'.
+           05  WS-TRANS-TYPES.
+               10  WS-DEPOSIT      PIC X(2) VALUE 'DP'.
+               10  WS-WITHDRAWAL   PIC X(2) VALUE 'WD'.
+               10  WS-TRANSFER     PIC X(2) VALUE 'TR'.
+       
+       LINKAGE SECTION.
+       
+       01  LK-INPUT-PARAMETERS.
+           05  LK-FUNCTION-CODE   PIC X(2).
+           05  LK-ACCOUNT-NUMBER  PIC X(10).
+           05  LK-AMOUNT          PIC 9(10)V99.
+       
+       01  LK-OUTPUT-PARAMETERS.
+           05  LK-RETURN-CODE     PIC X(2).
+           05  LK-RETURN-MESSAGE  PIC X(60).
+           05  LK-NEW-BALANCE     PIC 9(10)V99.
+       
+       PROCEDURE DIVISION USING LK-INPUT-PARAMETERS, LK-OUTPUT-PARAMETERS.
+       
+       MAIN-PROCESSING SECTION.
+       
+       0000-MAIN-LOGIC.
+           PERFORM 1000-INITIALIZE
+           PERFORM 2000-VALIDATE-INPUT
+           IF WS-VALID-ACCOUNT = 'Y'
+               PERFORM 3000-PROCESS-TRANSACTION
+           END-IF
+           PERFORM 9000-CLEANUP
+           GOBACK.
+       
+       1000-INITIALIZE.
+           MOVE SPACES TO WS-ERROR-MESSAGES
+           MOVE 'N' TO WS-VALID-ACCOUNT
+           MOVE 'N' TO WS-VALID-CUSTOMER
+           MOVE 'N' TO WS-SUFFICIENT-FUNDS
+           MOVE LK-ACCOUNT-NUMBER TO WS-ACCOUNT-NUMBER
+           MOVE LK-AMOUNT TO WS-TRANS-AMOUNT
+           MOVE LK-FUNCTION-CODE TO WS-TRANS-TYPE.
+       
+       2000-VALIDATE-INPUT.
+           PERFORM 2100-VALIDATE-ACCOUNT
+           IF WS-VALID-ACCOUNT = 'Y'
+               PERFORM 2200-VALIDATE-CUSTOMER
+           END-IF.
+       
+       2100-VALIDATE-ACCOUNT.
+           IF LK-ACCOUNT-NUMBER = SPACES
+               MOVE 'AC01' TO WS-ERROR-CODE
+               MOVE 'ACCOUNT NUMBER IS REQUIRED' TO WS-ERROR-MESSAGE
+           ELSE
+               IF LK-ACCOUNT-NUMBER IS NUMERIC
+                   MOVE 'Y' TO WS-VALID-ACCOUNT
+               ELSE
+                   MOVE 'AC02' TO WS-ERROR-CODE
+                   MOVE 'ACCOUNT NUMBER MUST BE NUMERIC' TO WS-ERROR-MESSAGE
+               END-IF
+           END-IF.
+       
+       2200-VALIDATE-CUSTOMER.
+           PERFORM 2210-LOOKUP-CUSTOMER
+           IF WS-VALID-CUSTOMER = 'N'
+               MOVE 'CU01' TO WS-ERROR-CODE
+               MOVE 'CUSTOMER NOT FOUND' TO WS-ERROR-MESSAGE
+           END-IF.
+       
+       2210-LOOKUP-CUSTOMER.
+           MOVE 'Y' TO WS-VALID-CUSTOMER.
+       
+       3000-PROCESS-TRANSACTION.
+           EVALUATE WS-TRANS-TYPE
+               WHEN WS-DEPOSIT
+                   PERFORM 3100-PROCESS-DEPOSIT
+               WHEN WS-WITHDRAWAL
+                   PERFORM 3200-PROCESS-WITHDRAWAL
+               WHEN WS-TRANSFER
+                   PERFORM 3300-PROCESS-TRANSFER
+               WHEN OTHER
+                   MOVE 'TR01' TO WS-ERROR-CODE
+                   MOVE 'INVALID TRANSACTION TYPE' TO WS-ERROR-MESSAGE
+           END-EVALUATE.
+       
+       3100-PROCESS-DEPOSIT.
+           ADD WS-TRANS-AMOUNT TO WS-ACCOUNT-BALANCE
+           MOVE '00' TO LK-RETURN-CODE
+           MOVE 'DEPOSIT PROCESSED SUCCESSFULLY' TO LK-RETURN-MESSAGE
+           MOVE WS-ACCOUNT-BALANCE TO LK-NEW-BALANCE.
+       
+       3200-PROCESS-WITHDRAWAL.
+           PERFORM 3210-CHECK-SUFFICIENT-FUNDS
+           IF WS-SUFFICIENT-FUNDS = 'Y'
+               SUBTRACT WS-TRANS-AMOUNT FROM WS-ACCOUNT-BALANCE
+               MOVE '00' TO LK-RETURN-CODE
+               MOVE 'WITHDRAWAL PROCESSED SUCCESSFULLY' TO LK-RETURN-MESSAGE
+               MOVE WS-ACCOUNT-BALANCE TO LK-NEW-BALANCE
+           ELSE
+               MOVE 'TR02' TO LK-RETURN-CODE
+               MOVE 'INSUFFICIENT FUNDS' TO LK-RETURN-MESSAGE
+           END-IF.
+       
+       3210-CHECK-SUFFICIENT-FUNDS.
+           IF WS-ACCOUNT-BALANCE >= WS-TRANS-AMOUNT
+               MOVE 'Y' TO WS-SUFFICIENT-FUNDS
+           ELSE
+               MOVE 'N' TO WS-SUFFICIENT-FUNDS
+           END-IF.
+       
+       3300-PROCESS-TRANSFER.
+           PERFORM 3200-PROCESS-WITHDRAWAL
+           IF LK-RETURN-CODE = '00'
+               MOVE 'TRANSFER PROCESSED SUCCESSFULLY' TO LK-RETURN-MESSAGE
+           END-IF.
+       
+       9000-CLEANUP.
+           IF WS-ERROR-CODE NOT = SPACES
+               MOVE WS-ERROR-CODE TO LK-RETURN-CODE
+               MOVE WS-ERROR-MESSAGE TO LK-RETURN-MESSAGE
+           END-IF.
+       
+       END PROGRAM BANKING-SYSTEM.

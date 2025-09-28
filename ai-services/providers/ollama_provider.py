@@ -3,8 +3,8 @@ Ollama provider implementation that wraps the existing ollama_client.py
 """
 import time
 from typing import Any, Dict, List, Optional
-from base_provider import BaseAIProvider
-from provider_models import AIResponse, ProviderConfig, AIProviderType
+from .base_provider import BaseAIProvider
+from ..models.provider_models import AIResponse, ProviderConfig, AIProviderType
 from shared.interfaces.logger_interface import LoggerInterface
 
 
@@ -91,18 +91,39 @@ class OllamaProvider(BaseAIProvider):
         try:
             entity_type = entity.get('type', 'unknown')
             entity_name = entity.get('name', 'unnamed')
+            code_snippet = entity.get('code_snippet', '')
             
-            # Create specialized prompt for entity description
-            prompt = f"Generate a concise technical description for this {entity_type}:\n"
-            prompt += f"Name: {entity_name}\n"
-            
-            if 'properties' in entity:
-                prompt += f"Properties: {entity['properties']}\n"
-            
-            if context:
-                prompt += f"Business Context: {context}\n"
-            
-            prompt += f"\nProvide a clear, technical description in 1-2 sentences."
+            # Create business-focused prompt for COBOL entities
+            if entity_type in ['program', 'compilation_unit'] or 'COBOL' in str(context or ''):
+                prompt = f"""Analyze this COBOL banking system component and describe its specific business logic:
+
+Entity: {entity_name}
+Type: {entity_type}
+
+Code Context:
+{code_snippet[:500] if code_snippet else 'No code snippet available'}
+
+Business Context: {context or 'Banking system for account management, interest calculation, and reporting'}
+
+Based on the entity name and context, describe the SPECIFIC business function this component performs in the banking system. Focus on:
+- What specific banking operation it handles
+- What data it processes
+- What business rules it implements
+- What output it produces
+
+Provide a concise, specific description in 1-2 sentences that explains the actual business purpose, not generic technical details."""
+            else:
+                # Generic prompt for non-COBOL entities
+                prompt = f"Generate a concise technical description for this {entity_type}:\n"
+                prompt += f"Name: {entity_name}\n"
+                
+                if 'properties' in entity:
+                    prompt += f"Properties: {entity['properties']}\n"
+                
+                if context:
+                    prompt += f"Business Context: {context}\n"
+                
+                prompt += f"\nProvide a clear, technical description in 1-2 sentences."
             
             response = self.generate_text(prompt)
             return response.content if response.success else f"Description generation failed: {response.error}"

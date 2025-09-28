@@ -21,9 +21,16 @@ class GraphManagerFacade(GraphOperationsInterface, ServiceInterface):
         """Lazily initialize the legacy manager"""
         if self._legacy_manager is None:
             # Import here to avoid circular dependencies
-            from graph_manager import CodeGraphManager
-
-            self._legacy_manager = CodeGraphManager()
+            # Try V2 first (uses neo4j driver), fallback to V1 (uses py2neo)
+            try:
+                from graph_manager_v2 import CodeGraphManagerV2
+                self._legacy_manager = CodeGraphManagerV2()
+            except ImportError:
+                try:
+                    from graph_manager import CodeGraphManager
+                    self._legacy_manager = CodeGraphManager()
+                except ImportError as e:
+                    raise ImportError(f"Could not import any graph manager: {e}")
 
     def initialize(self, config: Dict[str, Any]) -> None:
         """Initialize the service with configuration"""
@@ -87,28 +94,40 @@ class GraphManagerFacade(GraphOperationsInterface, ServiceInterface):
         """Add a relationship between entities"""
         self._ensure_manager()
         try:
-            # Find source and target nodes
-            source_node = self._legacy_manager.find_entity("unknown", source_entity)
-            target_node = self._legacy_manager.find_entity("unknown", target_entity)
+            if self.logger:
+                self.logger.log_info(f"Adding relationship: {source_entity} -{relationship_type}-> {target_entity}")
+            
+            # Find source and target nodes by name across all entity types
+            source_node = self._find_entity_by_name(source_entity)
+            target_node = self._find_entity_by_name(target_entity)
 
-            # Create missing nodes automatically
+            if self.logger:
+                if source_node:
+                    self.logger.log_info(f"Found source node: {source_entity}")
+                else:
+                    self.logger.log_warning(f"Source node not found: {source_entity}")
+                
+                if target_node:
+                    self.logger.log_info(f"Found target node: {target_entity}")
+                else:
+                    self.logger.log_warning(f"Target node not found: {target_entity}")
+
+            # Create missing entities on-the-fly instead of skipping relationships
             if not source_node:
                 if self.logger:
-                    self.logger.log_info(f"Creating missing source node: {source_entity}")
-                source_node = self._legacy_manager.create_code_entity(
-                    entity_type="inferred",
-                    name=source_entity,
-                    properties={"inferred": True, "created_for_relationship": True, "file_path": "unknown"},
-                )
+                    self.logger.log_info(f"Creating missing source entity: {source_entity}")
+                source_node = self._create_missing_entity(source_entity)
 
             if not target_node:
                 if self.logger:
-                    self.logger.log_info(f"Creating missing target node: {target_entity}")
-                target_node = self._legacy_manager.create_code_entity(
-                    entity_type="inferred",
-                    name=target_entity,
-                    properties={"inferred": True, "created_for_relationship": True, "file_path": "unknown"},
-                )
+                    self.logger.log_info(f"Creating missing target entity: {target_entity}")
+                target_node = self._create_missing_entity(target_entity)
+
+            # Skip if we still can't create the entities
+            if not source_node or not target_node:
+                if self.logger:
+                    self.logger.log_warning(f"Skipping relationship - could not create entities: {source_entity} -> {target_entity}")
+                return None
 
             # Create relationship between nodes
             result = self._legacy_manager.create_relationship(
@@ -320,3 +339,157 @@ class GraphManagerFacade(GraphOperationsInterface, ServiceInterface):
                 if self.logger:
                     self.logger.log_error(f"Error closing connection: {e}")
                 raise
+
+    def _find_entity_by_name(self, entity_name: str) -> Any:
+        """Find an entity by name across all entity types"""
+        self._ensure_manager()
+        try:
+            if self.logger:
+                self.logger.log_debug(f"Searching for entity: {entity_name}")
+            
+            # Handle prefixed entity names (e.g., "PROGRAM:ERROR-HANDLING" -> "ERROR-HANDLING")
+            actual_name = entity_name
+            suggested_type = None
+            if ":" in entity_name:
+                parts = entity_name.split(":", 1)
+                if len(parts) == 2:
+                    suggested_type = parts[0].lower()
+                    actual_name = parts[1]
+                    if self.logger:
+                        self.logger.log_debug(f"Extracted type '{suggested_type}' and name '{actual_name}' from '{entity_name}'")
+            
+            # Use the legacy manager's find_entity method with common entity types
+            if hasattr(self._legacy_manager, 'find_entity'):
+                # Try common entity types that are likely to exist
+                entity_types = ["function", "class", "interface", "variable", "import", "import_from", "file", 
+                              "program", "compilation_unit", "paragraph", "data_item", "screen", "queue", "inferred"]
+                
+                # If we extracted a type from the name, try that first
+                if suggested_type and suggested_type in entity_types:
+                    entity_types = [suggested_type] + [t for t in entity_types if t != suggested_type]
+                
+                for entity_type in entity_types:
+                    try:
+                        if self.logger:
+                            self.logger.log_debug(f"Trying to find '{actual_name}' as {entity_type}")
+                        found = self._legacy_manager.find_entity(entity_type, actual_name)
+                        if found:
+                            if self.logger:
+                                self.logger.log_debug(f"Found '{actual_name}' as {entity_type}")
+                            return found
+                    except Exception as e:
+                        if self.logger:
+                            self.logger.log_debug(f"Error finding '{actual_name}' as {entity_type}: {e}")
+                        # Continue to next entity type if this one fails
+                        continue
+            
+            # Fallback: try direct Cypher query if available
+            if hasattr(self._legacy_manager, 'graph') and hasattr(self._legacy_manager.graph, 'run'):
+                try:
+                    # Query across all node types by name
+                    cypher = "MATCH (n) WHERE n.name = $entity_name RETURN n LIMIT 1"
+                    result = self._legacy_manager.graph.run(cypher, entity_name=entity_name).data()
+                    if result:
+                        return result[0]["n"]
+                except Exception:
+                    pass
+            
+            return None
+        except Exception as e:
+            if self.logger:
+                self.logger.log_warning(f"Error finding entity {entity_name}: {e}")
+            return None
+
+    def _create_missing_entity(self, entity_name: str) -> Any:
+        """Create a missing entity on-the-fly when referenced in relationships"""
+        self._ensure_manager()
+        try:
+            if self.logger:
+                self.logger.log_info(f"Creating missing entity: {entity_name}")
+            
+            # Determine entity type based on name patterns
+            entity_type = self._infer_entity_type(entity_name)
+            
+            # Create basic properties for the missing entity
+            properties = {
+                "name": entity_name,
+                "created_on_demand": True,
+                "source": "relationship_reference",
+                "file_path": "unknown",  # We don't know the file for inferred entities
+                "line": 0
+            }
+            
+            # Create the entity using the legacy manager
+            if hasattr(self._legacy_manager, 'create_code_entity'):
+                entity_node = self._legacy_manager.create_code_entity(entity_type, entity_name, properties)
+                if self.logger:
+                    self.logger.log_info(f"Created missing entity: {entity_type}:{entity_name}")
+                return entity_node
+            else:
+                if self.logger:
+                    self.logger.log_warning(f"Cannot create missing entity - legacy manager has no create_code_entity method")
+                return None
+                
+        except Exception as e:
+            if self.logger:
+                self.logger.log_error(f"Failed to create missing entity '{entity_name}': {e}")
+            return None
+
+    def _infer_entity_type(self, entity_name: str) -> str:
+        """Infer the entity type based on the entity name"""
+        # Clean up the entity name
+        clean_name = entity_name.strip()
+        
+        # COBOL paragraph patterns
+        if (clean_name.startswith("PERFORM_") or 
+            clean_name.startswith("PARAGRAPH-") or 
+            clean_name.startswith("PARA-") or
+            clean_name.startswith("SECTION-") or 
+            clean_name.startswith("SEC-") or
+            # Numeric paragraph references (common in COBOL) - but not single digits
+            (clean_name.isdigit() and len(clean_name) > 1) or
+            # Paragraph names with hyphens and numbers
+            ("-" in clean_name and any(c.isdigit() for c in clean_name))):
+            return "paragraph"
+        
+        # COBOL data item patterns
+        elif (clean_name.startswith("WS-") or 
+              clean_name.startswith("WORKING-STORAGE") or
+              clean_name.startswith("FD-") or 
+              clean_name.startswith("FILE-") or
+              clean_name.startswith("TRANS-") or  # Transaction data items
+              clean_name.startswith("CARD-") or   # Card-related data items
+              clean_name in ["type", "text", "line", "unit", "value", "data"] or
+              # Literal values (quoted strings)
+              (clean_name.startswith("'") and clean_name.endswith("'")) or
+              # Single character literals and single digits
+              (len(clean_name) == 1 and (clean_name.isalpha() or clean_name.isdigit())) or
+              # Common COBOL literals
+              clean_name in ["0", "1", "N", "Y", "HIGH", "LOW", "OPEN", "SYSTEM"]):
+            return "data_item"
+        
+        # COBOL program patterns
+        elif (clean_name.startswith("PROGRAM-") or 
+              clean_name.startswith("PROG-") or
+              clean_name.endswith("-PROGRAM")):
+            return "program"
+        
+        # COBOL file patterns
+        elif (clean_name.startswith("FD-") or 
+              clean_name.startswith("FILE-") or
+              clean_name.endswith("-FILE")):
+            return "file"
+        
+        else:
+            # For malformed names or unknown patterns, try to infer based on content
+            if (clean_name.startswith("'") or 
+                clean_name.startswith(" ") or  # Malformed names often start with space
+                len(clean_name) > 50):  # Very long names are likely malformed
+                # Likely a malformed data item or literal
+                return "data_item"
+            elif any(char.isdigit() for char in clean_name) and len(clean_name) <= 10:
+                # Likely a paragraph number or reference
+                return "paragraph"
+            else:
+                # Default to inferred type for truly unknown patterns
+                return "inferred"

@@ -570,7 +570,7 @@ class MCPHandlers:
             # Step 1: Clear database if requested
             if clear_existing:
                 self.logger.log_info("Clearing existing graph data...")
-                gm.driver.session().run("MATCH (n) DETACH DELETE n")
+                gm.driver.session(database=gm.database).run("MATCH (n) DETACH DELETE n")
 
             # Step 2: Find code files
             file_patterns = ["**/*.py", "**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"]
@@ -584,7 +584,7 @@ class MCPHandlers:
             for f in files:
                 path = Path(f)
                 if not any(part.startswith(".") for part in path.parts):
-                    if not any(skip in str(path) for skip in ["node_modules", "__pycache__", "venv", "dist", "build"]):
+                    if not any(skip in str(path) for skip in ["node_modules", "__pycache__", "venv", ".venv", "dist", "build"]):
                         filtered.append(f)
 
             files = filtered[:100]  # Reasonable limit
@@ -897,7 +897,7 @@ class MCPHandlers:
                 + str(max_results)
             )
 
-            with gm.driver.session() as session:
+            with gm.driver.session(database=gm.database) as session:
                 result = session.run(cypher_query)
 
                 for record in result:
@@ -1016,7 +1016,7 @@ class MCPHandlers:
 
             related_entities = []
 
-            with gm.driver.session() as session:
+            with gm.driver.session(database=gm.database) as session:
                 # First check if entity exists
                 check_query = "MATCH (n {name: $entity_name}) RETURN n LIMIT 1"
                 check_result = session.run(check_query, entity_name=entity_name)

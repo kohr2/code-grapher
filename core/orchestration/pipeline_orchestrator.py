@@ -117,6 +117,7 @@ class PipelineOrchestrator(PipelineInterface):
             enable_embeddings = kwargs.get("enable_embeddings", self.config.pipeline.enable_embeddings)
             primer_file_path = kwargs.get("primer_file_path")
             include_documentation = kwargs.get("include_documentation", True)
+            file_limit = kwargs.get("file_limit")
 
             pipeline_data = {
                 "target_directory": target_directory,
@@ -134,13 +135,15 @@ class PipelineOrchestrator(PipelineInterface):
 
             # Step 2: File discovery and parsing
             self.logger.log_info(
-                "Discovering and parsing source files (Python, TypeScript, JavaScript, JSON, Markdown)..."
+                "Discovering and parsing source files (Python, TypeScript, JavaScript, JSON, Markdown, COBOL)..."
             )
-            parsed_files = await self._parse_codebase(target_directory)
+            if file_limit:
+                self.logger.log_info(f"Limiting processing to {file_limit} files for quick testing")
+            parsed_files = await self._parse_codebase(target_directory, file_limit)
 
             if not parsed_files:
                 return PipelineResult.failure(
-                    ["No source files found or parsed successfully (Python, TypeScript, JavaScript, JSON, Markdown)"],
+                    ["No source files found or parsed successfully (Python, TypeScript, JavaScript, JSON, Markdown, COBOL)"],
                     "Pipeline failed - no files to process",
                 )
 
@@ -215,19 +218,19 @@ class PipelineOrchestrator(PipelineInterface):
             self.logger.log_error(f"Failed to clear database: {e}")
             raise
 
-    async def _parse_codebase(self, directory: str) -> List[Dict[str, Any]]:
+    async def _parse_codebase(self, directory: str, file_limit: int = None) -> List[Dict[str, Any]]:
         """
         Parse codebase files to extract entities using multi-language parsing
         """
         try:
-            # Find source files (Python, TypeScript, JavaScript, JSON, Markdown)
+            # Find source files (Python, TypeScript, JavaScript, JSON, Markdown, COBOL)
             source_files = []
-            supported_extensions = [".py", ".ts", ".tsx", ".js", ".jsx", ".json", ".md", ".markdown"]
+            supported_extensions = [".py", ".ts", ".tsx", ".js", ".jsx", ".json", ".md", ".markdown", ".cbl", ".cob", ".cobol"]
 
             for root, dirs, files in os.walk(directory):
                 # Skip hidden directories and common non-source directories
                 dirs[:] = [
-                    d for d in dirs if not d.startswith(".") and d not in ["__pycache__", "node_modules", ".git"]
+                    d for d in dirs if not d.startswith(".") and d not in ["__pycache__", "node_modules", ".git", ".venv", "venv"]
                 ]
 
                 for file in files:
@@ -237,7 +240,13 @@ class PipelineOrchestrator(PipelineInterface):
                                 source_files.append(os.path.join(root, file))
                                 break
 
-            self.logger.log_info(f"Found {len(source_files)} source files")
+            # Apply file limit if specified
+            if file_limit and len(source_files) > file_limit:
+                original_count = len(source_files)
+                source_files = source_files[:file_limit]
+                self.logger.log_info(f"Found {original_count} source files, limiting to {len(source_files)} for quick testing")
+            else:
+                self.logger.log_info(f"Found {len(source_files)} source files")
 
             if not source_files:
                 return []
@@ -277,7 +286,8 @@ class PipelineOrchestrator(PipelineInterface):
                 descriptions[file_path] = {}
 
                 for entity in entities:
-                    if entity.get("type") in ["function", "class"]:
+                    # Include COBOL entity types in description generation
+                    if entity.get("type") in ["function", "class", "program", "compilation_unit", "file", "paragraph", "data_item"]:
                         entity_data = {
                             "name": entity["name"],
                             "type": entity.get("type", "unknown"),
@@ -549,28 +559,48 @@ class PipelineOrchestrator(PipelineInterface):
             from shared.services.multi_language_parser import extract_multi_language_relationships
 
             relationships = extract_multi_language_relationships(parsed_files)
+            print(f"   🔍 DEBUG: Multi-language parser returned {len(relationships)} relationships")
 
             # Convert RelationshipExtraction objects to dictionaries
             relationship_dicts = []
-            for rel in relationships:
-                relationship_dicts.append(
-                    {
-                        "source": rel.source_entity,
-                        "target": rel.target_entity,
-                        "type": rel.relationship_type.value,
-                        "source_file": rel.source_file,
-                        "target_file": rel.target_file,
-                        "confidence": rel.confidence,
-                        "strength": rel.relationship_strength,
-                        "line_number": rel.line_number,
-                        "context": rel.context,
-                        "properties": {
-                            "relationship_strength": rel.relationship_strength,
+            for i, rel in enumerate(relationships):
+                # Handle both RelationshipExtraction objects and dictionaries
+                if hasattr(rel, 'source_entity'):  # It's a RelationshipExtraction object
+                    rel_type = rel.relationship_type.value if hasattr(rel.relationship_type, 'value') else str(rel.relationship_type)
+                    print(f"   🔍 DEBUG: Converting relationship {i+1}: {rel.source_entity} -{rel_type}-> {rel.target_entity}")
+                    relationship_dicts.append(
+                        {
+                            "source": rel.source_entity,
+                            "target": rel.target_entity,
+                            "type": rel_type,
+                            "source_file": rel.source_file,
+                            "target_file": rel.target_file,
                             "confidence": rel.confidence,
-                        },
-                    }
-                )
+                            "strength": rel.relationship_strength,
+                            "line_number": rel.line_number,
+                            "context": rel.context,
+                            "properties": {
+                                "relationship_strength": rel.relationship_strength,
+                                "confidence": rel.confidence,
+                            },
+                        }
+                    )
+                elif isinstance(rel, dict):  # It's already a dictionary
+                    relationship_dicts.append(rel)
+                else:
+                    # Skip invalid relationships
+                    self.logger.log_warning(f"Skipping invalid relationship object: {type(rel)}")
+                    continue
 
+            print(f"   🔍 DEBUG: Converted {len(relationship_dicts)} relationships to dictionaries")
+            
+            # Debug: Show relationship types
+            rel_types = {}
+            for rel_dict in relationship_dicts:
+                rel_type = rel_dict.get("type", "UNKNOWN")
+                rel_types[rel_type] = rel_types.get(rel_type, 0) + 1
+            print(f"   🔍 DEBUG: Final relationship types: {rel_types}")
+            
             self.logger.log_info(f"Extracted {len(relationship_dicts)} multi-language relationships")
             return relationship_dicts
 
@@ -624,6 +654,9 @@ class PipelineOrchestrator(PipelineInterface):
                 continue
 
             file_path = file_data["file_path"]
+            entities = file_data.get("entities", [])
+            
+            print(f"   🔍 DEBUG: Processing file {file_path} with {len(entities)} entities")
 
             # Create file entity
             graph_service.create_entity_node(
@@ -631,16 +664,18 @@ class PipelineOrchestrator(PipelineInterface):
                 file_path,
                 {
                     "path": file_path,
-                    "entity_count": len(file_data.get("entities", [])),
+                    "entity_count": len(entities),
                     "success": file_data.get("success", False),
                 },
             )
             entities_created += 1
 
             # Create entity nodes
-            for entity in file_data.get("entities", []):
+            for entity in entities:
                 entity_name = entity["name"]
                 entity_type = entity["type"]
+                
+                print(f"   🔍 DEBUG: Creating entity {entity_type}:{entity_name} from file {file_path}")
 
                 # Get description if available
                 description = descriptions.get(file_path, {}).get(entity_name, "")
@@ -649,18 +684,39 @@ class PipelineOrchestrator(PipelineInterface):
                 properties["description"] = description
                 properties["file_path"] = file_path
                 properties["line"] = entity.get("line", entity.get("line_number", 0))
+                
+                # Pass through line information properties from COBOL parser
+                if "line_count" in entity:
+                    properties["line_count"] = entity["line_count"]
+                if "start_line" in entity:
+                    properties["start_line"] = entity["start_line"]
+                if "end_line" in entity:
+                    properties["end_line"] = entity["end_line"]
 
                 graph_service.create_entity_node(entity_type, entity_name, properties)
                 entities_created += 1
 
         # Create relationships
-        for rel in relationships:
+        print(f"   🔍 DEBUG: Processing {len(relationships)} relationships for graph creation")
+        for i, rel in enumerate(relationships):
             try:
-                graph_service.add_relationship(rel["source"], rel["target"], rel["type"], rel.get("properties", {}))
+                # Ensure rel is a dictionary
+                if not isinstance(rel, dict):
+                    self.logger.log_warning(f"Skipping non-dictionary relationship: {type(rel)}")
+                    continue
+                
+                rel_type = rel.get("type", "UNKNOWN")
+                source = rel.get("source", "UNKNOWN")
+                target = rel.get("target", "UNKNOWN")
+                print(f"   🔍 DEBUG: Creating relationship {i+1}: {source} -{rel_type}-> {target}")
+                    
+                graph_service.add_relationship(source, target, rel_type, rel.get("properties", {}))
                 relationships_created += 1
+                print(f"   ✅ DEBUG: Successfully created {rel_type} relationship")
             except Exception as e:
                 # Skip failed relationships
-                self.logger.log_warning(f"Failed to create relationship {rel['type']}: {e}")
+                print(f"   ❌ DEBUG: Failed to create relationship {rel.get('type', 'unknown')}: {e}")
+                self.logger.log_warning(f"Failed to create relationship {rel.get('type', 'unknown')}: {e}")
 
         # Get final stats
         stats = graph_service.get_database_stats()
