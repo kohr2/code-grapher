@@ -24,9 +24,9 @@ import threading
 import queue
 
 # Import our custom components
-from cobol_analysis_agent import COBOLAnalysisAgent
-from enhanced_cobol_parser import EnhancedCOBOLParser
-from cobol_validation_system import COBOLValidationSystem
+from .cobol_analysis_agent import COBOLAnalysisAgent
+from ..services.enhanced_cobol_parser import EnhancedCOBOLParser
+from ..services.cobol_validation_system import COBOLValidationSystem
 
 logger = logging.getLogger(__name__)
 

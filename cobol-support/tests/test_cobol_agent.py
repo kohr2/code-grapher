@@ -75,7 +75,7 @@ async def test_cobol_analysis():
     
     try:
         # Test the analysis agent
-        from cobol_analysis_agent import COBOLAnalysisAgent
+        from ..agents.cobol_analysis_agent import COBOLAnalysisAgent
         analysis_agent = COBOLAnalysisAgent()
         
         print("\n=== Testing COBOL Analysis Agent ===")
@@ -91,7 +91,7 @@ async def test_cobol_analysis():
                 print(f"{i}. {rec}")
         
         # Test the enhanced parser
-        from enhanced_cobol_parser import EnhancedCOBOLParser
+        from ..services.enhanced_cobol_parser import EnhancedCOBOLParser
         enhanced_parser = EnhancedCOBOLParser()
         
         print("\n=== Testing Enhanced COBOL Parser ===")
@@ -107,7 +107,7 @@ async def test_cobol_analysis():
                 print(f"  {entity.entity_type.value}: {entity.name} (line {entity.line_number})")
         
         # Test the validation system
-        from cobol_validation_system import COBOLValidationSystem
+        from ..services.cobol_validation_system import COBOLValidationSystem
         validation_system = COBOLValidationSystem()
         
         print("\n=== Testing Validation System ===")
@@ -125,7 +125,7 @@ async def test_cobol_analysis():
                     print(f"  Issues: {result.issues[:2]}")  # Show first 2 issues
         
         # Test the background agent
-        from cobol_background_agent import COBOLBackgroundAgent
+        from ..agents.cobol_background_agent import COBOLBackgroundAgent
         background_agent = COBOLBackgroundAgent(max_workers=1)
         
         print("\n=== Testing Background Agent ===")
@@ -134,7 +134,7 @@ async def test_cobol_analysis():
         monitor_task = await background_agent.start()
         
         # Submit a task
-        from cobol_background_agent import COBOLProcessingTask
+        from ..agents.cobol_background_agent import COBOLProcessingTask
         task = COBOLProcessingTask(
             file_path=test_file,
             priority=1,
