@@ -26,6 +26,7 @@ from ai_relationship_extractor import RelationshipExtraction, AIRelationshipExtr
 # Get logger through service locator
 logger = ServiceLocator.get_logger("core_pipeline")
 from ast_relationship_extractor import extract_ast_relationships
+from cobol_relationship_extractor import extract_cobol_relationships
 from entity_classifier import classify_entities
 
 # AI Services
@@ -797,9 +798,18 @@ def extract_enhanced_relationships(parsed_files: List[Dict[str, Any]], use_ai: b
     # AST-based relationship extraction (fast and deterministic)
     print("   📊 AST-based relationship extraction")
     ast_relationships = extract_ast_relationships(parsed_files)
-    print(f"   ✅ Extracted {len(ast_relationships)} relationships")
+    print(f"   ✅ Extracted {len(ast_relationships)} AST relationships")
     
-    return ast_relationships
+    # COBOL relationship extraction
+    print("   📊 COBOL relationship extraction")
+    cobol_relationships = extract_cobol_relationships(parsed_files)
+    print(f"   ✅ Extracted {len(cobol_relationships)} COBOL relationships")
+    
+    # Combine all relationships
+    all_relationships = ast_relationships + cobol_relationships
+    print(f"   📈 Total relationships extracted: {len(all_relationships)}")
+    
+    return all_relationships
 
 
 def _deduplicate_relationships(relationships: List[RelationshipExtraction]) -> List[RelationshipExtraction]:
