@@ -1,0 +1,166 @@
+{
+  "summary": {
+    "PROGRAM": 0,
+    "DIVISION": 0,
+    "SECTION": 0,
+    "PARAGRAPH": 4,
+    "STATEMENT": 0,
+    "DATA_ITEM": 12,
+    "FILE": 0
+  },
+  "entities": {
+    "programs": [],
+    "divisions": [],
+    "sections": [],
+    "paragraphs": [
+      {
+        "name": "TRANSACTION-RECORD",
+        "type": "PARAGRAPH",
+        "line_number": 15,
+        "content": "01  TRANSACTION-RECORD.",
+        "parent": null,
+        "children": [],
+        "attributes": {}
+      },
+      {
+        "name": "REPORT-RECORD",
+        "type": "PARAGRAPH",
+        "line_number": 22,
+        "content": "01  REPORT-RECORD.",
+        "parent": null,
+        "children": [],
+        "attributes": {}
+      },
+      {
+        "name": "WS-CONTROL-FIELDS",
+        "type": "PARAGRAPH",
+        "line_number": 28,
+        "content": "01  WS-CONTROL-FIELDS.",
+        "parent": null,
+        "children": [],
+        "attributes": {}
+      },
+      {
+        "name": "WS-FRAUD-ANALYSIS",
+        "type": "PARAGRAPH",
+        "line_number": 33,
+        "content": "01  WS-FRAUD-ANALYSIS.",
+        "parent": null,
+        "children": [],
+        "attributes": {}
+      }
+    ],
+    "statements": [],
+    "data_items": [
+      {
+        "name": "ACCOUNT-NUMBER",
+        "type": "DATA_ITEM",
+        "line_number": 16,
+        "content": "05  ACCOUNT-NUMBER     PIC X(10).",
+        "parent": null,
+        "children": [],
+        "attributes": {}
+      },
+      {
+        "name": "TRANSACTION-AMOUNT",
+        "type": "DATA_ITEM",
+        "line_number": 17,
+        "content": "05  TRANSACTION-AMOUNT PIC 9(8)V99.",
+        "parent": null,
+        "children": [],
+        "attributes": {}
+      },
+      {
+        "name": "TRANSACTION-DATE",
+        "type": "DATA_ITEM",
+        "line_number": 18,
+        "content": "05  TRANSACTION-DATE   PIC 9(8).",
+        "parent": null,
+        "children": [],
+        "attributes": {}
+      },
+      {
+        "name": "TRANSACTION-TYPE",
+        "type": "DATA_ITEM",
+        "line_number": 19,
+        "content": "05  TRANSACTION-TYPE   PIC X(1).",
+        "parent": null,
+        "children": [],
+        "attributes": {}
+      },
+      {
+        "name": "ACCOUNT-NUMBER",
+        "type": "DATA_ITEM",
+        "line_number": 23,
+        "content": "05  ACCOUNT-NUMBER     PIC X(10).",
+        "parent": null,
+        "children": [],
+        "attributes": {}
+      },
+      {
+        "name": "FRAUD-SCORE",
+        "type": "DATA_ITEM",
+        "line_number": 24,
+        "content": "05  FRAUD-SCORE        PIC 9(3).",
+        "parent": null,
+        "children": [],
+        "attributes": {}
+      },
+      {
+        "name": "STATUS-MESSAGE",
+        "type": "DATA_ITEM",
+        "line_number": 25,
+        "content": "05  STATUS-MESSAGE     PIC X(20).",
+        "parent": null,
+        "children": [],
+        "attributes": {}
+      },
+      {
+        "name": "WS-EOF-FLAG",
+        "type": "DATA_ITEM",
+        "line_number": 29,
+        "content": "05  WS-EOF-FLAG        PIC X(1) VALUE 'N'.",
+        "parent": null,
+        "children": [],
+        "attributes": {}
+      },
+      {
+        "name": "WS-FRAUD-THRESHOLD",
+        "type": "DATA_ITEM",
+        "line_number": 30,
+        "content": "05  WS-FRAUD-THRESHOLD PIC 9(3) VALUE 100.",
+        "parent": null,
+        "children": [],
+        "attributes": {}
+      },
+      {
+        "name": "WS-TRANSACTION-COUNT",
+        "type": "DATA_ITEM",
+        "line_number": 31,
+        "content": "05  WS-TRANSACTION-COUNT PIC 9(5) VALUE ZERO.",
+        "parent": null,
+        "children": [],
+        "attributes": {}
+      },
+      {
+        "name": "WS-SUSPICIOUS-COUNT",
+        "type": "DATA_ITEM",
+        "line_number": 34,
+        "content": "05  WS-SUSPICIOUS-COUNT PIC 9(3) VALUE ZERO.",
+        "parent": null,
+        "children": [],
+        "attributes": {}
+      },
+      {
+        "name": "WS-TOTAL-AMOUNT",
+        "type": "DATA_ITEM",
+        "line_number": 35,
+        "content": "05  WS-TOTAL-AMOUNT    PIC 9(10)V99 VALUE ZERO.",
+        "parent": null,
+        "children": [],
+        "attributes": {}
+      }
+    ],
+    "files": []
+  }
+}
